@@ -13,7 +13,6 @@ from uuid import UUID
 import dateutil.parser
 import humanize
 import openpyxl
-import pytz
 from bitfield import BitField
 from bitfield.forms import BitFieldCheckboxSelectMultiple
 from django_multitenant.utils import get_current_tenant
@@ -2253,7 +2252,7 @@ class SubjectStatusAdmin(OSMGeoExtendedAdmin, BaseModelAdminMixin):
         default = "-"
         try:
             if o.recorded_at and o.recorded_at.year >= MINIMUM_VALID_YEAR:
-                return humanize.naturaldelta(datetime.now(tz=pytz.utc) - o.recorded_at)
+                return humanize.naturaldelta(datetime.now(tz=timezone.utc) - o.recorded_at)
         except OverflowError:
             pass
         return default
@@ -2271,7 +2270,7 @@ class SubjectStatusAdmin(OSMGeoExtendedAdmin, BaseModelAdminMixin):
         default = "-"
         try:
             if o.radio_state_at and o.radio_state_at.year >= MINIMUM_VALID_YEAR:
-                return humanize.naturaldelta(datetime.now(tz=pytz.utc) - o.radio_state_at)
+                return humanize.naturaldelta(datetime.now(tz=timezone.utc) - o.radio_state_at)
         except OverflowError:
             pass
         return default
@@ -2513,7 +2512,7 @@ class SubjectPositionSummaryAdmin(BaseModelAdminMixin):
             ],
         }
 
-        end = datetime.now(tz=pytz.utc)
+        end = datetime.now(tz=timezone.utc)
         start = end - timedelta(days=30)
 
         o = (

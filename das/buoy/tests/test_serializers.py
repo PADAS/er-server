@@ -1,5 +1,5 @@
 import json
-from datetime import timedelta
+from datetime import datetime, timedelta, timezone
 from unittest.mock import Mock
 from uuid import uuid4
 
@@ -8,7 +8,6 @@ from dateutil import parser as date_parser
 from psycopg2.extras import DateTimeTZRange
 
 from django.contrib.gis.geos import Point
-from django.utils import timezone
 
 from accounts.models import PermissionSet
 from buoy.constants import BUOY_GEAR_SUBJECT_SUBTYPE
@@ -47,7 +46,7 @@ class TestGearSerializer:
         subject = gear_subjectsource.subject
         provider = gear_subjectsource.source.provider
         provider.save()
-        now = timezone.now()
+        now = datetime.now(tz=timezone.utc)
 
         # Create a second source and SubjectSource for the same subject to make it a trawl
         source2 = Source.objects.create(manufacturer_id="mfr_device_002", provider=provider)
@@ -103,7 +102,7 @@ class TestGearSerializer:
         source = gear_subjectsource.source
         provider = source.provider
         provider.save()
-        now = timezone.now()
+        now = datetime.now(tz=timezone.utc)
 
         # Create observation for the source
         location = Point(-24.43071, 31.19239)
@@ -170,7 +169,7 @@ class TestGearSerializer:
         )
 
         # Create observations for both sources
-        now = timezone.now()
+        now = datetime.now(tz=timezone.utc)
         location1 = Point(-24.43071, 31.19239)
         location2 = Point(-24.44071, 31.20239)
 
@@ -272,7 +271,7 @@ class TestGearSerializer:
         source3 = Source.objects.create(manufacturer_id="mfr_device_003", provider=provider)
 
         # Create observations for all sources
-        now = timezone.now()
+        now = datetime.now(tz=timezone.utc)
         location1 = Point(-24.43071, 31.19239)
         location2 = Point(-24.44071, 31.20239)
         location3 = Point(-24.45071, 31.21239)
@@ -346,7 +345,7 @@ class TestGearSerializer:
         )
         provider = SourceProvider.objects.create(display_name="Test Provider NM", provider_key="test_provider_nm")
         source = Source.objects.create(manufacturer_id="mfr_nm_001", provider=provider)
-        now = timezone.now()
+        now = datetime.now(tz=timezone.utc)
         location = Point(-24.43071, 31.19239)
         SubjectSource.objects.create(
             subject=subject,
@@ -377,7 +376,7 @@ class TestGearSerializer:
 
         provider = SourceProvider.objects.create(display_name="Test Provider GM", provider_key="test_provider_gm")
         source = Source.objects.create(manufacturer_id="mfr_gm_001", provider=provider)
-        now = timezone.now()
+        now = datetime.now(tz=timezone.utc)
         location = Point(-24.43071, 31.19239)
         SubjectSource.objects.create(
             subject=subject,
@@ -404,7 +403,7 @@ class TestGearCreateSerializer(BaseAPITest):
         subject_group.permission_sets.add(permission_set)
         user.permission_sets.add(permission_set)
 
-        now = timezone.now()
+        now = datetime.now(tz=timezone.utc)
         device_id = "123e4567-e89b-12d3-a456-426614174000"
         data = {
             "manufacturer_name": "TestManufacturer",
@@ -458,7 +457,7 @@ class TestGearCreateSerializer(BaseAPITest):
         subject_group.permission_sets.add(permission_set)
         user.permission_sets.add(permission_set)
 
-        now = timezone.now()
+        now = datetime.now(tz=timezone.utc)
         device_id_1 = "223e4567-e89b-12d3-a456-426614174000"
         device_id_2 = "323e4567-e89b-12d3-a456-426614174000"
         data = {
@@ -524,7 +523,7 @@ class TestGearCreateSerializer(BaseAPITest):
         subject_group.permission_sets.add(permission_set)
         user.permission_sets.add(permission_set)
 
-        now = timezone.now()
+        now = datetime.now(tz=timezone.utc)
         device_id = "523e4567-e89b-12d3-a456-426614174000"
         data = {
             "manufacturer_name": "TestManufacturer3",
@@ -579,7 +578,7 @@ class TestGearCreateSerializer(BaseAPITest):
         subject_group.permission_sets.add(permission_set)
         user.permission_sets.add(permission_set)
 
-        now = timezone.now()
+        now = datetime.now(tz=timezone.utc)
         device_id = "623e4567-e89b-12d3-a456-426614174000"
 
         # Case 1: mfr_set_id provided but not set_display_id - both should be set correctly
@@ -655,7 +654,7 @@ class TestGearCreateSerializer(BaseAPITest):
         subject_group.permission_sets.add(permission_set)
         user.permission_sets.add(permission_set)
 
-        now = timezone.now()
+        now = datetime.now(tz=timezone.utc)
         data = {
             "manufacturer_name": "TestManufacturer5",
             "owner_id": "owner789",
@@ -690,7 +689,7 @@ class TestGearCreateSerializer(BaseAPITest):
         subject_group.permission_sets.add(permission_set)
         user.permission_sets.add(permission_set)
 
-        now = timezone.now()
+        now = datetime.now(tz=timezone.utc)
         device_id = "723e4567-e89b-12d3-a456-426614174000"
         data = {
             "manufacturer_name": "TestManufacturer6",
@@ -727,7 +726,7 @@ class TestGearCreateSerializer(BaseAPITest):
         subject_group.permission_sets.add(permission_set)
         user.permission_sets.add(permission_set)
 
-        now = timezone.now()
+        now = datetime.now(tz=timezone.utc)
 
         # First, create a subject with a specific mfr_set_id
         device_id_1 = "823e4567-e89b-12d3-a456-426614174000"
@@ -812,7 +811,7 @@ def test_gear_create_devices_in_set_and_haul_validation():
     subject_group.permission_sets.add(permission_set)
     user.permission_sets.add(permission_set)
 
-    now = timezone.now()
+    now = datetime.now(tz=timezone.utc)
     # devices_in_set mismatch
     payload = {
         "manufacturer_name": "TestManufacturerValidation",
@@ -875,7 +874,7 @@ def test_get_gearset_id_finds_existing_subject():
     src1 = Source.objects.create(id=source_id_1, manufacturer_id="mfr_A", provider=provider)
     src2 = Source.objects.create(id=source_id_2, manufacturer_id="mfr_B", provider=provider)
 
-    now = timezone.now()
+    now = datetime.now(tz=timezone.utc)
     rng = DateTimeTZRange(now - timedelta(days=1), None)
     SubjectSource.objects.create(subject=subject, source=src1, assigned_range=rng)
     SubjectSource.objects.create(subject=subject, source=src2, assigned_range=rng)
@@ -894,7 +893,7 @@ def test_gear_serializer_devices_and_manufacturer():
     subject.save()
     provider = SourceProvider.objects.create(display_name="P", provider_key="gundi_acme_1234")
     src = Source.objects.create(manufacturer_id="mfr_dev1", provider=provider)
-    now = timezone.now()
+    now = datetime.now(tz=timezone.utc)
 
     point = Point(-24.43, 31.19)
     rng = DateTimeTZRange(now - timedelta(days=1), None)
@@ -921,7 +920,7 @@ def test_process_gearset_adds_subject_to_subjectgroup(superuser):
     subject_group.permission_sets.add(permission_set)
     superuser.permission_sets.add(permission_set)
 
-    now = timezone.now()
+    now = datetime.now(tz=timezone.utc)
     device_id = "123e4567-e89b-12d3-a456-426614174000"
 
     data = {
@@ -978,7 +977,7 @@ def test_process_gearset_reuses_source_by_id_when_manufacturer_id_differs(superu
     )
     assert existing_source.manufacturer_id == "original_mfr_id"
 
-    now = timezone.now()
+    now = datetime.now(tz=timezone.utc)
     data = {
         "manufacturer_name": "ReuseSourceManufacturer",
         "owner_id": "owner123",
@@ -1030,7 +1029,7 @@ def test_process_gearset_accepts_new_deployment_and_closes_previous_gearset(supe
         provider=provider,
     )
     # First gearset (subject A): create subject and deploy the device with a realistic lower bound
-    t1 = timezone.now() - timedelta(days=1)
+    t1 = datetime.now(tz=timezone.utc) - timedelta(days=1)
     subject_a = Subject.objects.create(
         name="Gearset_A",
         subject_subtype=subject_subtype,
@@ -1043,7 +1042,7 @@ def test_process_gearset_accepts_new_deployment_and_closes_previous_gearset(supe
         assigned_range=DateTimeTZRange(lower=t1, upper=DEFAULT_ASSIGNED_RANGE[1]),
     )
 
-    now = timezone.now()
+    now = datetime.now(tz=timezone.utc)
     data_new_gearset = {
         "set_id": str(uuid4()),  # Explicit new gearset; otherwise serializer infers existing subject from device
         "manufacturer_name": "AlreadyDeployedManufacturer",
@@ -1111,7 +1110,7 @@ def test_process_gearset_closes_entire_previous_gearset_even_if_only_one_device_
         provider=provider,
     )
     # Gearset A: two devices deployed with realistic lower bounds
-    t1 = timezone.now() - timedelta(days=1)
+    t1 = datetime.now(tz=timezone.utc) - timedelta(days=1)
     subject_a = Subject.objects.create(
         name="Gearset_A",
         subject_subtype=subject_subtype,
@@ -1129,7 +1128,7 @@ def test_process_gearset_closes_entire_previous_gearset_even_if_only_one_device_
         assigned_range=DateTimeTZRange(lower=t1, upper=DEFAULT_ASSIGNED_RANGE[1]),
     )
 
-    now = timezone.now()
+    now = datetime.now(tz=timezone.utc)
     # New gearset B with only device X (device Y not in payload)
     data_new_gearset = {
         "set_id": str(uuid4()),
@@ -1192,7 +1191,7 @@ def test_process_gearset_rejects_older_gearset_when_device_on_newer_gearset(supe
         provider=provider,
     )
     # Newer gearset B: device deployed at T2
-    t2 = timezone.now()
+    t2 = datetime.now(tz=timezone.utc)
     subject_b = Subject.objects.create(
         name="Gearset_B_newer",
         subject_subtype=subject_subtype,
@@ -1254,7 +1253,7 @@ def test_process_gearset_updates_existing_subject_keeps_subjectgroup(superuser):
     subject_group.permission_sets.add(permission_set)
     superuser.permission_sets.add(permission_set)
 
-    now = timezone.now()
+    now = datetime.now(tz=timezone.utc)
     device_id = "223e4567-e89b-12d3-a456-426614174000"
 
     # Create a subject
@@ -1313,7 +1312,7 @@ def test_process_gearset_sets_is_active_false_when_all_hauled(superuser):
     subject_group.permission_sets.add(permission_set)
     superuser.permission_sets.add(permission_set)
 
-    now = timezone.now()
+    now = datetime.now(tz=timezone.utc)
     deploy_time = now - timedelta(hours=1)  # Deployed 1 hour ago
     haul_time = now - timedelta(minutes=5)  # Hauled 5 minutes ago
     device_id = "333e4567-e89b-12d3-a456-426614174000"
@@ -1403,7 +1402,7 @@ def test_process_gearset_is_active_false_with_recent_recorded_at(superuser):
     subject_group.permission_sets.add(permission_set)
     superuser.permission_sets.add(permission_set)
 
-    now = timezone.now()
+    now = datetime.now(tz=timezone.utc)
     device_id = "444e4567-e89b-12d3-a456-426614174000"
 
     # First, deploy the gearset
@@ -1432,7 +1431,7 @@ def test_process_gearset_is_active_false_with_recent_recorded_at(superuser):
 
     # Now haul the gearset - use current time (this is the race condition scenario)
     # The bug is that 'now not in assigned_range' will be False because now < upper (recorded_at + 1s)
-    haul_time = timezone.now()  # Very recent - this triggers the bug
+    haul_time = datetime.now(tz=timezone.utc)  # Very recent - this triggers the bug
     haul_data = {
         "manufacturer_name": "TestRecentHaulManufacturer",
         "owner_id": "owner123",
@@ -1486,7 +1485,7 @@ def test_auto_haul_all_devices_when_one_device_hauled(superuser):
     subject_group.permission_sets.add(permission_set)
     superuser.permission_sets.add(permission_set)
 
-    now = timezone.now()
+    now = datetime.now(tz=timezone.utc)
     deploy_time = now - timedelta(hours=2)
     haul_time = now - timedelta(minutes=10)
 
@@ -1590,7 +1589,7 @@ class TestDeviceWithNullLocation:
     def test_serializer_accepts_null_location(self, superuser):
         """Test that GearDeviceCreateSerializer accepts null location."""
 
-        now = timezone.now()
+        now = datetime.now(tz=timezone.utc)
         data = {
             "device_id": "123e4567-e89b-12d3-a456-426614174000",
             "mfr_device_id": "mfr_null_loc",
@@ -1606,7 +1605,7 @@ class TestDeviceWithNullLocation:
     def test_serializer_accepts_null_lat_lon_in_location_object(self, superuser):
         """Test that GearDeviceCreateSerializer accepts location object with null lat/lon (Edgetech format)."""
 
-        now = timezone.now()
+        now = datetime.now(tz=timezone.utc)
         data = {
             "device_id": "123e4567-e89b-12d3-a456-426614174000",
             "mfr_device_id": "mfr_null_lat_lon",
@@ -1625,7 +1624,7 @@ class TestDeviceWithNullLocation:
     def test_serializer_accepts_missing_location(self, superuser):
         """Test that GearDeviceCreateSerializer accepts missing location field."""
 
-        now = timezone.now()
+        now = datetime.now(tz=timezone.utc)
         data = {
             "device_id": "123e4567-e89b-12d3-a456-426614174000",
             "mfr_device_id": "mfr_missing_loc",
@@ -1646,7 +1645,7 @@ class TestDeviceWithNullLocation:
         subject_group.permission_sets.add(permission_set)
         superuser.permission_sets.add(permission_set)
 
-        now = timezone.now()
+        now = datetime.now(tz=timezone.utc)
         device_id = "123e4567-e89b-12d3-a456-426614174000"
         data = {
             "manufacturer_name": "TestNullLocManufacturer",
@@ -1677,7 +1676,7 @@ class TestDeviceWithNullLocation:
         subject_group.permission_sets.add(permission_set)
         superuser.permission_sets.add(permission_set)
 
-        now = timezone.now()
+        now = datetime.now(tz=timezone.utc)
         device_id = "223e4567-e89b-12d3-a456-426614174000"
         data = {
             "manufacturer_name": "TestNullLocObsManufacturer",
@@ -1715,7 +1714,7 @@ class TestDeviceWithNullLocation:
         subject_group.permission_sets.add(permission_set)
         superuser.permission_sets.add(permission_set)
 
-        now = timezone.now()
+        now = datetime.now(tz=timezone.utc)
         device_id = "323e4567-e89b-12d3-a456-426614174000"
         data = {
             "manufacturer_name": "TestNullLocSSManufacturer",
@@ -1753,7 +1752,7 @@ class TestDeviceWithNullLocation:
         subject_group.permission_sets.add(permission_set)
         superuser.permission_sets.add(permission_set)
 
-        now = timezone.now()
+        now = datetime.now(tz=timezone.utc)
         device_id = "423e4567-e89b-12d3-a456-426614174000"
         data = {
             "manufacturer_name": "TestMissingLocManufacturer",
@@ -1796,7 +1795,7 @@ class TestDeviceWithNullLocation:
         subject_group.permission_sets.add(permission_set)
         superuser.permission_sets.add(permission_set)
 
-        now = timezone.now()
+        now = datetime.now(tz=timezone.utc)
         device_id_with_loc = "523e4567-e89b-12d3-a456-426614174000"
         device_id_without_loc = "623e4567-e89b-12d3-a456-426614174000"
         data = {
@@ -1865,7 +1864,7 @@ class TestDeviceWithNullLocation:
         subject_group.permission_sets.add(permission_set)
         superuser.permission_sets.add(permission_set)
 
-        now = timezone.now()
+        now = datetime.now(tz=timezone.utc)
         device_id_with_loc = "723e4567-e89b-12d3-a456-426614174000"
         device_id_null_lat_lon = "823e4567-e89b-12d3-a456-426614174000"
 
@@ -1944,7 +1943,7 @@ def test_process_gearset_add_device_to_existing_gearset(superuser):
     subject_group.permission_sets.add(permission_set)
     superuser.permission_sets.add(permission_set)
 
-    now = timezone.now()
+    now = datetime.now(tz=timezone.utc)
     deploy_time = now - timedelta(hours=1)
     device_id_1 = str(uuid4())
     device_id_2 = str(uuid4())
@@ -2027,9 +2026,9 @@ def test_process_gearset_haul_with_new_device(superuser):
     subject_group.permission_sets.add(permission_set)
     superuser.permission_sets.add(permission_set)
 
-    deploy_time_1 = timezone.now() - timedelta(days=1)
+    deploy_time_1 = datetime.now(timezone.utc) - timedelta(days=1)
     deploy_time_2 = deploy_time_1 + timedelta(minutes=1)
-    haul_time = timezone.now()
+    haul_time = datetime.now(timezone.utc)
     set_id = str(uuid4())
     device_id_1 = str(uuid4())
     device_id_2 = str(uuid4())

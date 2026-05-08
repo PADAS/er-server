@@ -7,7 +7,6 @@ import time
 import zipfile
 from datetime import timedelta
 
-import pytz
 import requests
 from dateutil.parser import parse as parse_date
 from fastkml import kml
@@ -263,7 +262,7 @@ class SirtrackPlugin(TrackingPlugin):
         try:
             st = parse_date(self.additional["latest_timestamp"])
         except Exception:
-            st = datetime.datetime.now(tz=pytz.UTC) - self.DEFAULT_START_OFFSET
+            st = datetime.datetime.now(tz=datetime.timezone.utc) - self.DEFAULT_START_OFFSET
 
         source_map = dict(
             (source.manufacturer_id, source) for source in [sp.source for sp in self.source_plugins.all()]
@@ -336,4 +335,4 @@ class SirtrackPlugin(TrackingPlugin):
 
 
 def _resolve_recorded_at(fix):
-    return pytz.utc.localize(parse_date("{utc_date} {utc_time}".format(**fix)))
+    return datetime.timezone.utc.localize(parse_date("{utc_date} {utc_time}".format(**fix)))

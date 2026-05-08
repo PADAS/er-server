@@ -1,10 +1,9 @@
 import copy
 import random
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from functools import partial
 
 import dateutil.parser as dp
-import pytz
 
 from django.contrib.gis.geos import Point
 
@@ -34,7 +33,7 @@ def time_shift(items, time_key="recorded_at", start_time=None):
     maximum_time = max([x[time_key] for x in items])
     actual_start = minimum_time
 
-    fake_start = start_time or pytz.utc.localize(datetime.utcnow()) - (maximum_time - minimum_time)
+    fake_start = start_time or datetime.now(tz=timezone.utc) - (maximum_time - minimum_time)
     for i, item in enumerate(items):
         fake_time = (item[time_key] - actual_start) + fake_start
         new_item = copy.copy(item)
@@ -43,9 +42,9 @@ def time_shift(items, time_key="recorded_at", start_time=None):
 
 
 def generate_random_positions(start_time=None, x=37.5, y=0.56, ts_days=1):  # Samburu
-    recorded_at = start_time or pytz.utc.localize(datetime.utcnow())
+    recorded_at = start_time or datetime.now(tz=timezone.utc)
 
-    while (pytz.utc.localize(datetime.utcnow()) - recorded_at).days < ts_days:
+    while (datetime.now(tz=timezone.utc) - recorded_at).days < ts_days:
         yield recorded_at, Point(x=x, y=y)
         x += (random.random() - 0.5) / 10000
         y += (random.random() - 0.5) / 10000

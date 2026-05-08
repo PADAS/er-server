@@ -8,13 +8,12 @@ import random
 import shutil
 import string
 import tempfile
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from unittest import mock
 from unittest.mock import MagicMock, patch
 from urllib.parse import urlencode
 
 import pytest
-import pytz
 from django_multitenant.utils import set_current_tenant
 from drf_extra_fields.geo_fields import PointField
 from kombu import Connection
@@ -28,7 +27,7 @@ from django.db import connection
 from django.test import TestCase
 from django.test.utils import CaptureQueriesContext
 from django.urls import reverse
-from django.utils import dateparse, lorem_ipsum, timezone
+from django.utils import dateparse, lorem_ipsum
 from rest_framework.fields import DateTimeField
 
 from accounts.models import PermissionSet
@@ -141,7 +140,7 @@ class TestEventView(BaseTestToolMixin, BaseAPITest):
         self.event_data = dict(
             title="Test Event",
             message=lorem_ipsum.paragraph(),
-            time=DateTimeField().to_representation(timezone.now()),
+            time=DateTimeField().to_representation(datetime.now(tz=timezone.utc)),
             provenance=Event.PC_SYSTEM,
             event_type=ET_OTHER,
             priority=Event.PRI_REFERENCE,
@@ -202,7 +201,7 @@ class TestEventView(BaseTestToolMixin, BaseAPITest):
         self.user_rep = UserDisplaySerializer().to_representation(self.guest_user)
 
         self.temporary_folder = tempfile.mkdtemp()
-        self.now = datetime.now(tz=pytz.utc)
+        self.now = datetime.now(tz=timezone.utc)
         self.start_of_today = self.now.replace(hour=0, minute=0, second=0, microsecond=0)
         self.end_of_today = self.start_of_today + timedelta(hours=23, minutes=59, seconds=59)
         self.api_path = f"activity/event/{self.sample_event.pk}/"
@@ -691,6 +690,44 @@ class TestEventView(BaseTestToolMixin, BaseAPITest):
         request = self.factory.get(path)
         response = views.EventFileView.as_view()(request, event_id=my_event_id, filecontent_id=event_file_id)
         self.assertEqual(response.status_code, 401)
+
+    def test_attach_prechunked_file_to_event(self):
+        """EventFile can be created from a pre-existing FileContent via usercontent_id.
+
+        This is the server-side half of the chunked upload integration: after a client
+        completes a chunked upload (which creates a FileContent), it attaches the result
+        to an event by posting usercontent_id instead of file bytes.
+        """
+
+        from django.core.files.uploadedfile import SimpleUploadedFile
+
+        from activity.models import EventFile
+        from usercontent.models import FileContent
+
+        uploaded = SimpleUploadedFile("field-notes.txt", b"lion spotted at grid B4", content_type="text/plain")
+        fc = FileContent.objects.create(created_by=self.all_perms_user, file=uploaded)
+
+        event_id = str(self.sample_event.id)
+        path = "/".join((self.api_base, "activity", "event", event_id, "files"))
+        request = self.factory.post(path, {"usercontent_id": str(fc.id)}, format="json")
+        self.force_authenticate(request, self.all_perms_user)
+        response = views.EventFilesView.as_view()(request, id=event_id)
+
+        self.assertEqual(response.status_code, 201)
+        self.assertEqual(response.data["file_type"], "file")
+        self.assertTrue(EventFile.objects.filter(event=self.sample_event, usercontent_id=fc.id).exists())
+
+    def test_attach_unknown_usercontent_id_to_event_returns_400(self):
+        """Posting a usercontent_id that matches no FileContent or ImageFileContent returns 400."""
+        import uuid as _uuid
+
+        event_id = str(self.sample_event.id)
+        path = "/".join((self.api_base, "activity", "event", event_id, "files"))
+        request = self.factory.post(path, {"usercontent_id": str(_uuid.uuid4())}, format="json")
+        self.force_authenticate(request, self.all_perms_user)
+        response = views.EventFilesView.as_view()(request, id=event_id)
+
+        self.assertEqual(response.status_code, 400)
 
     def test_validate_serializer_schema(self):
         request = self.factory.get(self.api_base + "/events/schema")
@@ -2038,7 +2075,7 @@ class TestEventView(BaseTestToolMixin, BaseAPITest):
             "external_event_id": external_event_id,
             "eventsource": esid_no1,
             "location": {"latitude": 38.4, "longitude": -116.5},
-            "time": datetime.now(tz=pytz.utc).isoformat(),
+            "time": datetime.now(tz=timezone.utc).isoformat(),
         }
 
         request = self.factory.post(f"{self.api_base}/events", event_data)
@@ -2061,7 +2098,7 @@ class TestEventView(BaseTestToolMixin, BaseAPITest):
             "external_event_id": external_event_id,
             "eventsource": esid_no2,
             "location": {"latitude": 38.4, "longitude": -116.5},
-            "time": datetime.now(tz=pytz.utc).isoformat(),
+            "time": datetime.now(tz=timezone.utc).isoformat(),
         }
 
         request = self.factory.post(f"{self.api_base}/events", event_data)
@@ -3210,7 +3247,7 @@ class TestEventView(BaseTestToolMixin, BaseAPITest):
         response = views.EventsView.as_view()(request)
         self.assertEqual(response.status_code, 201)
 
-        created_at = datetime.now(tz=pytz.utc) - timedelta(hours=2)
+        created_at = datetime.now(tz=timezone.utc) - timedelta(hours=2)
         Event.objects.filter(id=response.data.get("id")).update(created_at=created_at)
         self.assertEqual(response.data.get("state"), "new")
         automatically_update_event_state_task = automatically_update_event_state.__wrapped__
@@ -3483,7 +3520,7 @@ class TestEventView2(BaseTestToolMixin):
         patrol = Patrol.objects.order_by("created_at").last()
         segment = patrol.patrol_segments.first()
         subject = patrol.patrol_segments.first().leader
-        segment.time_range = DateTimeTZRange(lower=datetime.now(tz=pytz.utc) + timedelta(hours=1))
+        segment.time_range = DateTimeTZRange(lower=datetime.now(tz=timezone.utc) + timedelta(hours=1))
         segment.save()
 
         event_data = {
@@ -3513,7 +3550,7 @@ class TestEventView2(BaseTestToolMixin):
         patrol = Patrol.objects.order_by("created_at").last()
         segment = patrol.patrol_segments.first()
         subject = patrol.patrol_segments.first().leader
-        segment.time_range = DateTimeTZRange(lower=datetime.now(tz=pytz.utc) - timedelta(hours=1))
+        segment.time_range = DateTimeTZRange(lower=datetime.now(tz=timezone.utc) - timedelta(hours=1))
         segment.save()
 
         event_data = {

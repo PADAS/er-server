@@ -13,7 +13,6 @@ import datetime
 import logging
 from datetime import timedelta
 
-import pytz
 from dateutil.parser import parse as parse_date
 
 from django.contrib.contenttypes.fields import GenericRelation
@@ -29,7 +28,7 @@ from tracking.models.plugin_base import (
 from tracking.pubsub_registry import notify_new_tracks
 
 
-def __str2date(d, replace_tzinfo=pytz.utc):
+def __str2date(d, replace_tzinfo=datetime.timezone.utc):
     """Helper function to parse a naive date and assume it's in replace_tzinfo."""
     return parse_date(d).replace(tzinfo=replace_tzinfo)
 
@@ -98,7 +97,7 @@ class SpiderTracksClient(object):
         """
         parameters = {
             "start_time": start_time.isoformat(),
-            "report_time": datetime.datetime.now(tz=pytz.utc).isoformat(),
+            "report_time": datetime.datetime.now(tz=datetime.timezone.utc).isoformat(),
         }
         payload = """<?xml version="1.0" encoding="utf-8"?>
             <data xmlns="https://aff.gov/affSchema" sysId="DAS" rptTime="{report_time}" version="2.23">
@@ -128,7 +127,10 @@ class SpiderTracksClient(object):
 
 
 DEFAULT_ASSIGNED_RANGE = list(
-    (datetime.datetime(1970, 1, 1, tzinfo=pytz.utc), datetime.datetime.max.replace(tzinfo=pytz.utc))
+    (
+        datetime.datetime(1970, 1, 1, tzinfo=datetime.timezone.utc),
+        datetime.datetime.max.replace(tzinfo=datetime.timezone.utc),
+    )
 )
 
 
@@ -183,7 +185,7 @@ class SpiderTracksPlugin(TrackingPlugin):
         try:
             st = parse_date(self.additional["latest_timestamp"])
         except Exception:
-            st = datetime.datetime.now(tz=pytz.UTC) - self.DEFAULT_START_OFFSET
+            st = datetime.datetime.now(tz=datetime.timezone.utc) - self.DEFAULT_START_OFFSET
 
         source_map = dict(
             (source.manufacturer_id, source) for source in [sp.source for sp in self.source_plugins.all()]

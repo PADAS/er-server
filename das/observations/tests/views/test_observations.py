@@ -1,10 +1,9 @@
 import random
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from urllib.parse import urlencode
 
 import dateutil.parser
 import pytest
-import pytz
 from django_multitenant.utils import set_current_tenant
 
 from django.contrib.auth.models import Permission
@@ -56,7 +55,7 @@ class ObservationViewTestCase(BaseAPITest):
 
         location = Point(x=self.fixed_longitude, y=self.fixed_latitude)
         self.additional = {"Name": "Name"}
-        self.observation_time = pytz.UTC.localize(datetime.now())
+        self.observation_time = datetime.now(tz=timezone.utc)
         self.observation_data = {
             "recorded_at": self.observation_time,
             "location": location,
@@ -74,7 +73,7 @@ class ObservationViewTestCase(BaseAPITest):
         self.observation = Observation.objects.create(**self.observation_data)
 
         DEFAULT_DATE_RANGE = (
-            datetime(2015, 11, 1, tzinfo=pytz.utc),
+            datetime(2015, 11, 1, tzinfo=timezone.utc),
             dateutil.parser.parse("9999-12-31 23:59:59+0000"),
         )
         SubjectSource.objects.create(
@@ -174,7 +173,7 @@ class ObservationViewTestCase(BaseAPITest):
 
     def test_filter_observations_by_subject_id(self):
         no_location_observation = Observation.objects.create(
-            source=self.collar, recorded_at=datetime.now(pytz.UTC), location=Point(0, 0), additional={}
+            source=self.collar, recorded_at=datetime.now(timezone.utc), location=Point(0, 0), additional={}
         )
 
         filter_params = {"subject_id": self.elephant.id}
@@ -188,7 +187,7 @@ class ObservationViewTestCase(BaseAPITest):
     def test_filter_observations_by_subject_id_include_empty_location(self):
         # Create an observation with no location
         no_location_observation = Observation.objects.create(
-            source=self.collar, recorded_at=datetime.now(pytz.UTC), location=Point(0, 0), additional={}
+            source=self.collar, recorded_at=datetime.now(timezone.utc), location=Point(0, 0), additional={}
         )
 
         filter_params = {"subject_id": self.elephant.id, "include_empty_location": "true"}
@@ -207,7 +206,7 @@ class ObservationViewTestCase(BaseAPITest):
 
     def test_filter_observations_by_source_id_include_empty_location(self):
         no_location_observation = Observation.objects.create(
-            source=self.collar, recorded_at=datetime.now(pytz.UTC), location=Point(0, 0), additional={}
+            source=self.collar, recorded_at=datetime.now(timezone.utc), location=Point(0, 0), additional={}
         )
         source_id = str(self.collar.id)
         filter_params = {"source_id": source_id}
@@ -248,7 +247,7 @@ class ObservationViewTestCase(BaseAPITest):
 
         # Create an observation within the bbox to test that bbox filtering works
         bbox_observation_data = {
-            "recorded_at": datetime.now(pytz.UTC),
+            "recorded_at": datetime.now(timezone.utc),
             "location": Point(x=0.5, y=0.5),  # Within bbox "0,0,1,1"
             "source": self.collar,
             "additional": self.additional,

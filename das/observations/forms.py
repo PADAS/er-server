@@ -2,9 +2,7 @@ import json
 import logging
 import random
 import re
-from datetime import datetime, timedelta
-
-import pytz
+from datetime import datetime, timedelta, timezone
 
 from django import forms
 from django.contrib.admin.helpers import ActionForm
@@ -133,7 +131,6 @@ silence_notification_threshold_help_text_for_source = _(
     "source provider."
 )
 
-
 two_way_help_text = _("specify whether the source supports two-way messaging")
 
 
@@ -170,7 +167,14 @@ class SourceForm(JSONFieldFormMixin, forms.ModelForm):
     silence_notification_threshold = forms.CharField(
         max_length=20, required=False, empty_value=None, help_text=silence_notification_threshold_help_text_for_source
     )
-    two_way_messaging = forms.NullBooleanField(label="Two-way messaging", help_text=two_way_help_text, required=False)
+    two_way_messaging = forms.TypedChoiceField(
+        label="Two-way messaging",
+        help_text=two_way_help_text,
+        required=False,
+        empty_value=None,
+        coerce=lambda v: None if v == "unknown" else (v == "true"),
+        choices=two_way_choices(),
+    )
 
     @staticmethod
     def fetch_organizations():
@@ -368,7 +372,7 @@ two_way_help_text_sp = _("specify whether the source provider supports two-way m
 def generate_sample_data(provider):
     accum = {}
     rows = 4
-    dt_filter = datetime.now(tz=pytz.utc) - timedelta(days=3)
+    dt_filter = datetime.now(tz=timezone.utc) - timedelta(days=3)
 
     observations = Observation.objects.raw(
         """
@@ -394,7 +398,7 @@ def generate_sample_data(provider):
     ]
 
     for k, v in accum.items():
-        accum[k] = random.sample(v, min(3, len(v)))
+        accum[k] = random.sample(list(v), min(3, len(v)))
     return accum
 
 

@@ -1,8 +1,8 @@
 import logging
+from datetime import datetime, timezone
 
 from django.core.management.base import BaseCommand
 from django.db import transaction
-from django.utils import timezone
 
 from mapping.models import SpatialFeature
 from utils.cache import bump_vector_tile_data_version
@@ -84,7 +84,7 @@ class Command(TenantCommandMixin, BaseCommand):
 
     def _process_single_batch(self, batch, dry_run, batch_num):
         """Process a single batch and return (processed_count, failed_count)."""
-        batch_start_time = timezone.now()
+        batch_start_time = datetime.now(tz=timezone.utc)
         batch_processed = 0
         batch_failed = 0
 
@@ -113,7 +113,7 @@ class Command(TenantCommandMixin, BaseCommand):
             # Dry run - just count what we would process
             batch_processed = len(batch)
 
-        batch_duration = timezone.now() - batch_start_time
+        batch_duration = datetime.now(tz=timezone.utc) - batch_start_time
         rate = batch_processed / batch_duration.total_seconds() if batch_duration.total_seconds() > 0 else 0
 
         self.stdout.write(

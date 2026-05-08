@@ -14,6 +14,7 @@ from activity.models import Event
 from activity.serializers import EventSerializer
 from analyzers.base import SubjectAnalyzer
 from observations.models import Subject
+from utils.user import make_random_password
 
 logger = logging.getLogger(__name__)
 
@@ -61,8 +62,8 @@ def get_system_user():
             last_name="Alyzer",
             first_name="Anne",
             is_active=False,
+            password=make_random_password(),
             is_system=True,
-            password=User.objects.make_random_password(),
         ),
     )
     return user

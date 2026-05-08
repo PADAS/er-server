@@ -3,7 +3,6 @@ import tempfile
 from typing import NamedTuple
 
 import dateutil.parser
-import pytz
 from storages.backends.s3boto3 import S3Boto3Storage
 
 from django.conf import settings
@@ -48,15 +47,15 @@ class Command(TenantCommandMixin, BaseCommand):
 
     def handle(self, *args, **options):
         # calculate this in GMT, not the sites timezone
-        now = datetime.datetime.now(pytz.UTC)
-        start = datetime.datetime.now(pytz.UTC) - datetime.timedelta(days=1)
+        now = datetime.datetime.now(datetime.timezone.utc)
+        start = datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(days=1)
         site_name = get_site_name()
         if options["site"]:
             site_name = options["site"]
         if options["start"]:
             start = dateutil.parser.parse(options["start"])
             if not start.tzinfo:
-                start = start.replace(tzinfo=pytz.UTC)
+                start = start.replace(tzinfo=datetime.timezone.utc)
 
         start, end, step = get_daily_interval(start)
 
@@ -187,7 +186,7 @@ def get_weekly_interval(start_date):
     if dow > 1:
         start_date += datetime.timedelta(days=1 - dow)
     if not isinstance(start_date, datetime.datetime):
-        start_date = datetime.datetime.combine(start_date, datetime.time.min, tzinfo=pytz.UTC)
+        start_date = datetime.datetime.combine(start_date, datetime.time.min, tzinfo=datetime.timezone.utc)
     end_date = start_date + step
     return start_date, end_date, step
 
@@ -200,14 +199,16 @@ def get_daily_interval(start_date):
     :return:
     """
     step = datetime.timedelta(days=1)
-    now = datetime.datetime.now(pytz.utc)
-    now_day = datetime.datetime(year=now.year, month=now.month, day=now.day, tzinfo=pytz.utc)
+    now = datetime.datetime.now(datetime.timezone.utc)
+    now_day = datetime.datetime(year=now.year, month=now.month, day=now.day, tzinfo=datetime.timezone.utc)
 
     if start_date >= now_day:
         # need a full day
         start_date = start_date - step
 
-    start_time = datetime.datetime(year=start_date.year, month=start_date.month, day=start_date.day, tzinfo=pytz.utc)
+    start_time = datetime.datetime(
+        year=start_date.year, month=start_date.month, day=start_date.day, tzinfo=datetime.timezone.utc
+    )
 
     end_time = start_time + step
     return start_time, end_time, step

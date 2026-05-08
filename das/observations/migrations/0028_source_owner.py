@@ -4,12 +4,11 @@ from __future__ import unicode_literals
 
 import datetime
 
-import django.contrib.postgres.fields.jsonb
 import django.contrib.postgres.fields.ranges
+import django.db.models
 import django.db.models.deletion
 from django.conf import settings
 from django.db import migrations, models
-from django.utils.timezone import utc
 
 
 class Migration(migrations.Migration):
@@ -47,25 +46,25 @@ class Migration(migrations.Migration):
         migrations.AlterField(
             model_name="source",
             name="additional",
-            field=django.contrib.postgres.fields.jsonb.JSONField(default={}, verbose_name="additional data"),
+            field=django.db.models.JSONField(default={}, verbose_name="additional data"),
         ),
         migrations.AlterField(
             model_name="subject",
             name="additional",
-            field=django.contrib.postgres.fields.jsonb.JSONField(default={}, verbose_name="additional data"),
+            field=django.db.models.JSONField(default={}, verbose_name="additional data"),
         ),
         migrations.AlterField(
             model_name="subjectsource",
             name="additional",
-            field=django.contrib.postgres.fields.jsonb.JSONField(default={}, verbose_name="additional"),
+            field=django.db.models.JSONField(default={}, verbose_name="additional"),
         ),
         migrations.AlterField(
             model_name="subjectsource",
             name="assigned_range",
             field=django.contrib.postgres.fields.ranges.DateTimeRangeField(
                 default=[
-                    datetime.datetime(1, 1, 1, 0, 0, tzinfo=utc),
-                    datetime.datetime(9999, 12, 31, 23, 59, 59, 999999, tzinfo=utc),
+                    datetime.datetime(1, 1, 1, 0, 0, tzinfo=datetime.timezone.utc),
+                    datetime.datetime(9999, 12, 31, 23, 59, 59, 999999, tzinfo=datetime.timezone.utc),
                 ],
                 verbose_name="time assigned to subject",
             ),

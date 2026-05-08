@@ -1,11 +1,10 @@
-from datetime import timedelta
+from datetime import datetime, timedelta, timezone
 from unittest.mock import patch
 
 import pytest
 from psycopg2.extras import DateTimeTZRange
 
 from django.contrib.gis.geos import Point
-from django.utils import timezone
 
 from observations.management.commands.trim_observations import Command
 from observations.models import (
@@ -40,7 +39,7 @@ class TestTrimObservationsCommand:
             das_tenant=das_tenant_monkeypatch,
         )
 
-        before = timezone.now()
+        before = datetime.now(tz=timezone.utc)
         old_time = before - timedelta(days=2)
         new_time = before + timedelta(seconds=10)
 
@@ -90,7 +89,7 @@ class TestTrimObservationsCommand:
         subject = Subject.objects.create(name="s1", subject_subtype_id="unassigned", das_tenant=das_tenant_monkeypatch)
 
         # Assignment only covers a small window.
-        base = timezone.now()
+        base = datetime.now(tz=timezone.utc)
         assignment_start = base - timedelta(days=10)
         assignment_end = base - timedelta(days=5)
         SubjectSource.objects.create(
@@ -152,7 +151,7 @@ class TestTrimObservationsCommand:
             name="after_window", subject_subtype_id="unassigned", das_tenant=das_tenant_monkeypatch
         )
 
-        base = timezone.now()
+        base = datetime.now(tz=timezone.utc)
         before = base
         # subject_in_window had the source from base-10d to base-5d (entirely before `before`).
         SubjectSource.objects.create(

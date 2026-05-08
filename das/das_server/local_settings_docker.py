@@ -4,13 +4,15 @@ Used in our production docker images
 
 import os
 
-from .settings import *
+# Pull base Django settings (INSTALLED_APPS, MIDDLEWARE, KML_FEED_TITLE, etc.); then override below.
+from .settings import *  # noqa: F403
 from .settings import (
     BASE_DIR,
     CACHES,
     DEFAULT_CACHE_ALIAS,
     REDIS_SERVER,
     SHARED_CACHE_ALIAS,
+    UPLOAD_SESSION_CACHE_ALIAS,
     env,
 )
 
@@ -28,6 +30,15 @@ CACHES[SHARED_CACHE_ALIAS] = {
     "KEY_PREFIX": "shared",
 }
 
+CACHES[UPLOAD_SESSION_CACHE_ALIAS] = {
+    "BACKEND": "django_redis.cache.RedisCache",
+    "LOCATION": REDIS_SERVER,
+    "OPTIONS": {"CLIENT_CLASS": "django_redis.client.DefaultClient"},
+    # NOTE: Adding KEY_FUNCTION changes the stored key shape. On first deploy, any in-flight
+    # upload sessions will be invalidated (clients will receive 404 and must restart the upload).
+    "KEY_FUNCTION": "utils.tenant.cache.make_cache_key",
+}
+
 
 MEDIA_ROOT = "/user-uploads"
 MEDIA_URL = "http://localhost:8000/media/user-uploads/"
@@ -37,7 +48,6 @@ SECRET_KEY = "aefefsfees"
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = env.bool("ENABLE_DEBUG", False)
-TEMPLATE_DEBUG = env.bool("ENABLE_DEBUG", False)
 DEV = env.bool("ENABLE_DEV", False)
 ENABLE_SILK = env.bool("ENABLE_SILK", False)
 
@@ -87,11 +97,11 @@ SESSION_COOKIE_SECURE = env.bool("SESSION_COOKIE_SECURE", True)
 CSRF_COOKIE_SECURE = env.bool("CSRF_COOKIE_SECURE", True)
 SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
 
-# CSRF_TRUSTED_ORIGINS format differs between Django versions:
-# - Django 3.2 and earlier: expects domains WITHOUT schemes (e.g., "example.com")
-# - Django 4.0+: requires full URLs WITH schemes (e.g., "https://example.com")
-# Since we're on Django 3.2, use SERVER_NAMES directly (domains without schemes)
-CSRF_TRUSTED_ORIGINS = list(SERVER_NAMES)
+# Django 4.0+ requires full URLs with schemes in CSRF_TRUSTED_ORIGINS.
+# All production and staging traffic is TLS-terminated before reaching Django,
+# so https:// is correct here. For plain-HTTP local dev, override in .env or
+# local_settings.py via CSRF_TRUSTED_ORIGINS = ["http://localhost:9000"].
+CSRF_TRUSTED_ORIGINS = [f"https://{s}" for s in SERVER_NAMES]
 
 
 STATIC_ROOT = env.str("STATIC_ROOT", "/var/www/static/")
@@ -134,7 +144,14 @@ DATABASES = {
 SENDSMS_AFRICAS_TALKING_USERNAME = env.str("SMS_ID", "")
 SENDSMS_AFRICAS_TALKING_API_KEY = env.str("SMS_TOKEN", "")
 
-DEFAULT_FILE_STORAGE = "core.storages.TenantGoogleCloudStorage"
+STORAGES = {
+    "default": {
+        "BACKEND": "core.storages.TenantGoogleCloudStorage",
+    },
+    "staticfiles": {
+        "BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage",
+    },
+}
 GS_BUCKET_NAME = env.str("GS_BUCKET_NAME", "earthranger-uploads-default")
 
 EUS_SETTINGS = {

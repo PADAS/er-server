@@ -1,9 +1,8 @@
 import logging
 import urllib.parse
-from datetime import datetime
+from datetime import datetime, timezone
 
 import pytest
-import pytz
 
 import django.contrib.auth
 from django.core.management import call_command
@@ -43,7 +42,7 @@ class TestEventServices(TestCase):
 
         event_data = dict(
             title="Sample Event No. 3",
-            time=datetime.now(tz=pytz.utc),
+            time=datetime.now(tz=timezone.utc),
             provenance=Event.PC_ANALYZER,
             event_type="immobility",
             priority=Event.PRI_REFERENCE,
@@ -72,7 +71,7 @@ class TestEventServices(TestCase):
 
         event_data = dict(
             title="Sample Event No. 3",
-            time=datetime.now(tz=pytz.utc),
+            time=datetime.now(tz=timezone.utc),
             provenance=Event.PC_ANALYZER,
             event_type="immobility",
             priority=Event.PRI_REFERENCE,

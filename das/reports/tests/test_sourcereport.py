@@ -1,8 +1,7 @@
 import random
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 import pytest
-import pytz
 
 from django.contrib.auth import get_user_model
 from django.contrib.auth.hashers import make_password
@@ -40,7 +39,7 @@ def generate_random_positions(
     start_time=None,
     interval=timedelta(minutes=60),
 ):
-    start_time = start_time or datetime.now(tz=pytz.utc) - time_length
+    start_time = start_time or datetime.now(tz=timezone.utc) - time_length
 
     recorded_at = start_time
     end_time = start_time + time_length
@@ -144,12 +143,12 @@ class TestSubjectSourceReport(TestCase):
 
         # Generate some observations for each source
         for observation in generate_random_positions(
-            source1, start_time=datetime.now(tz=pytz.utc) - timedelta(hours=80)
+            source1, start_time=datetime.now(tz=timezone.utc) - timedelta(hours=80)
         ):
             observation.save()
 
         for observation in generate_random_positions(
-            source2, start_time=datetime.now(tz=pytz.utc) - timedelta(hours=25)
+            source2, start_time=datetime.now(tz=timezone.utc) - timedelta(hours=25)
         ):
             observation.save()
 

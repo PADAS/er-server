@@ -8,8 +8,8 @@ from django.contrib import messages
 from django.contrib.admin.widgets import AdminSplitDateTime, FilteredSelectMultiple
 from django.contrib.auth import get_user_model
 from django.forms import TextInput
-from django.forms.boundfield import mark_safe
 from django.template.loader import render_to_string
+from django.utils.safestring import mark_safe
 from django.utils.translation import gettext_lazy as _
 
 from activity.alerting.conditions import Conditions

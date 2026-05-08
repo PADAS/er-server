@@ -1,10 +1,9 @@
 import logging
-from datetime import timedelta
+from datetime import datetime, timedelta, timezone
 
 from oauthlib.common import generate_token
 
 from django.conf import settings
-from django.utils import timezone
 
 from core.models.oauth import DASAccessToken, DASApplication
 from utils.tenant import get_tenant_settings
@@ -24,7 +23,7 @@ def get_or_create_efb_token(user):
     token = DASAccessToken.objects.filter(
         application__client_id=EFB_APPLICATION_ID,
         user=user,
-        expires__gt=timezone.now(),
+        expires__gt=datetime.now(tz=timezone.utc),
     ).first()
 
     if token:
@@ -47,7 +46,7 @@ def get_or_create_efb_token(user):
     try:
         oauth2_settings = getattr(settings, "OAUTH2_PROVIDER", {})
         expire_in_secs = oauth2_settings.get("ACCESS_TOKEN_EXPIRE_SECONDS", 36000)
-        expires = timezone.now() + timedelta(seconds=expire_in_secs)
+        expires = datetime.now(tz=timezone.utc) + timedelta(seconds=expire_in_secs)
 
         token = DASAccessToken.objects.create(
             user=user,
@@ -76,7 +75,7 @@ def set_efb_token_cookie(request, response):
 
     token = get_or_create_efb_token(user)
     if token:
-        max_age = max(0, int((token.expires - timezone.now()).total_seconds()))
+        max_age = max(0, int((token.expires - datetime.now(tz=timezone.utc)).total_seconds()))
         response.set_cookie(
             EFB_COOKIE_NAME,
             token.token,

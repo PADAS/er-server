@@ -2,7 +2,6 @@ import logging
 
 from django_multitenant.utils import get_model_by_db_table, get_tenant_column
 
-import django
 from django.contrib.gis.db.backends.postgis.base import (
     DatabaseWrapper as PostGISDatabaseWrapper,
 )
@@ -120,11 +119,6 @@ class TenantDatabaseFeatures(PostGISDatabaseFeatures):
         if issubclass(model, (TenantModel, TenantModelMixin)):
             return False
         return super().allows_group_by_selected_pks_on_model(model)
-
-    # For django versions before version 3.0 we set a flag that disables this
-    # behaviour for all models.
-    if django.VERSION < (3, 0):
-        allows_group_by_selected_pks = False
 
 
 class DatabaseWrapper(PostGISDatabaseWrapper):

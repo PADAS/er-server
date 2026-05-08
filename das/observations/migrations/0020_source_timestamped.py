@@ -3,27 +3,31 @@
 from __future__ import unicode_literals
 
 import datetime
+
 from django.db import migrations, models
-from django.utils.timezone import utc
 
 
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('observations', '0019_source_provider_name'),
+        ("observations", "0019_source_provider_name"),
     ]
 
     operations = [
         migrations.AddField(
-            model_name='source',
-            name='created_at',
-            field=models.DateTimeField(auto_now_add=True, default=datetime.datetime(2015, 11, 1, tzinfo=utc)),
+            model_name="source",
+            name="created_at",
+            field=models.DateTimeField(
+                auto_now_add=True, default=datetime.datetime(2015, 11, 1, tzinfo=datetime.timezone.utc)
+            ),
             preserve_default=False,
         ),
         migrations.AddField(
-            model_name='source',
-            name='updated_at',
-            field=models.DateTimeField(auto_now=True, default=datetime.datetime(2015, 11, 1, tzinfo=utc)),
+            model_name="source",
+            name="updated_at",
+            field=models.DateTimeField(
+                auto_now=True, default=datetime.datetime(2015, 11, 1, tzinfo=datetime.timezone.utc)
+            ),
             preserve_default=False,
         ),
     ]

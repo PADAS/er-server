@@ -3,8 +3,6 @@ import datetime
 import json
 from unittest import mock
 
-import pytz
-
 from django.db import transaction
 from django.test import override_settings
 from django.urls import resolve
@@ -399,7 +397,7 @@ class ErTrackHandlerTest(BaseAPITest):
         for i in range(n):
             obs = dict(self.one_observation)
             if distinct:
-                timestamp = pytz.utc.localize(datetime.datetime.utcnow()) - datetime.timedelta(days=i)
+                timestamp = datetime.datetime.now(tz=datetime.timezone.utc) - datetime.timedelta(days=i)
                 obs.update(recorded_at=timestamp.isoformat())
 
             yield obs

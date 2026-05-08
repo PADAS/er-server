@@ -12,7 +12,6 @@ from django.core.files import File
 from django.db import connection
 from django.test import TestCase
 from django.test.utils import CaptureQueriesContext
-from django.utils import timezone
 
 from activity.models import Event, EventCategory, EventType
 from analyzers.exceptions import InsufficientDataAnalyzerException
@@ -220,8 +219,8 @@ class TestProximityAnalyzer(TestCase):
         # B (later):   ~5 km south — outside 500 m threshold.
         # Segment passes through the polygon; closest point is on polygon boundary.
         # Segment speed ≈ 5.1 km/h < 7 km/h filter limit.
-        obs_a = Observation(recorded_at=timezone.now() - timedelta(hours=2), location=Point(34.005, -0.999))
-        obs_b = Observation(recorded_at=timezone.now() - timedelta(hours=1), location=Point(34.005, -1.045))
+        obs_a = Observation(recorded_at=datetime.now(timezone.utc) - timedelta(hours=2), location=Point(34.005, -0.999))
+        obs_b = Observation(recorded_at=datetime.now(timezone.utc) - timedelta(hours=1), location=Point(34.005, -1.045))
 
         config = FeatureProximityAnalyzerConfig.objects.create(
             name="Moving Away Proximity Analyzer",
@@ -265,8 +264,8 @@ class TestProximityAnalyzer(TestCase):
         # B (later):   ~110 m north of northern edge — within 500 m threshold.
         # Segment passes through the polygon; closest point is on polygon boundary.
         # Segment speed ≈ 5.1 km/h < 7 km/h filter limit.
-        obs_a = Observation(recorded_at=timezone.now() - timedelta(hours=2), location=Point(34.005, -1.045))
-        obs_b = Observation(recorded_at=timezone.now() - timedelta(hours=1), location=Point(34.005, -0.999))
+        obs_a = Observation(recorded_at=datetime.now(timezone.utc) - timedelta(hours=2), location=Point(34.005, -1.045))
+        obs_b = Observation(recorded_at=datetime.now(timezone.utc) - timedelta(hours=1), location=Point(34.005, -0.999))
 
         config = FeatureProximityAnalyzerConfig.objects.create(
             name="Approaching Proximity Analyzer",
@@ -314,8 +313,8 @@ class TestProximityAnalyzer(TestCase):
 
         # A: ~4.1 km south of feature; B: ~333 m south of feature (within 500 m threshold).
         # Segment speed ≈ 4.1 km/h < 7 km/h filter limit.
-        obs_a = Observation(recorded_at=timezone.now() - timedelta(hours=2), location=Point(34.005, -1.045))
-        obs_b = Observation(recorded_at=timezone.now() - timedelta(hours=1), location=Point(34.005, -1.008))
+        obs_a = Observation(recorded_at=datetime.now(timezone.utc) - timedelta(hours=2), location=Point(34.005, -1.045))
+        obs_b = Observation(recorded_at=datetime.now(timezone.utc) - timedelta(hours=1), location=Point(34.005, -1.008))
 
         config = FeatureProximityAnalyzerConfig.objects.create(
             name="Point Feature Proximity Analyzer",
@@ -359,8 +358,8 @@ class TestProximityAnalyzer(TestCase):
 
         # A: far south of line; B: ~444 m north of line (within 500 m threshold).
         # Segment crosses line at (34.005, -1.005). Speed ≈ 4.9 km/h < 7 km/h filter limit.
-        obs_a = Observation(recorded_at=timezone.now() - timedelta(hours=2), location=Point(34.005, -1.045))
-        obs_b = Observation(recorded_at=timezone.now() - timedelta(hours=1), location=Point(34.005, -1.001))
+        obs_a = Observation(recorded_at=datetime.now(timezone.utc) - timedelta(hours=2), location=Point(34.005, -1.045))
+        obs_b = Observation(recorded_at=datetime.now(timezone.utc) - timedelta(hours=1), location=Point(34.005, -1.001))
 
         config = FeatureProximityAnalyzerConfig.objects.create(
             name="Line Feature Proximity Analyzer",
@@ -393,7 +392,7 @@ class TestProximityAnalyzer(TestCase):
         sg.subjects.add(sub)
 
         obs_only = Observation(
-            recorded_at=timezone.now() - timedelta(hours=1),
+            recorded_at=datetime.now(timezone.utc) - timedelta(hours=1),
             location=Point(34.005, -1.005),  # inside the feature polygon
         )
 
@@ -419,7 +418,7 @@ class TestProximityAnalyzer(TestCase):
 
         # ~5 km south of the feature — far outside the 500m threshold.
         obs_only = Observation(
-            recorded_at=timezone.now() - timedelta(hours=1),
+            recorded_at=datetime.now(timezone.utc) - timedelta(hours=1),
             location=Point(34.005, -1.045),
         )
 
@@ -450,7 +449,7 @@ class TestProximityAnalyzer(TestCase):
         # A: ~5 km south — outside 500 m threshold.
         # B: ~110 m north — within 500 m threshold.
         # 1 hour apart → ~5 km/h, under the 7 km/h speed filter.
-        now = timezone.now()
+        now = datetime.now(timezone.utc)
         obs_a = Observation(recorded_at=now - timedelta(hours=2), location=Point(34.005, -1.045))
         obs_b = Observation(recorded_at=now - timedelta(hours=1), location=Point(34.005, -0.999))
 
@@ -490,7 +489,7 @@ class TestProximityAnalyzer(TestCase):
         # Adjacent fixes are spaced ≥1h apart, keeping all segments under the
         # 7 km/h SubjectTrackSegmentFilter speed limit (the largest jump,
         # B→C, is ≈4.5 km/h).
-        now = timezone.now()
+        now = datetime.now(timezone.utc)
         obs_a = Observation(recorded_at=now - timedelta(hours=5), location=Point(34.005, -1.045))
         obs_b = Observation(recorded_at=now - timedelta(hours=4), location=Point(34.005, -1.040))
         obs_c = Observation(recorded_at=now - timedelta(hours=3), location=Point(34.005, -0.999))
@@ -716,7 +715,7 @@ class TestFeatureProximityAnalyzerQuietPeriod:
             source=subject_source.source,
         )
         for minutes, observation in enumerate(Observation.objects.all(), 1):
-            observation.recorded_at = timezone.now() - timedelta(hours=6, minutes=minutes * 15)
+            observation.recorded_at = datetime.now(tz=timezone.utc) - timedelta(hours=6, minutes=minutes * 15)
             observation.save()
 
         analyze_subject_(subject.id)
@@ -770,7 +769,7 @@ class TestFeatureProximityAnalyzerQuietPeriod:
             source=subject_source.source,
         )
         for minutes, observation in enumerate(Observation.objects.all(), 1):
-            observation.recorded_at = timezone.now() - timedelta(hours=6, minutes=minutes * 15)
+            observation.recorded_at = datetime.now(tz=timezone.utc) - timedelta(hours=6, minutes=minutes * 15)
             observation.save()
 
         analyze_subject_(subject.id)
@@ -807,7 +806,7 @@ class TestProximityAnalyzerConfig:
         SubjectSource.objects.create(subject=subject_second, source=source2)
 
         # Create test observations that are within proximity
-        recorded_at = timezone.now()
+        recorded_at = datetime.now(tz=timezone.utc)
 
         # Base coordinates
         base_lat = 9.878768920898438
@@ -863,7 +862,7 @@ class TestDefaultObservations:
     """
 
     def _create_observations(self, source, count=5):
-        recorded_at = timezone.now()
+        recorded_at = datetime.now(tz=timezone.utc)
         for i in range(count):
             Observation.objects.create(
                 recorded_at=recorded_at - timedelta(minutes=i),

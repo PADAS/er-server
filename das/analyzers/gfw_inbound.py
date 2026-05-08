@@ -1,7 +1,5 @@
 import logging
-from datetime import datetime
-
-import pytz
+from datetime import datetime, timezone
 
 from django.conf import settings
 from django.contrib.gis.geos import Point
@@ -230,7 +228,7 @@ def create_event_from_downloadedalert(downloaded_sample, common_event_fields, us
         confidence = deserialized_sample.validated_data.get("confidence", -1)
         latitude = deserialized_sample.validated_data.get("latitude")
         longitude = deserialized_sample.validated_data.get("longitude")
-        time = pytz.utc.localize(datetime.strptime(f"{julian_day}{year}", "%j%Y"))
+        time = datetime.strptime(f"{julian_day}{year}", "%j%Y").replace(tzinfo=timezone.utc)
 
     num_clustered_alerts = deserialized_sample.validated_data.get("num_clustered_alerts")
 

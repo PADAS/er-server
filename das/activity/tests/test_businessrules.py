@@ -1,12 +1,12 @@
 import json
 import logging
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from unittest import mock
 from unittest.mock import MagicMock, patch
+from zoneinfo import ZoneInfo
 
 import jsonschema
 import pytest
-import pytz
 from business_rules import actions, export_rule_data, fields, run_all, variables
 
 from django.contrib.auth.models import Permission
@@ -15,7 +15,7 @@ from django.core.management import call_command
 from django.template.loader import get_template
 from django.test import override_settings
 from django.urls import reverse
-from django.utils import timezone
+from django.utils.timezone import get_current_timezone
 
 from accounts.models import PermissionSet, User
 from accounts.utils import permission_get_by_natural_key
@@ -466,7 +466,7 @@ class TestV2MultiSelectAlerts:
         event_data = {
             "state": "active",
             "title": "Multi-select test event",
-            "event_time": timezone.now().isoformat(),
+            "event_time": datetime.now(tz=timezone.utc).isoformat(),
             "provenance": Event.PC_STAFF,
             "event_type": v2_event_type.value,
             "priority": Event.PRI_IMPORTANT,
@@ -1047,7 +1047,7 @@ class BusinessRulesTestCase(BaseAPITest):
         schedule = {"periods": {"sunday": [["08:00", "12:00"], ["13:00", "18:30"]]}, "timezone": test_timezone}
 
         schedule = OneWeekSchedule(schedule)
-        d1 = datetime.now(tz=pytz.timezone(test_timezone))
+        d1 = datetime.now(tz=ZoneInfo(test_timezone))
 
         # Find the most recent Monday.
         d1 = d1 - timedelta(days=d1.isoweekday())
@@ -1113,7 +1113,7 @@ class BusinessRulesTestCase(BaseAPITest):
         :param including_time: whether the schedule should include the given time.
         :return: a 'periods' dict.
         """
-        dt = dt or timezone.localtime()
+        dt = dt or datetime.now(tz=get_current_timezone())
 
         day_key = ["1", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"][dt.isoweekday()]
 
@@ -1143,7 +1143,7 @@ class BusinessRulesTestCase(BaseAPITest):
         event_data = dict(
             state="active",
             title="Test Event No. 1",
-            event_time=datetime.now(tz=pytz.utc),
+            event_time=datetime.now(tz=timezone.utc),
             provenance=Event.PC_STAFF,
             event_type=my_test_event_type.value,
             priority=Event.PRI_IMPORTANT,
@@ -1221,7 +1221,7 @@ class BusinessRulesTestCase(BaseAPITest):
         event_data = dict(
             # state='active',
             title="Test Event No. 1",
-            event_time=datetime.now(tz=pytz.utc),
+            event_time=datetime.now(tz=timezone.utc),
             provenance=Event.PC_STAFF,
             event_type=carcass_eventtype.value,
             priority=Event.PRI_IMPORTANT,
@@ -1336,7 +1336,7 @@ class BusinessRulesTestCase(BaseAPITest):
 
         event_data = dict(
             title="Test Event No. 1",
-            event_time=datetime.now(tz=pytz.utc),
+            event_time=datetime.now(tz=timezone.utc),
             provenance=Event.PC_STAFF,
             event_type=carcass_eventtype.value,
             priority=Event.PRI_IMPORTANT,
@@ -1584,7 +1584,7 @@ class BusinessRulesTestCase(BaseAPITest):
         event_data = dict(
             state="active",
             title="Test Event No. 1",
-            event_time=datetime.now(tz=pytz.utc),
+            event_time=datetime.now(tz=timezone.utc),
             provenance=Event.PC_STAFF,
             event_type=arrest_eventtype.value,
             priority=Event.PRI_IMPORTANT,
@@ -1677,7 +1677,7 @@ class BusinessRulesTestCase(BaseAPITest):
         event_data = dict(
             state="active",
             title="Test Event No. 1",
-            event_time=datetime.now(tz=pytz.utc),
+            event_time=datetime.now(tz=timezone.utc),
             provenance=Event.PC_STAFF,
             event_type=carcass_eventtype.value,
             priority=Event.PRI_IMPORTANT,
@@ -1747,7 +1747,7 @@ class BusinessRulesTestCase(BaseAPITest):
         event_data = dict(
             state="active",
             title="Test Event No. 1",
-            event_time=datetime.now(tz=pytz.utc),
+            event_time=datetime.now(tz=timezone.utc),
             provenance=Event.PC_STAFF,
             event_type=carcass_eventtype.value,
             priority=Event.PRI_IMPORTANT,
@@ -1900,7 +1900,7 @@ class BusinessRulesTestCase(BaseAPITest):
         event_data = dict(
             state="active",
             title=TEST_EVENT_TITLE,
-            event_time=datetime.now(tz=pytz.utc),
+            event_time=datetime.now(tz=timezone.utc),
             provenance=Event.PC_STAFF,
             event_type=immobility.value,
             priority=Event.PRI_IMPORTANT,
@@ -1982,7 +1982,7 @@ class BusinessRulesTestCase(BaseAPITest):
         event_data = dict(
             state="active",
             title=TEST_EVENT_TITLE,
-            event_time=datetime.now(tz=pytz.utc),
+            event_time=datetime.now(tz=timezone.utc),
             provenance=Event.PC_STAFF,
             event_type=immobility.value,
             priority=Event.PRI_IMPORTANT,
@@ -2220,7 +2220,7 @@ class BusinessRulesTestCase(BaseAPITest):
         event_data = dict(
             state="active",
             title=TEST_EVENT_TITLE,
-            event_time=datetime.now(tz=pytz.utc),
+            event_time=datetime.now(tz=timezone.utc),
             provenance=Event.PC_STAFF,
             event_type=immobility.value,
             priority=Event.PRI_IMPORTANT,
@@ -2390,7 +2390,7 @@ class TestV2AlertIntegration:
 
         event_data = {
             "title": "V2 Test Event",
-            "event_time": datetime.now(tz=pytz.utc),
+            "event_time": datetime.now(tz=timezone.utc),
             "provenance": Event.PC_STAFF,
             "event_type": service_type_event_type.value,
             "priority": Event.PRI_IMPORTANT,
@@ -2622,7 +2622,7 @@ class TestMultiSelectAlertAPIIntegration:
         # 3. Create event via API with matching multi-select data
         event_payload = {
             "title": "Confiscation event",
-            "event_time": timezone.now().isoformat(),
+            "event_time": datetime.now(tz=timezone.utc).isoformat(),
             "provenance": Event.PC_STAFF,
             "event_type": v2_multiselect_event_type.value,
             "priority": Event.PRI_IMPORTANT,
@@ -2673,7 +2673,7 @@ class TestMultiSelectAlertAPIIntegration:
         # Event with values that do NOT overlap with the condition
         event_payload = {
             "title": "Non-matching confiscation",
-            "event_time": timezone.now().isoformat(),
+            "event_time": datetime.now(tz=timezone.utc).isoformat(),
             "provenance": Event.PC_STAFF,
             "event_type": v2_multiselect_event_type.value,
             "priority": Event.PRI_IMPORTANT,

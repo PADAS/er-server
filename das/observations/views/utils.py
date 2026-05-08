@@ -3,8 +3,6 @@ from dataclasses import dataclass
 from typing import Dict, List
 from uuid import UUID
 
-import pytz
-
 from django.contrib.postgres.aggregates import ArrayAgg
 from django.db.models import Q
 
@@ -26,7 +24,7 @@ def default_since():
     """default value for since
     last days is the default
     """
-    return datetime.datetime.now(pytz.utc) - get_track_days()
+    return datetime.datetime.now(datetime.timezone.utc) - get_track_days()
 
 
 def get_subjects_with_observations_in_daterange(start_date=None, end_date=None):

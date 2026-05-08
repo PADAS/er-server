@@ -25,6 +25,7 @@ from utils.tenant import get_tenant_settings
 class TestAsyncDelete:
     def test_delete_source_async(self, superuser_client, source, settings):
         settings.CELERY_TASK_ALWAYS_EAGER = True
+        settings.CELERY_TASK_STORE_EAGER_RESULT = True
 
         delete_url = reverse("source-view", kwargs={"identifier": source.id})
         delete_url += "?async=true"

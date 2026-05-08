@@ -8,6 +8,7 @@ from django.contrib.auth import get_user_model
 from accounts.system_users import GFW_WEBHOOK_USER
 from analyzers.gfw_alert_schema import GFWLayerSlugs
 from analyzers.models import GlobalForestWatchSubscription as gfw_model
+from utils.user import make_random_password
 
 logger = logging.getLogger(__name__)
 
@@ -187,7 +188,7 @@ def get_gfw_user():
         defaults={
             "first_name": "GFW",
             "last_name": "Webhook",
-            "password": User.objects.make_random_password(),
+            "password": make_random_password(),
             "is_system": True,
         },
     )

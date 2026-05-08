@@ -1,10 +1,9 @@
 import logging
 import re
 from collections import OrderedDict
-from datetime import MAXYEAR, MINYEAR, datetime
+from datetime import MAXYEAR, MINYEAR, datetime, timezone
 from typing import NamedTuple
 
-import pytz
 from drf_extra_fields.fields import DateTimeRangeField
 from drf_extra_fields.geo_fields import PointField
 from rest_framework_gis.serializers import GeoFeatureModelListSerializer
@@ -246,7 +245,7 @@ class SubjectSerializer(PartialUpdateMixin, serializers.Serializer):
         rep = super().to_representation(instance)
         request = self.context.get("request")
         render_last_location = self.context.get("render_last_location", True)
-        show_track_days_since = self.context.get("show_track_days_since", datetime.min.replace(tzinfo=pytz.utc))
+        show_track_days_since = self.context.get("show_track_days_since", datetime.min.replace(tzinfo=timezone.utc))
         user = getattr(request, "user", None)
 
         # For buoy gear subjects, use the source's manufacturer_id as the name
@@ -271,9 +270,9 @@ class SubjectSerializer(PartialUpdateMixin, serializers.Serializer):
 
             if mou_expiry_date is not None:
                 if not mou_expiry_date.tzinfo:
-                    mou_expiry_date = mou_expiry_date.replace(tzinfo=pytz.utc)
+                    mou_expiry_date = mou_expiry_date.replace(tzinfo=timezone.utc)
 
-                mou_expiry_age = datetime.now(tz=pytz.utc) - mou_expiry_date
+                mou_expiry_age = datetime.now(tz=timezone.utc) - mou_expiry_date
 
                 minimum_allowed_age = max(mou_expiry_age.days, minimum_allowed_age)
                 if maximum_allowed_age < minimum_allowed_age:
@@ -333,7 +332,7 @@ class SubjectSerializer(PartialUpdateMixin, serializers.Serializer):
 
                     if (
                         mou_expiry_date
-                        and (mou_expiry_date.replace(tzinfo=pytz.utc) <= datetime.now(tz=pytz.utc))
+                        and (mou_expiry_date.replace(tzinfo=timezone.utc) <= datetime.now(tz=timezone.utc))
                         and request.method == "GET"
                     ):
                         observation = get_observation_location(instance, mou_expiry_date)

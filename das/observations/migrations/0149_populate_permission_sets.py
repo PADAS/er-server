@@ -16,6 +16,8 @@ def forward(apps, schema_editor):
 
 class Migration(migrations.Migration):
     dependencies = [
+        # Fixture loads PermissionSet; need accounts_permissionsetchildren for M2M children
+        ("accounts", "0045_custom_through_model_permissionsetchildren"),
         ("observations", "0148_update_triggers_for_observations_with_tenant"),
     ]
 

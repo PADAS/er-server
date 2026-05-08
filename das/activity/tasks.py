@@ -1,7 +1,6 @@
 import logging
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
-import pytz
 from versatileimagefield.image_warmer import VersatileImageFieldWarmer
 
 import django.contrib.auth
@@ -190,7 +189,7 @@ def refresh_event_details_view(self, activity, **kwargs):
 
 @celery.app.task(base=TenantQueueOnceTask, once={"graceful": True})
 def maintain_patrol_state(**kwargs):
-    now = datetime.now(tz=pytz.utc)
+    now = datetime.now(tz=timezone.utc)
     done_patrols = Patrol.objects.filter(
         Q(patrol_segment__time_range__endswith__lte=now) & Q(state=PC_OPEN) & Q(patrol_segment__scheduled_end=None)
     )
@@ -207,7 +206,7 @@ def execute_maintain_patrol_state(*args, **kwargs):
 
 @celery.app.task(base=OverAllTenantTask, once={"graceful": True})
 def periodically_maintain_patrol_state():
-    now = datetime.now(tz=pytz.utc)
+    now = datetime.now(tz=timezone.utc)
     done_patrols = Patrol.objects.filter(
         Q(patrol_segment__time_range__endswith__lte=now) & Q(state=PC_OPEN) & Q(patrol_segment__scheduled_end=None)
     )
@@ -219,7 +218,7 @@ def periodically_maintain_patrol_state():
 
 @celery.app.task(base=OverAllTenantTask, once={"graceful": True})
 def automatically_update_event_state():
-    now = datetime.now(tz=pytz.utc)
+    now = datetime.now(tz=timezone.utc)
     expr = ExpressionWrapper(
         F("created_at") + timedelta(hours=1) * F("event_type__resolve_time"), output_field=DateTimeField()
     )

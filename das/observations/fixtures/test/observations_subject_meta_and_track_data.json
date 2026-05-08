@@ -38,24 +38,22 @@
   },
   {
     "fields": {
-      "id": "8c863e7f-41fe-4a4f-9055-9607f76a1fb4",
       "name": "Indian elephant subjet group",
       "subjects": ["0fa8ec9a-7e92-4575-9575-df202d5dde25"],
       "created_at": "2015-05-04T00:00:00+00:00",
       "updated_at": "2015-05-04T00:00:00+00:00"
     },
-    "pk": "8c863e7f-41fe-4a4f-9055-9607f76a1fb4",
     "model": "observations.subjectGroup"
   },
   {
     "fields": {
-      "id": "d5a4caf1-ae67-4bdd-8347-31d92ba84160",
+
       "name": "African elephant subjet group",
       "subjects": ["9077419b-ef91-43e9-a6de-1b60b7fea4f0"],
       "created_at": "2015-05-04T00:00:00+00:00",
       "updated_at": "2015-05-04T00:00:00+00:00"
     },
-    "pk": "d5a4caf1-ae67-4bdd-8347-31d92ba84160",
+
     "model": "observations.subjectGroup"
   },
   {
@@ -64,7 +62,7 @@
       "updated_at": "2015-05-04T00:00:00+00:00",
       "id": "65d37d98-cb57-48a8-967d-632a1cb2f370",
       "provider_key": "_default",
-      "display_name": "GPS Tracker", 
+      "display_name": "GPS Tracker",
       "additional": {}
     },
     "pk": "65d37d98-cb57-48a8-967d-632a1cb2f370",
@@ -75,8 +73,8 @@
       "created_at": "2015-05-04T00:00:00+00:00",
       "updated_at": "2015-05-04T00:00:00+00:00",
       "id": "48363636-9dfc-496e-8579-24ea2f9d7fe1",
-      "provider_key": "New key", 
-      "display_name": "Radio Caller", 
+      "provider_key": "New key",
+      "display_name": "Radio Caller",
       "additional": {}
     },
     "pk": "48363636-9dfc-496e-8579-24ea2f9d7fe1",
@@ -87,8 +85,8 @@
       "created_at": "2015-05-04T00:00:00+00:00",
       "updated_at": "2015-05-04T00:00:00+00:00",
       "id": "697f25e4-562c-4305-af86-1333e9081f4c",
-      "provider_key": "Old key", 
-      "display_name": "New Radio Caller", 
+      "provider_key": "Old key",
+      "display_name": "New Radio Caller",
       "additional": {}
     },
     "pk": "697f25e4-562c-4305-af86-1333e9081f4c",

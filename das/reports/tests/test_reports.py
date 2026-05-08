@@ -1,5 +1,6 @@
-import datetime
+import logging
 import uuid
+from datetime import datetime, timezone
 
 import pytest
 
@@ -10,20 +11,24 @@ from django.test import TestCase
 import reports.views as views
 import utils.schema_utils as schema_utils
 from accounts.models import User
-from activity.models import *
+from activity.models import Event, EventCategory, EventType
 from activity.serializers import EventSerializer
+from core.management.commands import loaddata_with_tenant
 from reports.reports import get_conservancies, get_daily_report_data
 from utils.tests_tools import is_url_resolved
+
+logger = logging.getLogger(__name__)
 
 
 @pytest.mark.usefixtures("tenant_settings", "das_tenant_monkeypatch")
 class TestReportUtils(TestCase):
     def setUp(self):
         super().setUp()
-        call_command("loaddata_with_tenant", "initial_eventdata")
-        call_command("loaddata_with_tenant", "event_data_model")
-        call_command("loaddata_with_tenant", "test_events_schema")
-        call_command("loaddata_with_tenant", "test_daily_reports")
+        cmd = loaddata_with_tenant.Command()
+        call_command(cmd, "initial_eventdata")
+        call_command(cmd, "event_data_model")
+        call_command(cmd, "test_events_schema")
+        call_command(cmd, "test_daily_reports")
 
         self.user = User.objects.create(
             username="reportuser",
@@ -95,9 +100,9 @@ class TestReportUtils(TestCase):
         if ser.is_valid():
             ser.create(ser.validated_data)
 
-        today = datetime.datetime.now(tz=datetime.timezone.utc)
+        today = datetime.now(tz=timezone.utc)
         context = get_daily_report_data(
-            datetime.datetime(2016, 1, 1, tzinfo=datetime.timezone.utc),
+            datetime(2016, 1, 1, tzinfo=timezone.utc),
             today,
             event_categories=categories,
             username=self.user.username,

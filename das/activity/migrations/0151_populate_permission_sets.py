@@ -57,7 +57,7 @@ def create_new_permission_sets(apps, _):  # comes from das/activity/migrations/0
             restricted_group.permissions.add(perm)
         except Permission.DoesNotExist:
             pass
-    for user in User.objects.all():
+    for user in User.objects.only("id", "permission_sets").all():
         if user.permission_sets.filter(name="security_events").exists():
             user.permission_sets.add(all_group)
             continue
@@ -81,7 +81,7 @@ def forward_pre(apps, _):  # comes from das/activity/migrations/0061_event_permi
         "Only Add Events",
     ]
     # First let's see who the users are who can currently see security events
-    for user in User.objects.all():
+    for user in User.objects.only("id", "permission_sets").all():
         if (
             user.permission_sets.filter(name="security_events").exists()
             or user.permission_sets.filter(name="all_event_permissions").exists()
@@ -149,6 +149,7 @@ def migrate_create_alerts_permissionset(apps, _):  # comes from das/activity/mig
 class Migration(migrations.Migration):
     dependencies = [
         ("activity", "0150_populate_tenant_foreign_key_in_activity"),
+        ("accounts", "0049_auto_20240225_1344"),
     ]
 
     operations = [

@@ -3,6 +3,7 @@ from uuid import UUID
 
 from rest_framework_condition import etag
 
+from django.core.exceptions import ValidationError
 from django.db import IntegrityError
 from rest_framework import status
 from rest_framework.generics import (
@@ -23,7 +24,7 @@ from activity.views.response_headers import (
 )
 from activity.views.schemas import EventTypeViewSchema
 from core.utils import DirectoryIconFinder
-from utils.drf import return_409_response
+from utils.drf import is_constraint_violation, return_409_response
 from utils.json import parse_bool
 from utils.rank import RankedTool
 
@@ -51,14 +52,22 @@ class EventTypeView(RetrieveUpdateDestroyAPIView):
     def put(self, request, *args, **kwargs):
         try:
             return self.update(request, *args, **kwargs)
-        except IntegrityError as integrity_error:
-            return return_409_response(message=str(integrity_error))
+        except ValidationError as e:
+            if not is_constraint_violation(e):
+                raise
+            return return_409_response(message=str(e))
+        except IntegrityError as e:
+            return return_409_response(message=str(e))
 
     def patch(self, request, *args, **kwargs):
         try:
             return self.partial_update(request, *args, **kwargs)
-        except IntegrityError as integrity_error:
-            return return_409_response(message=str(integrity_error))
+        except ValidationError as e:
+            if not is_constraint_violation(e):
+                raise
+            return return_409_response(message=str(e))
+        except IntegrityError as e:
+            return return_409_response(message=str(e))
 
     def get_serializer_context(self):
         qparams = self.request.query_params

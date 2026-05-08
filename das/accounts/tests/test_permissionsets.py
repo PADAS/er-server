@@ -15,6 +15,7 @@ from accounts.backends import AccountsModelBackend
 from accounts.models import PermissionSet, User
 from core.tests import BaseAPITest
 from factories import PermissionSetFactory, UserFactory
+from utils.user import make_random_password
 
 
 def random_string(length=10):
@@ -202,7 +203,7 @@ class PermissionSetTestCase(BaseTestCase):
 
 
 class UserModelTest(TestCase):
-    password = User.objects.make_random_password()
+    password = make_random_password()
     user_const = dict(last_name="last", first_name="first")
 
     def test_caseinsensitive_name(self):
@@ -232,7 +233,7 @@ class UserModelTest(TestCase):
 
 
 class TestAuthentication(BaseAPITest):
-    password = User.objects.make_random_password()
+    password = make_random_password()
     user_const = dict(last_name="last", first_name="first")
 
     def setUp(self):

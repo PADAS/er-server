@@ -1,12 +1,11 @@
 import io
 import re
 import zipfile
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from unittest import mock
 from urllib.parse import urlencode
 
 import pytest
-import pytz
 import xmlunittest
 from lxml import etree
 
@@ -34,8 +33,8 @@ from tracking.models.plugin_base import Obs
 
 
 def mock_now():
-    now = datetime.now()
-    return pytz.utc.localize(now - timedelta(weeks=55))
+    now = datetime.now(tz=timezone.utc)
+    return now - timedelta(weeks=55)
 
 
 @pytest.mark.usefixtures("tenant_settings")
@@ -111,7 +110,7 @@ class ObservationTestCase(BaseAPITest, xmlunittest.XmlTestMixin):
         self.ss_1 = SubjectSource.objects.ensure(subject=self.elephant_1, source=self.collar_1)
 
         for obs_data in self.observation_data:
-            recorded_at = datetime.fromtimestamp(obs_data[2], tz=pytz.utc)
+            recorded_at = datetime.fromtimestamp(obs_data[2], tz=timezone.utc)
             observation = Obs(
                 source=self.collar_1,
                 recorded_at=recorded_at,
@@ -364,7 +363,7 @@ class ObservationTestCase(BaseAPITest, xmlunittest.XmlTestMixin):
         self.collar_2 = Source.objects.ensure_source(**source_args)
         self.ss_1 = SubjectSource.objects.ensure(subject=self.elephant_2, source=self.collar_1)
 
-        observations_timestamp = pytz.utc.localize(datetime.now() - timedelta(weeks=55)).timestamp()
+        observations_timestamp = (datetime.now(tz=timezone.utc) - timedelta(weeks=55)).timestamp()
 
         observation_data = [
             (1, 1, int(observations_timestamp)),
@@ -372,7 +371,7 @@ class ObservationTestCase(BaseAPITest, xmlunittest.XmlTestMixin):
             (2, 2, int(observations_timestamp)),
         ]
         for obs_data in observation_data:
-            recorded_at = datetime.fromtimestamp(obs_data[2], tz=pytz.utc)
+            recorded_at = datetime.fromtimestamp(obs_data[2], tz=timezone.utc)
             observation = Obs(
                 source=self.collar_1,
                 recorded_at=recorded_at,
@@ -391,8 +390,8 @@ class ObservationTestCase(BaseAPITest, xmlunittest.XmlTestMixin):
             Observation.objects.add_observation(observation)
             Observation.objects.add_observation(observation2)
 
-        start_date = pytz.utc.localize(datetime.now() - timedelta(weeks=60))
-        end_date = pytz.utc.localize(datetime.now() - timedelta(weeks=50))
+        start_date = datetime.now(tz=timezone.utc) - timedelta(weeks=60)
+        end_date = datetime.now(tz=timezone.utc) - timedelta(weeks=50)
 
         url = reverse("subjects-kml-root-view")
         url += "?{}".format(
@@ -440,8 +439,8 @@ class ObservationTestCase(BaseAPITest, xmlunittest.XmlTestMixin):
         self.assertEqual(len(urls), expected_subjects)
 
     def test_root_kml_accepts_timezone_aware_datetimes(self):
-        start_date = pytz.utc.localize(datetime.now() - timedelta(weeks=60))
-        end_date = pytz.utc.localize(datetime.now() - timedelta(weeks=50))
+        start_date = datetime.now(tz=timezone.utc) - timedelta(weeks=60)
+        end_date = datetime.now(tz=timezone.utc) - timedelta(weeks=50)
 
         url = reverse("subjects-kml-root-view")
         url += "?{}".format(

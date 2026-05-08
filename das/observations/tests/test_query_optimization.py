@@ -13,6 +13,7 @@ from core.tests import API_BASE, BaseAPITest
 from observations.filters import create_gp_filter_class
 from observations.models import SubjectGroup
 from observations.views import SubjectGroupsView
+from utils.user import make_random_password
 
 logger = logging.getLogger(__name__)
 
@@ -33,7 +34,7 @@ class GroupPermissionsFilterQueryOptimizationTest(BaseAPITest):
         self.user = User.objects.create_user(
             username="test_user",
             email="test_user@test.com",
-            password=User.objects.make_random_password(),
+            password=make_random_password(),
             **user_const,
         )
         self.user.permission_sets.add(self.perm_set)

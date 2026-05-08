@@ -5,7 +5,6 @@ import logging
 from datetime import timedelta
 from typing import NamedTuple
 
-import pytz
 import requests
 from dateutil.parser import parse as parse_date
 
@@ -77,7 +76,7 @@ class SavannaClient(object):
         self.host = host
 
     @staticmethod
-    def str2date(d, replace_tzinfo=pytz.utc):
+    def str2date(d, replace_tzinfo=datetime.timezone.utc):
         """Helper function to parse a naive date and assume it's in replace_tzinfo."""
         return parse_date(d).replace(tzinfo=replace_tzinfo)
 
@@ -235,7 +234,7 @@ class SavannahPlugin(TrackingPlugin):
         try:
             st = parse_date(self.cursor_data["latest_timestamp"])
         except Exception:
-            st = datetime.datetime.now(tz=pytz.UTC) - self.DEFAULT_START_OFFSET
+            st = datetime.datetime.now(tz=datetime.timezone.utc) - self.DEFAULT_START_OFFSET
 
         lt = st
         last_record_index = self.cursor_data.get("record_index", 0)
@@ -243,7 +242,7 @@ class SavannahPlugin(TrackingPlugin):
 
         self.logger.debug("Fetching data for collar_id %s", source.manufacturer_id)
 
-        now = pytz.utc.localize(datetime.datetime.utcnow())
+        now = datetime.datetime.now(tz=datetime.timezone.utc)
 
         for fix in client.fetch_observations(source.manufacturer_id, last_record_index, last_exception_index):
             if isinstance(fix, STObservation):

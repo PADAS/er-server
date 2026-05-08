@@ -1,7 +1,5 @@
 import logging
-from datetime import datetime, timedelta
-
-import pytz
+from datetime import datetime, timedelta, timezone
 
 from django.utils.translation import gettext_lazy as _
 
@@ -18,11 +16,11 @@ def generate_subject_records(report_hours=24):
     :param report_hours: How many hours of data should be interpreted for each subject.
     :return: generator of subject-source-performance records.
     """
-    now = datetime.now(tz=pytz.utc)
+    now = datetime.now(tz=timezone.utc)
     for ss in SubjectSource.objects.filter(
         subject__subject_subtype__subject_type="wildlife",
         subject__is_active=True,
-        assigned_range__contains=datetime.now(tz=pytz.utc),
+        assigned_range__contains=datetime.now(tz=timezone.utc),
     ):
 
         result = {
@@ -94,7 +92,7 @@ def calculate_age_description(val):
     :param val: datetime
     :return: Friendly description of age.
     """
-    age_s = (datetime.now(tz=pytz.utc) - val).total_seconds()
+    age_s = (datetime.now(tz=timezone.utc) - val).total_seconds()
     if age_s > 86400:
         return _("{0:0.1f} days").format(float(age_s / 86400.0))
     else:
@@ -130,7 +128,7 @@ def calculate_latest_observation_style(val):
     """
     if val is None:
         return None
-    age = datetime.now(tz=pytz.utc) - val
+    age = datetime.now(tz=timezone.utc) - val
     if age > TD_48_HOURS:
         return ("color:#c00", "font-weight:bold")
     if age > TD_12_HOURS:
@@ -196,7 +194,7 @@ def generate_user_reports(userlist):
     :return:
     """
     report_records = list(generate_subject_records())
-    report_timestamp = datetime.now(tz=pytz.utc)
+    report_timestamp = datetime.now(tz=timezone.utc)
     tenant_settings = get_tenant_settings()
 
     for user in userlist:

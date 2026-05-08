@@ -3,8 +3,8 @@ import logging
 from collections import OrderedDict, defaultdict
 from datetime import datetime
 from typing import Dict, List, Type, Union
+from zoneinfo import ZoneInfo
 
-import pytz
 from django_multitenant.utils import get_current_tenant
 from drf_spectacular.utils import OpenApiResponse, extend_schema, inline_serializer
 from psycopg2.errors import InvalidTextRepresentation
@@ -18,7 +18,7 @@ from django.db.models import Count, OuterRef, Prefetch, Q, TextField
 from django.db.models.functions import JSONObject
 from django.db.models.query import QuerySet
 from django.db.utils import DataError
-from django.utils import timezone
+from django.utils.timezone import get_current_timezone_name
 from rest_framework import status
 from rest_framework.filters import OrderingFilter
 from rest_framework.generics import (
@@ -76,6 +76,7 @@ from activity.views.helpers import (
 from activity.views.schemas import EventsViewSchema
 from core.permissions import UserCanExportDataPermission
 from observations.models import Subject
+from utils.csv_streaming import StreamingCSVResponse
 from utils.date import convert_to_timezone, get_current_time_zone, get_timezone_offset
 from utils.db.expresions import ArraySubquery
 from utils.drf import StandardResultsSetGeoJsonPagination, StandardResultsSetPagination
@@ -553,7 +554,6 @@ class EventsExportView(APIView):
         return string
 
     def get(self, request, *args, **kwargs):
-        from utils.csv_streaming import StreamingCSVResponse
 
         self.value_cols = parse_bool(request.GET.get("value_cols", "false"))
         self.display_cols = parse_bool(request.GET.get("display_cols", "true"))
@@ -585,8 +585,8 @@ class EventsExportView(APIView):
         combined_headers.extend([header.replace(" ", "_") for header in custom_headers])
 
         # Generate filename
-        local_tz = pytz.timezone(timezone.get_current_timezone_name())
-        timestamp = local_tz.localize(datetime.utcnow())
+        current_tz = ZoneInfo(get_current_timezone_name())
+        timestamp = datetime.now(tz=current_tz)
         download_filename = f'Event Export {timestamp.strftime("%Y-%m-%d")}.csv'
 
         # Pre-populate file URL cache to avoid N+1 queries during row generation.

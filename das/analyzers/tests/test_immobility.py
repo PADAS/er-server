@@ -1,3 +1,4 @@
+from datetime import datetime, timezone
 from unittest import mock
 from unittest.mock import patch
 
@@ -148,7 +149,7 @@ class TestImmobilityAnalyzer(BaseAPITest):
 
         event_data = dict(
             title="Woody is immobile",
-            time=pytz.utc.localize(datetime.utcnow()),
+            time=datetime.now(tz=timezone.utc),
             provenance=Event.PC_ANALYZER,
             event_type="immobility",
             priority=Event.PRI_URGENT,

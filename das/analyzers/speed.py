@@ -1,7 +1,6 @@
 import datetime as dt
 import logging
 
-import pytz
 from scipy.stats import mannwhitneyu
 
 from django.contrib.gis.geos import GeometryCollection as DjangoGeoColl
@@ -247,7 +246,7 @@ class LowSpeedWilcoxAnalyzer(SubjectAnalyzer):
 
         # Previous speed distribution (use only up until 30 days prior)
         ps = self._normal_movement_distro(
-            end=pytz.utc.localize(dt.datetime.utcnow()) - dt.timedelta(hours=self.config.search_time_hours)
+            end=dt.datetime.now(tz=dt.timezone.utc) - dt.timedelta(hours=self.config.search_time_hours)
         )
 
         if ps is None:

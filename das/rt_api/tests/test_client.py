@@ -1,13 +1,12 @@
-import datetime
 import hashlib
-from datetime import timedelta
+from datetime import datetime, timedelta, timezone
 from unittest.mock import MagicMock, patch
 
 import pytest
 from dateutil.parser import ParserError
 from psycopg2._range import DateTimeTZRange
 
-from django.utils import lorem_ipsum, timezone
+from django.utils import lorem_ipsum
 
 from observations.models import UserSession
 from observations.utils import dateparse
@@ -40,7 +39,7 @@ from rt_api.client import (
 @pytest.mark.usefixtures("tenant_settings", "das_tenant_monkeypatch")
 class TestClient:
     sid = "e85ae638fe904b6fa1e018c5c401c11c"
-    mock_datetime_now = datetime.datetime(2010, 10, 2, 14, 10, tzinfo=timezone.utc)
+    mock_datetime_now = datetime(2010, 10, 2, 14, 10, tzinfo=timezone.utc)
 
     def test_save_session_timestamp(self, subject):
         session_key = SID_SESSION_TIMESTAMP_KEY.format(self.sid)
@@ -52,7 +51,7 @@ class TestClient:
 
         assert result
         assert isinstance(result.decode(), str)
-        assert isinstance(dateparse(result), datetime.datetime)
+        assert isinstance(dateparse(result), datetime)
 
         # Both cursor keys must carry a bounded TTL so orphaned sessions
         # can't accumulate forever in Redis — but long enough to survive an
@@ -99,12 +98,12 @@ class TestClient:
             SID_SESSION_TIMESTAMP_KEY.format(self.sid),
             SID_SUBJECTS_TIMESTAMPS_KEY.format(self.sid),
         )
-        before = datetime.datetime.now(tz=timezone.utc)
+        before = datetime.now(tz=timezone.utc)
 
         result = get_sid_subject_timestamp(self.sid, str(subject.id))
 
         parsed = dateparse(result)
-        after = datetime.datetime.now(tz=timezone.utc)
+        after = datetime.now(tz=timezone.utc)
         # result == now - grace_window, so result must fall in
         # [before - grace_window, after - grace_window].
         assert (before - SESSION_CURSOR_GRACE_WINDOW) <= parsed <= (after - SESSION_CURSOR_GRACE_WINDOW)
@@ -112,7 +111,7 @@ class TestClient:
     def test_get_sid_subject_timestamp_with_date_as_iso_format(self, subject):
         redis_client.set(
             SID_SESSION_TIMESTAMP_KEY.format(self.sid),
-            datetime.datetime.now().isoformat(),
+            datetime.now(tz=timezone.utc).isoformat(),
         )
         result = get_sid_subject_timestamp(self.sid, str(subject.id))
 
@@ -122,7 +121,7 @@ class TestClient:
     def test_get_sid_subject_timestamp_with_date_as_timestamp(self, subject):
         redis_client.set(
             SID_SESSION_TIMESTAMP_KEY.format(self.sid),
-            datetime.datetime.now().timestamp(),
+            datetime.now(tz=timezone.utc).timestamp(),
         )
         result = get_sid_subject_timestamp(self.sid, str(subject.id))
 
@@ -144,7 +143,7 @@ class TestClient:
         assert not user_session.time_range.upper
 
     def test_create_update_user_session_update_user_session_with_time_range(self, user_session, monkeypatch):
-        date = datetime.datetime(2015, 1, 1, 0, 0, 0, tzinfo=timezone.utc)
+        date = datetime(2015, 1, 1, 0, 0, 0, tzinfo=timezone.utc)
         user_session.time_range = DateTimeTZRange(lower=date)
         user_session.save()
 
@@ -176,24 +175,24 @@ class TestClient:
             (
                 [
                     {
-                        "upper": datetime.datetime.now() + timedelta(days=1),
-                        "lower": datetime.datetime.now(),
+                        "upper": datetime.now(tz=timezone.utc) + timedelta(days=1),
+                        "lower": datetime.now(tz=timezone.utc),
                     },
                     {
-                        "upper": datetime.datetime.now() + timedelta(days=1),
-                        "lower": datetime.datetime.now(),
+                        "upper": datetime.now(tz=timezone.utc) + timedelta(days=1),
+                        "lower": datetime.now(tz=timezone.utc),
                     },
                     {
-                        "upper": datetime.datetime.now() + timedelta(days=1),
-                        "lower": datetime.datetime.now(),
+                        "upper": datetime.now(tz=timezone.utc) + timedelta(days=1),
+                        "lower": datetime.now(tz=timezone.utc),
                     },
                     {
-                        "upper": datetime.datetime.now() + timedelta(days=1),
-                        "lower": datetime.datetime.now(),
+                        "upper": datetime.now(tz=timezone.utc) + timedelta(days=1),
+                        "lower": datetime.now(tz=timezone.utc),
                     },
                     {
-                        "upper": datetime.datetime.now() + timedelta(days=1),
-                        "lower": datetime.datetime.now(),
+                        "upper": datetime.now(tz=timezone.utc) + timedelta(days=1),
+                        "lower": datetime.now(tz=timezone.utc),
                     },
                 ],
                 5,
@@ -211,24 +210,24 @@ class TestClient:
             (
                 [
                     {
-                        "upper": datetime.datetime.now(),
-                        "lower": datetime.datetime.now() - timedelta(days=7),
+                        "upper": datetime.now(tz=timezone.utc),
+                        "lower": datetime.now(tz=timezone.utc) - timedelta(days=7),
                     },
                     {
-                        "upper": datetime.datetime.now(),
-                        "lower": datetime.datetime.now() - timedelta(days=7),
+                        "upper": datetime.now(tz=timezone.utc),
+                        "lower": datetime.now(tz=timezone.utc) - timedelta(days=7),
                     },
                     {
-                        "upper": datetime.datetime.now(),
-                        "lower": datetime.datetime.now() - timedelta(days=4),
+                        "upper": datetime.now(tz=timezone.utc),
+                        "lower": datetime.now(tz=timezone.utc) - timedelta(days=4),
                     },
                     {
-                        "upper": datetime.datetime.now(),
-                        "lower": datetime.datetime.now() - timedelta(days=3),
+                        "upper": datetime.now(tz=timezone.utc),
+                        "lower": datetime.now(tz=timezone.utc) - timedelta(days=3),
                     },
                     {
-                        "upper": datetime.datetime.now(),
-                        "lower": datetime.datetime.now() - timedelta(days=1),
+                        "upper": datetime.now(tz=timezone.utc),
+                        "lower": datetime.now(tz=timezone.utc) - timedelta(days=1),
                     },
                 ],
                 3,
@@ -236,24 +235,24 @@ class TestClient:
             (
                 [
                     {
-                        "upper": datetime.datetime.now(),
-                        "lower": datetime.datetime.now() - timedelta(days=7),
+                        "upper": datetime.now(tz=timezone.utc),
+                        "lower": datetime.now(tz=timezone.utc) - timedelta(days=7),
                     },
                     {
-                        "upper": datetime.datetime.now(),
-                        "lower": datetime.datetime.now() - timedelta(days=7),
+                        "upper": datetime.now(tz=timezone.utc),
+                        "lower": datetime.now(tz=timezone.utc) - timedelta(days=7),
                     },
                     {
-                        "upper": datetime.datetime.now(),
-                        "lower": datetime.datetime.now() - timedelta(days=7),
+                        "upper": datetime.now(tz=timezone.utc),
+                        "lower": datetime.now(tz=timezone.utc) - timedelta(days=7),
                     },
                     {
-                        "upper": datetime.datetime.now(),
-                        "lower": datetime.datetime.now() - timedelta(days=7),
+                        "upper": datetime.now(tz=timezone.utc),
+                        "lower": datetime.now(tz=timezone.utc) - timedelta(days=7),
                     },
                     {
-                        "upper": datetime.datetime.now(),
-                        "lower": datetime.datetime.now() - timedelta(days=1),
+                        "upper": datetime.now(tz=timezone.utc),
+                        "lower": datetime.now(tz=timezone.utc) - timedelta(days=1),
                     },
                 ],
                 1,
@@ -281,7 +280,7 @@ class TestClient:
         mock.datetime.now.return_value = self.mock_datetime_now
         monkeypatch.setattr("rt_api.client.datetime", mock)
 
-        date = datetime.datetime(2009, 1, 1, 0, 0, 0, tzinfo=timezone.utc)
+        date = datetime(2009, 1, 1, 0, 0, 0, tzinfo=timezone.utc)
         user_session.time_range = DateTimeTZRange(lower=date)
         user_session.save()
 

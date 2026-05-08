@@ -3,7 +3,6 @@ import json
 import logging
 
 import pytest
-import pytz
 import yaml
 
 from django.contrib.gis.geos import Point
@@ -265,7 +264,7 @@ class TestLowSpeedAnalyzer(TestCase):
         distro = SpeedDistro.objects.create(subject_speed_profile=sp)
 
         # Update percentile value based on data when Heritage was moving Ok
-        distro.update_percentiles([percentile], end=pytz.utc.localize(dt.datetime.utcnow()) - dt.timedelta(days=30))
+        distro.update_percentiles([percentile], end=dt.datetime.now(tz=dt.timezone.utc) - dt.timedelta(days=30))
         speed_val = distro.percentiles[percentile]
         logger.info("PercentileSpeedVal: %s" % str(speed_val))
         self.assertTrue(speed_val > 0.0)

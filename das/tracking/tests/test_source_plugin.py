@@ -1,8 +1,6 @@
 import uuid
 from datetime import datetime, timedelta, timezone
 
-import pytz
-
 from django.contrib.gis.geos import MultiPolygon, Polygon
 from django.test import TestCase
 
@@ -80,7 +78,7 @@ class TestSourcePlugin(TestCase):
         )
 
         # The latest timestamp is very recent, so we should not run.
-        latest_timestamp = pytz.utc.localize(datetime.utcnow())
+        latest_timestamp = datetime.now(tz=timezone.utc)
         sp = SourcePlugin.objects.create(
             source=source, plugin=plugin, cursor_data={"latest_timestamp": latest_timestamp.isoformat()}
         )

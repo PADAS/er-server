@@ -15,6 +15,7 @@ from authlib.integrations.django_client import OAuth
 
 from django.conf import settings
 from django.core import signing
+from django.core.exceptions import ValidationError
 from django.db import IntegrityError, transaction
 from django.http import HttpResponse
 from django.shortcuts import redirect
@@ -119,6 +120,17 @@ def account_linker_landing(request):
             logger.warning("Account linker session_ref contained unknown or inactive user_id=%s", user_id)
             return HttpResponse(_INVALID_LINK_MESSAGE, status=400)
 
+    # Reject the link if the user is already bound to an Auth0 identity.
+    # This makes magic links effectively single-use: once the Account Linker
+    # flow completes and sets auth0_id, the same link cannot start another
+    # PKCE round trip. The callback also checks auth0_id to guard against
+    # races where linking completes between this check and the callback.
+    if user.auth0_id:
+        logger.warning(
+            "Account linker landing for user %s who is already linked (auth0_id=%s)", user.username, user.auth0_id
+        )
+        return HttpResponse(_INVALID_LINK_MESSAGE, status=400)
+
     # Each linking attempt gets its own session key, passed as OAuth state
     # so concurrent flows in different tabs cannot collide.
     link_attempt = secrets.token_urlsafe(32)
@@ -129,6 +141,7 @@ def account_linker_landing(request):
         request,
         callback_url,
         state=link_attempt,
+        connection=get_tenant_settings().slug_name,
     )
 
 
@@ -214,7 +227,7 @@ def account_linker_callback(request):
             org_id = get_tenant_settings().feature_flags.idp_org_id
             _add_user_to_auth0_org(user.auth0_id, org_id)
             logger.info("Added user %s to Auth0 org %s", user.username, org_id)
-    except IntegrityError:
+    except (IntegrityError, ValidationError):
         logger.warning(
             "Auth0 sub %s is already linked to another user; cannot link to user %s",
             auth0_sub,

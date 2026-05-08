@@ -1,8 +1,7 @@
 import time
-from datetime import datetime
+from datetime import datetime, timezone
 
 import pytest
-import pytz
 
 from django.core.management import call_command
 
@@ -32,7 +31,7 @@ class TestAnnotator(BaseAPITest):
 
         # The test data in the fixture indicated above is for early March 2017.
         annotator.annotate(
-            start_date=pytz.utc.localize(datetime(2017, 3, 3)), end_date=pytz.utc.localize(datetime(2017, 3, 10))
+            start_date=datetime(2017, 3, 3, tzinfo=timezone.utc), end_date=datetime(2017, 3, 10, tzinfo=timezone.utc)
         )
 
         junk_fix = Observation.objects.get(id="e83b863a-b632-4c6c-9cb3-074632510f20")
