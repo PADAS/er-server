@@ -25,6 +25,18 @@ EarthRanger (DAS - Domain Awareness System) is a Django-based web application fo
 - `reports/` - Report generation and data distribution
 - `utils/` - Shared utilities and common functionality
 
+## Module Boundaries
+
+### `utils/` must stay app-agnostic
+
+Code in `das/utils/` must not reference or assume any specific app or domain concept from this project (e.g. patrols, events, subjects, sources, observations, reports, tenants). A util should be conceptually extractable as a standalone Python library with no EarthRanger-specific imports, model references, or vocabulary.
+
+- If a helper needs to know about a patrol, event, subject, etc., it belongs in that app (e.g. `activity/`, `observations/`), not in `utils/`.
+- For generic infrastructure (throttling, caching, retries, rate limiting, batching), parameterize on generic keys/types — do not hard-code app-specific model names, signal handlers, or business rules.
+- `utils/tenant` predates this rule and is a known violation. Do not treat it as precedent or extend the pattern; new domain-aware code goes in the owning app.
+
+When in doubt, ask: "Could I lift this file into a separate Python package and `pip install` it from another project?" If the answer is no, it does not belong in `utils/`.
+
 ## Key Technologies
 
 - Django 3.2
@@ -160,6 +172,7 @@ All code must be fully type-annotated. Use mypy (strict mode) or pyright to vali
 - Do not commit code with failing tests or type errors.
 - Do not add dependencies without updating `pyproject.toml`.
 - Do not use `print()` for logging — use the `logging` module.
+- Do not put app-specific code (patrols, events, subjects, sources, tenants, etc.) in `das/utils/`. See "Module Boundaries" — utils must be domain-agnostic.
 
 ## Specialized Agents
 
