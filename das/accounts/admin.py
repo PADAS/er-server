@@ -18,9 +18,11 @@ from django.contrib import admin
 from django.contrib.auth.admin import GroupAdmin as DjangoGroupAdmin
 from django.contrib.auth.admin import UserAdmin as DjangoUserAdmin
 from django.contrib.auth.forms import PasswordResetForm
+from django.contrib.auth.models import Permission
 from django.core.exceptions import PermissionDenied
 from django.core.mail import send_mail
 from django.db import transaction
+from django.db.models import Prefetch
 from django.http.response import HttpResponseRedirect
 from django.shortcuts import get_object_or_404
 from django.template.loader import render_to_string
@@ -89,8 +91,21 @@ class PermissionSetAdmin(ModelAdminDisplayingManyToManyFieldMixin, DjangoGroupAd
     def get_queryset(self, request):
         queryset = PermissionSet.objects.all()
         if not get_tenant_settings().env_settings.patrol_enabled:
-            return queryset.exclude(permissions__in=patrol_mgmt_permissions())
-        return queryset
+            queryset = queryset.exclude(permissions__in=patrol_mgmt_permissions())
+
+        # Prefetch the columns rendered by all_permissions / all_users on the
+        # changelist. Without this, each row triggers its own SELECT for the
+        # tenant-filtered permissions and the user_set, turning a 46-row page
+        # into ~92 round-trips.
+        #
+        # The permissions prefetch needs the explicit tenant filter because
+        # instance.permissions.all() bypasses tenant-scoping on the through
+        # table (see all_permissions for the long-form note).
+        tenant_permissions = Permission.objects.filter(permission_sets__das_tenant=get_current_tenant())
+        return queryset.prefetch_related(
+            Prefetch("permissions", queryset=tenant_permissions, to_attr="_tenant_permissions"),
+            "user_set",
+        )
 
     def formfield_for_dbfield(self, db_field, **kwargs):
         if db_field.name == "children":
@@ -98,12 +113,15 @@ class PermissionSetAdmin(ModelAdminDisplayingManyToManyFieldMixin, DjangoGroupAd
         return super().formfield_for_dbfield(db_field, **kwargs)
 
     def all_permissions(self, instance):
-        # This is the only place where one member of the through table does not have a tenant_id
-        # because of that when we say instance.permissions.all() we get all the permissions assoicated
-        # with thiswithout
-        # filtering by tenant_id
-
-        permissions = instance.permissions.filter(permission_sets__das_tenant=get_current_tenant())
+        # instance.permissions.all() would return permissions across every
+        # tenant — the M2M through table is tenant-scoped but the M2M relation
+        # itself is not, so we must filter by current tenant. get_queryset
+        # populates instance._tenant_permissions via Prefetch; fall back to
+        # the live query for cases where this admin's get_queryset wasn't
+        # used to load the instance.
+        permissions = getattr(instance, "_tenant_permissions", None)
+        if permissions is None:
+            permissions = instance.permissions.filter(permission_sets__das_tenant=get_current_tenant())
         return make_html_list(sorted(ps.name for ps in permissions))
 
     all_permissions.short_description = "Permissions"
