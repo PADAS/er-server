@@ -15,6 +15,7 @@ from oauth2_provider.models import (
 import django.contrib.auth.models
 from django.conf import settings
 from django.contrib import admin
+from django.contrib.admin.views.main import IncorrectLookupParameters
 from django.contrib.auth.admin import GroupAdmin as DjangoGroupAdmin
 from django.contrib.auth.admin import UserAdmin as DjangoUserAdmin
 from django.contrib.auth.forms import PasswordResetForm
@@ -456,33 +457,31 @@ class UserAdmin(ModelAdminDisplayingManyToManyFieldMixin, DefaultFilterMixin, Fi
     _linked_subject_warning.short_description = "Warning"
 
     def changelist_view(self, request, extra_context=None):
-        """Override changelist_view to add alert rules data for JavaScript"""
+        """Override changelist_view to add alert rules data for JavaScript."""
+        # Build the ChangeList ourselves to get the filtered, paginated
+        # result_list without rendering the whole view. The previous
+        # implementation called super().changelist_view twice — once to
+        # discover the filtered queryset, then again with the extra_context
+        # injected. That re-ran every per-admin sidebar query (e.g.
+        # tracking SourceProviderConfigurationAdmin.has_add_permission),
+        # the entire template, and admin app_dict assembly.
+        try:
+            cl = self.get_changelist_instance(request)
+        except IncorrectLookupParameters:
+            # Bad filter params; let the base view produce the standard
+            # invalid-search response.
+            return super().changelist_view(request, extra_context)
 
-        # double render as in the base class rendering is where the filters are applied
-        # and the queryset is populated with filters
-        response = super().changelist_view(request, extra_context)
-        if isinstance(response, HttpResponseRedirect) or not hasattr(response, "context_data"):
-            return response
-
-        queryset = response.context_data["cl"].result_list
+        queryset = cl.result_list
         extra_context = extra_context or {}
 
-        # Get alert rules data for each user and create form index mapping
-        user_alert_rules = {}
-        form_index_to_user_id = {}
-
-        # Get all user IDs that have alert rules in a single query
         user_ids_with_alerts = set(AlertRule.objects.filter(owner__in=queryset).values_list("owner_id", flat=True))
 
+        user_alert_rules = {}
+        form_index_to_user_id = {}
         for index, user in enumerate(queryset):
-            # Map form index to user ID for JavaScript
             form_index_to_user_id[str(index)] = str(user.id)
-
-            # Check if user has alert rules (just boolean, no details needed)
-            if user.id in user_ids_with_alerts:
-                user_alert_rules[str(user.id)] = {"has_alerts": True}
-            else:
-                user_alert_rules[str(user.id)] = {"has_alerts": False}
+            user_alert_rules[str(user.id)] = {"has_alerts": user.id in user_ids_with_alerts}
 
         extra_context["user_alert_rules"] = json.dumps(user_alert_rules)
         extra_context["form_index_to_user_id"] = json.dumps(form_index_to_user_id)

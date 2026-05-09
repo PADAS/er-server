@@ -247,7 +247,11 @@ class SourceProviderConfigurationAdmin(BaseModelAdminMixin):
     )
 
     def has_add_permission(self, request, obj=None):
-        if self.model.objects.count():
+        # exists() is a LIMIT 1 probe — count() is a full aggregate. This
+        # admin's add gate only cares whether any row exists, and Django
+        # invokes has_add_permission on every admin sidebar build, so the
+        # query runs on every admin page in the tenant.
+        if self.model.objects.exists():
             return False
         return super().has_add_permission(request)
 
