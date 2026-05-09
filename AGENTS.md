@@ -59,6 +59,19 @@ Key considerations:
 - Tenant-specific configurations and permissions
 - Cross-tenant queries require special authorization
 
+### Tenant-scoped querysets in admin/form classes
+
+Class-level `queryset=` declarations on `ModelChoiceField` / `ModelMultipleChoiceField` (and on `ModelAdmin` attributes that take a queryset) are evaluated **at import time**, before any request — and therefore before the tenant middleware has set the threadlocal. For tenant-scoped models (`User`, `PermissionSet`, `Subject`, anything inheriting `TenantModelMixin`), that import-time evaluation either raises `TenantNotFoundInLocalThreadException` or — worse — silently captures whatever tenant happens to be active during import (tests, management commands, the first request to land on a worker).
+
+The pattern in this codebase is:
+
+- Declare the field with a placeholder queryset at class scope so Django's form/admin machinery is satisfied.
+- **Reassign the queryset in `__init__` (forms) or `get_queryset` / `formfield_for_*` (admins)** so it is rebuilt per-request, with `get_tenant_settings()` resolving inside the request scope.
+
+Example: `accounts/forms.py:PermissionSetAdminForm` declares `User.objects.all()` and `PermissionSet.objects.all()` at class scope, then re-assigns both in `__init__`. Do not "clean up" those reassignments — they look redundant but are load-bearing.
+
+When you reassign a M2M queryset in `__init__`, you also drop any `select_related` / `prefetch_related` that the parent `ModelAdmin.formfield_for_manytomany` had added. If the related model's `__str__` touches a foreign key (e.g. `Permission.__str__` reads `content_type`), reapply the hint yourself or you'll re-introduce N+1s during widget rendering.
+
 ### Tenant-scoped cache and lock keys
 
 Cache aliases configured with `KEY_FUNCTION: utils.tenant.cache.make_cache_key` (see `das_server/settings.py`) automatically prefix every key with the thread-local tenant ID. This applies to:

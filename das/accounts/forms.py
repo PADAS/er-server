@@ -220,6 +220,12 @@ class PermissionSetAdminForm(forms.ModelForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        # Re-evaluate tenant-scoped querysets here. The class-level
+        # ModelMultipleChoiceField declarations above run at import time,
+        # before the tenant middleware has set the threadlocal — so the
+        # tenant manager would either raise or filter against the wrong
+        # tenant. Reassigning in __init__ ensures the queryset is built
+        # per-request with the correct tenant context.
         self.fields["user_set"].queryset = User.objects.all()
         self.fields["acquire_from"].queryset = PermissionSet.objects.all().order_by("name")
 
@@ -230,8 +236,16 @@ class PermissionSetAdminForm(forms.ModelForm):
                 permissionsetpermission__das_tenant_id=get_tenant_settings().id
             )
 
+        # select_related("content_type") is required: Permission.__str__ renders
+        # "{content_type} | {name}", and FilteredSelectMultiple iterates every
+        # option to render the change form. Without the join, each rendered
+        # option triggers its own SELECT on django_content_type — N+1 that
+        # turns the admin page into an apparent hang on tenants with many
+        # per-tenant event permissions. DjangoGroupAdmin.formfield_for_manytomany
+        # adds the same hint upstream; we lose it because we reassign queryset.
         self.fields["permissions"].queryset = filter_permissions_by_tenant(
-            tenant_settings=get_tenant_settings(), queryset=Permission.objects.all()
+            tenant_settings=get_tenant_settings(),
+            queryset=Permission.objects.select_related("content_type"),
         )
 
         if not get_tenant_settings().env_settings.patrol_enabled:
