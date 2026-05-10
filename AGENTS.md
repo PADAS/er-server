@@ -119,6 +119,14 @@ When reviewing or writing code that uses one of these cache aliases, **do not ad
 - Always use `logging` and not `print`.
 - Use Python typing `Protocol` and not ABC for defining abstract classes. Rely on the type checker to enforce all required methods are implemented.
 
+### Dates and timezones
+
+- Do **not** use `pytz` in new code — it has been removed from the project. Use the stdlib `datetime`/`zoneinfo` instead.
+- Construct UTC datetimes with `datetime.now(tz=timezone.utc)` or `datetime(..., tzinfo=timezone.utc)`. Do not use `datetime.utcnow()` (returns a naive datetime).
+- For non-UTC zones, use `zoneinfo.ZoneInfo("Region/City")` rather than `pytz.timezone(...)`.
+- In Django code, prefer `django.utils.timezone.now()` for "current time, tenant-aware" and reserve stdlib `datetime.now(tz=...)` for non-Django utilities and tests.
+- Never call `pytz.utc.localize(naive_dt)` — replace with `naive_dt.replace(tzinfo=timezone.utc)` or, better, construct the datetime aware in the first place.
+
 ## Django/Python Conventions
 
 - Use Django's class-based views (CBVs) with viewsets.

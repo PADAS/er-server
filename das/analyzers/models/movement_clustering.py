@@ -1,4 +1,5 @@
 from django.contrib.gis.db import models
+from django.core.validators import MinValueValidator
 from django.utils.translation import gettext as _
 
 from analyzers.models.base import SubjectAnalyzerConfig
@@ -64,6 +65,18 @@ class MovementClusterAnalyzerConfig(SubjectAnalyzerConfig):
         help_text=_(
             "Minimum time span a cluster must cover before it is reported as "
             "a significant event.  Clusters with a shorter duration are ignored."
+        ),
+    )
+
+    min_subjects_in_cluster = models.IntegerField(
+        null=False,
+        default=1,
+        validators=[MinValueValidator(1)],
+        verbose_name=_("Minimum Subjects per Cluster"),
+        help_text=_(
+            "Minimum number of distinct subjects required in a cluster before it is "
+            "reported as a significant event.  When greater than 1, observations from "
+            "all subjects in the subject group are combined before clustering."
         ),
     )
 
