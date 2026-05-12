@@ -1,10 +1,12 @@
-from unittest.mock import Mock, patch
+from __future__ import annotations
+
+from unittest.mock import patch
 
 import pytest
 
 from utils.auth0.helpers import (
+    create_auth0_management_client,
     get_auth0_custom_domain,
-    get_auth0_management_api_access_token,
     get_auth0_tenant_domain_for_management_api_only,
 )
 
@@ -71,47 +73,39 @@ class TestAuth0Helpers:
             assert "was changed to" not in caplog.text
 
 
-class TestGetAuth0ManagementApiAccessToken:
+class TestCreateAuth0ManagementClient:
+    @pytest.fixture(autouse=True)
+    def _clear_factory_cache(self):
+        """Clear the @cache between tests so they don't leak state."""
+        create_auth0_management_client.cache_clear()
+        yield
+        create_auth0_management_client.cache_clear()
+
     @pytest.fixture(autouse=True)
     def mock_settings(self):
         """Mock Django settings for Auth0 Management API configuration."""
         with patch("utils.auth0.helpers.settings") as mock_settings:
+            mock_settings.AUTH0_TENANT_DOMAIN = "tenant.auth0.com"
             mock_settings.AUTH0_CLIENT_ID_FOR_MANAGEMENT_API = "test_client_id"
             mock_settings.AUTH0_CLIENT_SECRET_FOR_MANAGEMENT_API = "test_client_secret"
             yield mock_settings
 
-    @pytest.fixture(autouse=True)
-    def mock_domain_helpers(self):
-        """Mock Auth0 domain helper functions."""
-        with patch("utils.auth0.helpers.get_auth0_custom_domain") as mock_custom, patch(
-            "utils.auth0.helpers.get_auth0_tenant_domain_for_management_api_only"
-        ) as mock_noncustom:
-            mock_custom.return_value = "custom.auth0.com"
-            mock_noncustom.return_value = "tenant.auth0.com"
-            yield mock_custom, mock_noncustom
+    def test_creates_management_client_with_correct_params(self):
+        """Test that the factory constructs ManagementClient with correct kwargs."""
+        with patch("utils.auth0.helpers.ManagementClient", autospec=True) as mock_cls:
+            create_auth0_management_client()
 
-    def test_get_management_api_token_success(self):
-        """Test successful token retrieval from Auth0 Management API."""
-
-        with patch("utils.auth0.helpers.GetToken") as mock_get_token_class:
-            mock_get_token_instance = Mock()
-            mock_get_token_instance.client_credentials.return_value = {
-                "access_token": "test_access_token_12345",
-                "token_type": "Bearer",
-                "expires_in": 86400,
-            }
-            mock_get_token_class.return_value = mock_get_token_instance
-
-            token = get_auth0_management_api_access_token()
-
-            assert token == "test_access_token_12345"
-
-            # Verify GetToken was initialized with correct parameters
-            mock_get_token_class.assert_called_once_with(
-                "custom.auth0.com", "test_client_id", client_secret="test_client_secret"
+            mock_cls.assert_called_once_with(
+                domain="tenant.auth0.com",
+                client_id="test_client_id",
+                client_secret="test_client_secret",
             )
 
-            # Verify client_credentials was called with correct audience
-            mock_get_token_instance.client_credentials.assert_called_once_with(
-                audience="https://tenant.auth0.com/api/v2/"
-            )
+    def test_cache_returns_same_instance(self):
+        """Test that repeated calls return the same cached instance."""
+        with patch("utils.auth0.helpers.ManagementClient", autospec=True) as mock_cls:
+            first = create_auth0_management_client()
+            second = create_auth0_management_client()
+
+            assert first is second
+            mock_cls.assert_called_once()
