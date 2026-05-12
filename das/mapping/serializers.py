@@ -199,7 +199,7 @@ class SpatialFeatureSerializer(serializers.ModelSerializer):
 class SpatialFeatureGroupListSerializer(serializers.ModelSerializer):
     """Lightweight serializer for list endpoints - excludes expensive features field."""
 
-    url = serializers.HyperlinkedIdentityField(view_name="mapping:featuregroup-detail", lookup_field="id")
+    url = serializers.HyperlinkedIdentityField(view_name="mapping:featuregroups-detail", lookup_field="id")
     feature_count = serializers.SerializerMethodField()
 
     class Meta:
@@ -213,7 +213,7 @@ class SpatialFeatureGroupListSerializer(serializers.ModelSerializer):
 class SpatialFeatureGroupDetailSerializer(serializers.ModelSerializer):
     """Detailed serializer for detail endpoints - includes full feature data."""
 
-    url = serializers.HyperlinkedIdentityField(view_name="mapping:featuregroup-detail", lookup_field="id")
+    url = serializers.HyperlinkedIdentityField(view_name="mapping:featuregroups-detail", lookup_field="id")
     features = SpatialFeatureSerializer(many=True)
     feature_count = serializers.SerializerMethodField()
 

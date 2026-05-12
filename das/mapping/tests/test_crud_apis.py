@@ -29,14 +29,14 @@ class TestDisplayCategoryAPI:
     def test_list_display_categories(self, user_client):
         DisplayCategoryFactory(name="Boundaries")
         DisplayCategoryFactory(name="Water")
-        url = reverse("mapping:displaycategory-list")
+        url = reverse("mapping:displaycategories-list")
         response = user_client.get(url)
         assert response.status_code == 200
         data = response.json()
         assert len(data["data"]) == 2
 
     def test_create_display_category(self, superuser_client):
-        url = reverse("mapping:displaycategory-list")
+        url = reverse("mapping:displaycategories-list")
         payload = {"name": "Security", "description": "Security features"}
         response = superuser_client.post(url, data=json.dumps(payload), content_type="application/json")
         assert response.status_code == 201
@@ -44,7 +44,7 @@ class TestDisplayCategoryAPI:
 
     def test_retrieve_display_category(self, user_client):
         cat = DisplayCategoryFactory(name="Boundaries")
-        url = reverse("mapping:displaycategory-detail", kwargs={"id": str(cat.id)})
+        url = reverse("mapping:displaycategories-detail", kwargs={"id": str(cat.id)})
         response = user_client.get(url)
         assert response.status_code == 200
         data = response.json()
@@ -52,7 +52,7 @@ class TestDisplayCategoryAPI:
 
     def test_update_display_category(self, superuser_client):
         cat = DisplayCategoryFactory(name="Boundaries")
-        url = reverse("mapping:displaycategory-detail", kwargs={"id": str(cat.id)})
+        url = reverse("mapping:displaycategories-detail", kwargs={"id": str(cat.id)})
         payload = {"name": "Boundaries Updated", "description": "Updated desc"}
         response = superuser_client.patch(url, data=json.dumps(payload), content_type="application/json")
         assert response.status_code == 200
@@ -61,20 +61,20 @@ class TestDisplayCategoryAPI:
 
     def test_delete_display_category(self, superuser_client):
         cat = DisplayCategoryFactory(name="Boundaries")
-        url = reverse("mapping:displaycategory-detail", kwargs={"id": str(cat.id)})
+        url = reverse("mapping:displaycategories-detail", kwargs={"id": str(cat.id)})
         response = superuser_client.delete(url)
         assert response.status_code == 200
         assert not DisplayCategory.objects.filter(id=cat.id).exists()
 
     def test_create_display_category_requires_name(self, superuser_client):
-        url = reverse("mapping:displaycategory-list")
+        url = reverse("mapping:displaycategories-list")
         response = superuser_client.post(
             url, data=json.dumps({"description": "No name"}), content_type="application/json"
         )
         assert response.status_code == 400
 
     def test_write_requires_permission(self, user_client):
-        url = reverse("mapping:displaycategory-list")
+        url = reverse("mapping:displaycategories-list")
         response = user_client.post(url, data=json.dumps({"name": "Unauthorized"}), content_type="application/json")
         assert response.status_code == 403
 
@@ -86,13 +86,13 @@ class TestSpatialFeatureTypeAPI:
     def test_list_feature_types(self, user_client, display_category):
         SpatialFeatureTypeFactory(name="Type A", display_category=display_category)
         SpatialFeatureTypeFactory(name="Type B", display_category=display_category)
-        url = reverse("mapping:spatialfeaturetype-list")
+        url = reverse("mapping:featuretypes-list")
         response = user_client.get(url)
         assert response.status_code == 200
         assert len(response.json()["data"]) == 2
 
     def test_create_feature_type(self, superuser_client, display_category):
-        url = reverse("mapping:spatialfeaturetype-list")
+        url = reverse("mapping:featuretypes-list")
         payload = {
             "name": "Road",
             "display_category": str(display_category.id),
@@ -105,7 +105,7 @@ class TestSpatialFeatureTypeAPI:
 
     def test_retrieve_feature_type(self, user_client, display_category):
         ft = SpatialFeatureTypeFactory(name="River", display_category=display_category)
-        url = reverse("mapping:spatialfeaturetype-detail", kwargs={"id": str(ft.id)})
+        url = reverse("mapping:featuretypes-detail", kwargs={"id": str(ft.id)})
         response = user_client.get(url)
         assert response.status_code == 200
         data = response.json()
@@ -113,7 +113,7 @@ class TestSpatialFeatureTypeAPI:
 
     def test_update_feature_type(self, superuser_client, display_category):
         ft = SpatialFeatureTypeFactory(name="Road", display_category=display_category)
-        url = reverse("mapping:spatialfeaturetype-detail", kwargs={"id": str(ft.id)})
+        url = reverse("mapping:featuretypes-detail", kwargs={"id": str(ft.id)})
         payload = {"name": "Highway", "display_category": str(display_category.id)}
         response = superuser_client.patch(url, data=json.dumps(payload), content_type="application/json")
         assert response.status_code == 200
@@ -122,13 +122,13 @@ class TestSpatialFeatureTypeAPI:
 
     def test_delete_feature_type(self, superuser_client, display_category):
         ft = SpatialFeatureTypeFactory(name="Road", display_category=display_category)
-        url = reverse("mapping:spatialfeaturetype-detail", kwargs={"id": str(ft.id)})
+        url = reverse("mapping:featuretypes-detail", kwargs={"id": str(ft.id)})
         response = superuser_client.delete(url)
         assert response.status_code == 200
         assert not SpatialFeatureType.objects.filter(id=ft.id).exists()
 
     def test_write_requires_permission(self, user_client, display_category):
-        url = reverse("mapping:spatialfeaturetype-list")
+        url = reverse("mapping:featuretypes-list")
         payload = {"name": "Road", "display_category": str(display_category.id), "is_visible": True}
         response = user_client.post(url, data=json.dumps(payload), content_type="application/json")
         assert response.status_code == 403
@@ -148,24 +148,24 @@ class TestMapAPI:
         }
 
     def test_create_map(self, superuser_client, map_payload):
-        url = reverse("mapping:quicklink-list")
+        url = reverse("mapping:quicklinks-list")
         response = superuser_client.post(url, data=json.dumps(map_payload), content_type="application/json")
         assert response.status_code == 201
         assert Map.objects.filter(name="Test Map").exists()
 
     def test_retrieve_map(self, superuser_client, map_payload):
-        url = reverse("mapping:quicklink-list")
+        url = reverse("mapping:quicklinks-list")
         superuser_client.post(url, data=json.dumps(map_payload), content_type="application/json")
         m = Map.objects.get(name="Test Map")
-        detail_url = reverse("mapping:quicklink-detail", kwargs={"id": str(m.id)})
+        detail_url = reverse("mapping:quicklinks-detail", kwargs={"id": str(m.id)})
         response = superuser_client.get(detail_url)
         assert response.status_code == 200
 
     def test_update_map(self, superuser_client, map_payload):
-        url = reverse("mapping:quicklink-list")
+        url = reverse("mapping:quicklinks-list")
         superuser_client.post(url, data=json.dumps(map_payload), content_type="application/json")
         m = Map.objects.get(name="Test Map")
-        detail_url = reverse("mapping:quicklink-detail", kwargs={"id": str(m.id)})
+        detail_url = reverse("mapping:quicklinks-detail", kwargs={"id": str(m.id)})
         update_payload = {**map_payload, "name": "Updated Map", "zoom": 14}
         response = superuser_client.put(detail_url, data=json.dumps(update_payload), content_type="application/json")
         assert response.status_code == 200
@@ -173,16 +173,16 @@ class TestMapAPI:
         assert m.name == "Updated Map"
 
     def test_delete_map(self, superuser_client, map_payload):
-        url = reverse("mapping:quicklink-list")
+        url = reverse("mapping:quicklinks-list")
         superuser_client.post(url, data=json.dumps(map_payload), content_type="application/json")
         m = Map.objects.get(name="Test Map")
-        detail_url = reverse("mapping:quicklink-detail", kwargs={"id": str(m.id)})
+        detail_url = reverse("mapping:quicklinks-detail", kwargs={"id": str(m.id)})
         response = superuser_client.delete(detail_url)
         assert response.status_code == 200
         assert not Map.objects.filter(id=m.id).exists()
 
     def test_write_requires_permission(self, user_client, map_payload):
-        url = reverse("mapping:quicklink-list")
+        url = reverse("mapping:quicklinks-list")
         response = user_client.post(url, data=json.dumps(map_payload), content_type="application/json")
         assert response.status_code == 403
 
@@ -274,20 +274,20 @@ class TestSpatialFeatureGroupAPI:
     def test_list_feature_groups(self, user_client):
         SpatialFeatureGroupStaticFactory(name="Group A")
         SpatialFeatureGroupStaticFactory(name="Group B")
-        url = reverse("mapping:featuregroup-list")
+        url = reverse("mapping:featuregroups-list")
         response = user_client.get(url)
         assert response.status_code == 200
         assert len(response.json()["data"]) == 2
 
     def test_retrieve_feature_group(self, user_client):
         group = SpatialFeatureGroupStaticFactory(name="My Group")
-        url = reverse("mapping:featuregroup-detail", kwargs={"id": str(group.id)})
+        url = reverse("mapping:featuregroups-detail", kwargs={"id": str(group.id)})
         response = user_client.get(url)
         assert response.status_code == 200
         assert response.json()["data"]["name"] == "My Group"
 
     def test_create_feature_group(self, superuser_client):
-        url = reverse("mapping:featuregroup-list")
+        url = reverse("mapping:featuregroups-list")
         payload = {"name": "River Basin Group", "description": "Group of rivers"}
         response = superuser_client.post(url, data=json.dumps(payload), content_type="application/json")
         assert response.status_code == 201
@@ -295,7 +295,7 @@ class TestSpatialFeatureGroupAPI:
 
     def test_create_feature_group_with_features(self, superuser_client):
         feature = SpatialFeatureFactory(feature_geometry=MultiPoint(Point(-122.1, 47.5)))
-        url = reverse("mapping:featuregroup-list")
+        url = reverse("mapping:featuregroups-list")
         payload = {"name": "Group With Features", "description": "", "features": [str(feature.id)]}
         response = superuser_client.post(url, data=json.dumps(payload), content_type="application/json")
         assert response.status_code == 201
@@ -304,7 +304,7 @@ class TestSpatialFeatureGroupAPI:
 
     def test_update_feature_group(self, superuser_client):
         group = SpatialFeatureGroupStaticFactory(name="Old Name")
-        url = reverse("mapping:featuregroup-detail", kwargs={"id": str(group.id)})
+        url = reverse("mapping:featuregroups-detail", kwargs={"id": str(group.id)})
         payload = {"name": "New Name", "description": "Updated"}
         response = superuser_client.patch(url, data=json.dumps(payload), content_type="application/json")
         assert response.status_code == 200
@@ -313,13 +313,13 @@ class TestSpatialFeatureGroupAPI:
 
     def test_delete_feature_group(self, superuser_client):
         group = SpatialFeatureGroupStaticFactory(name="To Delete")
-        url = reverse("mapping:featuregroup-detail", kwargs={"id": str(group.id)})
+        url = reverse("mapping:featuregroups-detail", kwargs={"id": str(group.id)})
         response = superuser_client.delete(url)
         assert response.status_code == 200
         assert not SpatialFeatureGroupStatic.objects.filter(id=group.id).exists()
 
     def test_write_requires_permission(self, user_client):
-        url = reverse("mapping:featuregroup-list")
+        url = reverse("mapping:featuregroups-list")
         response = user_client.post(url, data=json.dumps({"name": "No Permission"}), content_type="application/json")
         assert response.status_code == 403
 

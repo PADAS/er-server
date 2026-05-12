@@ -81,11 +81,11 @@ class SpatialFeatureTypeDetailView(generics.RetrieveUpdateDestroyAPIView):
 
 # type: ignore[misc] on Deprecated* classes: DeprecatedEndpointMixin intentionally precedes the concrete view in MRO
 class DeprecatedSpatialFeatureTypeListView(DeprecatedEndpointMixin, SpatialFeatureTypeListView):  # type: ignore[misc]
-    deprecated_use_instead = "/featuretype/"
+    deprecated_use_instead = "/featuretypes/"
 
 
 class DeprecatedSpatialFeatureTypeDetailView(DeprecatedEndpointMixin, SpatialFeatureTypeDetailView):  # type: ignore[misc]
-    deprecated_use_instead = "/featuretype/<id>/"
+    deprecated_use_instead = "/featuretypes/<id>/"
 
 
 class SpatialFeatureGroupListView(generics.ListCreateAPIView):
@@ -121,11 +121,11 @@ class SpatialFeatureGroupDetailView(generics.RetrieveUpdateDestroyAPIView):
 
 
 class DeprecatedSpatialFeatureGroupListView(DeprecatedEndpointMixin, SpatialFeatureGroupListView):  # type: ignore[misc]
-    deprecated_use_instead = "/featuregroup/"
+    deprecated_use_instead = "/featuregroups/"
 
 
 class DeprecatedSpatialFeatureGroupDetailView(DeprecatedEndpointMixin, SpatialFeatureGroupDetailView):  # type: ignore[misc]
-    deprecated_use_instead = "/featuregroup/<id>/"
+    deprecated_use_instead = "/featuregroups/<id>/"
 
 
 class SpatialFeatureListView(generics.ListCreateAPIView, DynamicSchemaDataMixin):

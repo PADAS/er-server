@@ -453,7 +453,7 @@ class TestSpatialFeatureListView:
 class TestSpatialFeatureTypeListView:
 
     def test_list_all_feature_types(self, user_client, feature_type1, feature_type2):
-        url = reverse("mapping:spatialfeaturetype-list")
+        url = reverse("mapping:featuretypes-list")
         response = user_client.get(url)
         assert response.status_code == 200
         data = response.json()
@@ -478,7 +478,7 @@ class TestSpatialFeatureTypeListView:
     def test_feature_types_have_correct_categories(
         self, user_client, feature_type1, feature_type2, category1, category2
     ):
-        url = reverse("mapping:spatialfeaturetype-list")
+        url = reverse("mapping:featuretypes-list")
         response = user_client.get(url)
         assert response.status_code == 200
         data = response.json()
@@ -521,7 +521,7 @@ class TestSpatialFeatureGroupListView:
 
     def test_list_all_feature_groups(self, user_client, feature_group1, feature_group2):
         """Test that the list endpoint returns all feature groups with correct structure."""
-        url = reverse("mapping:featuregroup-list")
+        url = reverse("mapping:featuregroups-list")
         response = user_client.get(url)
         assert response.status_code == 200
 
@@ -541,7 +541,7 @@ class TestSpatialFeatureGroupListView:
 
     def test_feature_group_urls_are_correct(self, user_client, feature_group1):
         """Test that HyperlinkedIdentityField generates correct URLs."""
-        url = reverse("mapping:featuregroup-list")
+        url = reverse("mapping:featuregroups-list")
         response = user_client.get(url)
         assert response.status_code == 200
 
