@@ -548,7 +548,7 @@ class TestSpatialFeatureGroupListView:
         data = response.json()
         group = data["data"][0]
 
-        assert group["url"].endswith(f"/featuregroup/{feature_group1.id}/")
+        assert group["url"].endswith(f"/featuregroup/{feature_group1.id}")
 
     def test_empty_list_when_no_groups(self, user_client):
         """Test that empty list is returned when no feature groups exist."""
