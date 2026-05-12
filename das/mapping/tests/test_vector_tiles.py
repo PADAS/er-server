@@ -13,6 +13,7 @@ import mapping.views as mviews
 from mapping.models import DisplayCategory, SpatialFeature, SpatialFeatureType
 from mapping.vector_layers import SpatialFeatureLayer
 from mapping.views import SpatialFeatureTileView
+from utils.tenant.exceptions import TenantNotFoundException
 
 
 def make_tile_url(z, x, y):
@@ -313,7 +314,7 @@ class TestSpatialFeatureTileEndpoint:
         # Force tenant resolution to raise
 
         def raise_resolve(host):
-            raise Exception("tenant resolution failed")
+            raise TenantNotFoundException("tenant resolution failed")
 
         monkeypatch.setattr(mviews, "get_tenant_data_by_host", raise_resolve)
         factory = RequestFactory()
