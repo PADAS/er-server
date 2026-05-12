@@ -158,8 +158,8 @@ class SpatialFeatureDetailView(generics.RetrieveUpdateDestroyAPIView):
 
 
 class DeprecatedSpatialFeatureListView(DeprecatedEndpointMixin, SpatialFeatureListView):  # type: ignore[misc]
-    deprecated_use_instead = "/features/v2/"
+    deprecated_use_instead = "/api/v2.0/features/"
 
 
 class DeprecatedSpatialFeatureDetailView(DeprecatedEndpointMixin, SpatialFeatureDetailView):  # type: ignore[misc]
-    deprecated_use_instead = "/features/v2/<id>/"
+    deprecated_use_instead = "/api/v2.0/features/<id>/"
