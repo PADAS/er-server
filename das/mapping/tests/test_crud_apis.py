@@ -198,7 +198,7 @@ class TestDeprecatedMapsAPI:
         assert "Sunset" in response
 
     def test_quicklinks_has_no_deprecation_header(self, user_client):
-        response = user_client.get("/api/v1.0/quicklink/")
+        response = user_client.get("/api/v1.0/quicklinks/")
         assert response.status_code == 200
         assert "Deprecation" not in response
 
@@ -220,22 +220,22 @@ class TestDeprecatedFeatureSetAPI:
         assert "Sunset" in response
 
     def test_featuregroup_list_has_no_deprecation_header(self, user_client):
-        response = user_client.get("/api/v1.0/featuregroup/")
+        response = user_client.get("/api/v1.0/featuregroups/")
         assert response.status_code == 200
         assert "Deprecation" not in response
 
     def test_featuregroup_detail_has_no_deprecation_header(self, user_client):
         group = SpatialFeatureGroupStaticFactory(name="Test Group")
-        response = user_client.get(f"/api/v1.0/featuregroup/{group.id}/")
+        response = user_client.get(f"/api/v1.0/featuregroups/{group.id}/")
         assert response.status_code == 200
         assert "Deprecation" not in response
 
     def test_featuregroup_list_url_points_to_featuregroup(self, user_client):
         group = SpatialFeatureGroupStaticFactory(name="Test Group")
-        response = user_client.get("/api/v1.0/featuregroup/")
+        response = user_client.get("/api/v1.0/featuregroups/")
         data = response.json()
         item = next(f for f in data["data"] if str(group.id) in f["url"])
-        assert "/featuregroup/" in item["url"]
+        assert "/featuregroups/" in item["url"]
 
 
 @pytest.mark.django_db
@@ -256,13 +256,13 @@ class TestDeprecatedFeatureClassAPI:
         assert "Sunset" in response
 
     def test_featuretype_list_has_no_deprecation_header(self, user_client):
-        response = user_client.get("/api/v1.0/featuretype/")
+        response = user_client.get("/api/v1.0/featuretypes/")
         assert response.status_code == 200
         assert "Deprecation" not in response
 
     def test_featuretype_detail_has_no_deprecation_header(self, user_client, display_category):
         ft = SpatialFeatureTypeFactory(display_category=display_category)
-        response = user_client.get(f"/api/v1.0/featuretype/{ft.id}/")
+        response = user_client.get(f"/api/v1.0/featuretypes/{ft.id}/")
         assert response.status_code == 200
         assert "Deprecation" not in response
 
