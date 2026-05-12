@@ -23,27 +23,6 @@ from utils.tests_tools import is_url_resolved
 logger = logging.getLogger(__name__)
 
 
-# Shared fixtures for mapping tests
-@pytest.fixture
-def category1():
-    return DisplayCategory.objects.create(name="Category One")
-
-
-@pytest.fixture
-def category2():
-    return DisplayCategory.objects.create(name="Category Two")
-
-
-@pytest.fixture
-def feature_type1(category1):
-    return SpatialFeatureType.objects.create(name="Type One", display_category=category1)
-
-
-@pytest.fixture
-def feature_type2(category2):
-    return SpatialFeatureType.objects.create(name="Type Two", display_category=category2)
-
-
 # @patch("django.conf.settings.MAPPING_FEATURES_V2", True)
 # @patch("das_server.settings.MAPPING_FEATURES_V2", True)
 # @override_settings(MAPPING_FEATURES_V2=True)
@@ -64,7 +43,7 @@ class TestFeatures(BaseAPITest):
 
     def test_get_features(self):
         request = self.factory.get(self.api_base + "/features/")
-        assert is_url_resolved(request.path, views.FeatureListJsonView)
+        assert is_url_resolved(request.path, views.DeprecatedFeatureListJsonView)
         self.force_authenticate(request, self.app_user)
         response = views.FeatureListJsonView.as_view()(request)
         self.assertContains(response, "features")
@@ -77,7 +56,7 @@ class TestFeatures(BaseAPITest):
 
     def test_get_feature(self):
         request = self.factory.get(self.api_base + "/feature/")
-        assert is_url_resolved(f"{request.path}{self.feature.id}/", views.FeatureGeoJsonView)
+        assert is_url_resolved(f"{request.path}{self.feature.id}/", views.DeprecatedFeatureGeoJsonView)
         self.force_authenticate(request, self.app_user)
         response = views.FeatureGeoJsonView.as_view()(request, id=str(self.feature.id))
         self.assertContains(response, "features")
@@ -90,7 +69,7 @@ class TestFeatures(BaseAPITest):
 
     def test_get_featureset(self):
         request = self.factory.get(self.api_base + "/featureset/")
-        assert is_url_resolved(request.path, views.FeatureSetListJsonView)
+        assert is_url_resolved(request.path, views.DeprecatedFeatureSetListJsonView)
         self.force_authenticate(request, self.app_user)
         response = views.FeatureSetListJsonView.as_view()(request)
         self.assertContains(response, "features")
@@ -103,7 +82,7 @@ class TestFeatures(BaseAPITest):
 
     def test_get_featureset_single(self):
         request = self.factory.get(self.api_base + "/featureset/")
-        assert is_url_resolved(f"{request.path}{self.category.id}/", views.FeatureSetGeoJsonView)
+        assert is_url_resolved(f"{request.path}{self.category.id}/", views.DeprecatedFeatureSetGeoJsonView)
         self.force_authenticate(request, self.app_user)
         response = views.FeatureSetGeoJsonView.as_view()(request, id=str(self.category.id))
         self.assertContains(response, "features")
@@ -542,7 +521,7 @@ class TestSpatialFeatureGroupListView:
 
     def test_list_all_feature_groups(self, user_client, feature_group1, feature_group2):
         """Test that the list endpoint returns all feature groups with correct structure."""
-        url = reverse("mapping:spatialfeaturegroup-list")
+        url = reverse("mapping:featuregroup-list")
         response = user_client.get(url)
         assert response.status_code == 200
 
@@ -562,16 +541,14 @@ class TestSpatialFeatureGroupListView:
 
     def test_feature_group_urls_are_correct(self, user_client, feature_group1):
         """Test that HyperlinkedIdentityField generates correct URLs."""
-        url = reverse("mapping:spatialfeaturegroup-list")
+        url = reverse("mapping:featuregroup-list")
         response = user_client.get(url)
         assert response.status_code == 200
 
         data = response.json()
         group = data["data"][0]
 
-        # URL should point to detail endpoint
-        expected_detail_url = f"/api/v1.0/spatialfeaturegroup/{feature_group1.id}"
-        assert expected_detail_url in group["url"]
+        assert group["url"].endswith(f"/featuregroup/{feature_group1.id}/")
 
     def test_empty_list_when_no_groups(self, user_client):
         """Test that empty list is returned when no feature groups exist."""

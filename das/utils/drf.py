@@ -1,6 +1,6 @@
 import hashlib
 import logging
-from typing import Dict, List, Optional, Union
+from typing import Any, Dict, List, Optional, Union
 from urllib.parse import quote
 
 from rest_framework_gis.pagination import GeoJsonPagination
@@ -351,6 +351,25 @@ class CycleDetectedException(exceptions.APIException):
     status_code = 508
     default_detail = "Cyclic SubjectGroup found"
     default_code = "loop_detected"
+
+
+class DeprecatedEndpointMixin:
+    """Mixin that adds Deprecation and Warning headers to all responses.
+
+    Set ``deprecated_use_instead`` on the subclass to include a hint in the
+    Warning header pointing clients to the replacement path.
+    """
+
+    deprecated_use_instead: str = ""
+
+    def finalize_response(self, request: Request, response: Response, *args: Any, **kwargs: Any) -> Response:
+        response = super().finalize_response(request, response, *args, **kwargs)  # type: ignore[misc]
+        response["Deprecation"] = "true"
+        message = "This endpoint is deprecated"
+        if self.deprecated_use_instead:
+            message += f"; use {self.deprecated_use_instead} instead"
+        response["Warning"] = f'299 das "{message}."'
+        return response
 
 
 class StandardObjectPermissions(DjangoObjectPermissions):

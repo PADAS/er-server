@@ -87,6 +87,7 @@ urlpatterns = [
     path("api/v1.0/", include("choices.urls")),
     path("api/v1.0/", include("buoy.urls")),
     path("api/v1.0/core/", include("core.urls")),
+    path("api/v2.0/", include("mapping.urls_v2")),
     path("api/v2.0/schemas/", include("schemas.urls", namespace="schemas")),
     path("api/v2.0/activity/", include("activity.urls_v2")),
     path("api/v2.0/community/", include("activity.community_urls")),
