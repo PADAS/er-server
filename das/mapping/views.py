@@ -72,7 +72,7 @@ class FeatureListJsonView(APIView):
         "-feature_type": "-feature_type__name",
     }
 
-    def get(self, request: Request) -> Response:
+    def get(self, request: Request) -> HttpResponse:
         include_hidden = parse_bool(request.GET.get("include_hidden", False))
         feature_type_id = request.GET.get("feature_type")
         feature_set_id = request.GET.get("feature_set")
@@ -103,7 +103,7 @@ class FeatureListJsonView(APIView):
 
 
 class FeatureGeoJsonView(APIView):
-    def get(self, request: Request, id: str) -> Response:
+    def get(self, request: Request, id: str) -> HttpResponse:
         include_hidden = parse_bool(request.GET.get("include_hidden", False))
         selected_feature = (
             SpatialFeature.objects.filter(id=id)
@@ -133,7 +133,7 @@ class FeatureSetListJsonView(APIView):
     A simple list of featuresets available to the clients
     """
 
-    def get(self, request: Request) -> Response:
+    def get(self, request: Request) -> HttpResponse:
         def feature_types(featureset, include_hidden, summarize_features):
             # First, get all feature types with their counts
             if include_hidden:
