@@ -195,7 +195,7 @@ class TestDeprecatedMapsAPI:
         response = user_client.get("/api/v1.0/maps/")
         assert response.status_code == 200
         assert response["Deprecation"] == "true"
-        assert "Warning" in response
+        assert "Sunset" in response
 
     def test_quicklinks_has_no_deprecation_header(self, user_client):
         response = user_client.get("/api/v1.0/quicklink/")
@@ -211,13 +211,13 @@ class TestDeprecatedFeatureSetAPI:
         response = user_client.get("/api/v1.0/featureset/")
         assert response.status_code == 200
         assert response["Deprecation"] == "true"
-        assert "Warning" in response
+        assert "Sunset" in response
 
     def test_featureset_detail_returns_deprecation_header(self, user_client, display_category):
         response = user_client.get(f"/api/v1.0/featureset/{display_category.id}/")
         assert response.status_code == 200
         assert response["Deprecation"] == "true"
-        assert "Warning" in response
+        assert "Sunset" in response
 
     def test_featuregroup_list_has_no_deprecation_header(self, user_client):
         response = user_client.get("/api/v1.0/featuregroup/")
@@ -246,14 +246,14 @@ class TestDeprecatedFeatureClassAPI:
         response = user_client.get("/api/v1.0/featureclass/")
         assert response.status_code == 200
         assert response["Deprecation"] == "true"
-        assert "Warning" in response
+        assert "Sunset" in response
 
     def test_featureclass_detail_returns_deprecation_header(self, user_client, display_category):
         ft = SpatialFeatureTypeFactory(display_category=display_category)
         response = user_client.get(f"/api/v1.0/featureclass/{ft.id}/")
         assert response.status_code == 200
         assert response["Deprecation"] == "true"
-        assert "Warning" in response
+        assert "Sunset" in response
 
     def test_featuretype_list_has_no_deprecation_header(self, user_client):
         response = user_client.get("/api/v1.0/featuretype/")
@@ -439,7 +439,7 @@ class TestDeprecatedSpatialFeatureAPI:
         response = user_client.get("/api/v1.0/spatialfeature/")
         assert response.status_code == 200
         assert response["Deprecation"] == "true"
-        assert "Warning" in response
+        assert "Sunset" in response
 
     def test_spatialfeature_detail_returns_deprecation_header(self, user_client):
         ft = SpatialFeatureTypeFactory()
@@ -447,7 +447,7 @@ class TestDeprecatedSpatialFeatureAPI:
         response = user_client.get(f"/api/v1.0/spatialfeature/{feature.id}/")
         assert response.status_code == 200
         assert response["Deprecation"] == "true"
-        assert "Warning" in response
+        assert "Sunset" in response
 
     def test_features_list_has_deprecation_header(self, user_client):
         response = user_client.get("/api/v1.0/features/")

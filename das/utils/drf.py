@@ -354,10 +354,10 @@ class CycleDetectedException(exceptions.APIException):
 
 
 class DeprecatedEndpointMixin:
-    """Mixin that adds Deprecation and Warning headers to all responses.
+    """Mixin that adds Deprecation and Sunset headers to all responses.
 
     Set ``deprecated_use_instead`` on the subclass to include a hint in the
-    Warning header pointing clients to the replacement path.
+    Sunset header pointing clients to the replacement path.
     """
 
     deprecated_use_instead: str = ""
@@ -365,10 +365,8 @@ class DeprecatedEndpointMixin:
     def finalize_response(self, request: Request, response: Response, *args: Any, **kwargs: Any) -> Response:
         response = super().finalize_response(request, response, *args, **kwargs)  # type: ignore[misc]
         response["Deprecation"] = "true"
-        message = "This endpoint is deprecated"
         if self.deprecated_use_instead:
-            message += f"; use {self.deprecated_use_instead} instead"
-        response["Warning"] = f'299 das "{message}."'
+            response["Sunset"] = self.deprecated_use_instead
         return response
 
 
