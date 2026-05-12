@@ -11,7 +11,7 @@ app_name = "mapping_v2"
 urlpatterns = (
     re_path(r"^features/?$", SpatialFeatureListView.as_view(), name="feature-list"),
     re_path(
-        rf"^features/(?P<id>{regex.UUID})/?$",
+        rf"^feature/(?P<id>{regex.UUID})/?$",
         SpatialFeatureDetailView.as_view(),
         name="feature-detail",
     ),

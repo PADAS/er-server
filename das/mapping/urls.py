@@ -46,9 +46,9 @@ urlpatterns = (
     ),
     re_path(r"^featuregroups/?$", SpatialFeatureGroupListView.as_view(), name="featuregroups-list"),
     re_path(
-        rf"^featuregroups/(?P<id>{regex.UUID})/?$",
+        rf"^featuregroup/(?P<id>{regex.UUID})/?$",
         SpatialFeatureGroupDetailView.as_view(),
-        name="featuregroups-detail",
+        name="featuregroup-detail",
     ),
     # Deprecated: use /displaycategories/ instead
     re_path(r"^featureset/?$", DeprecatedFeatureSetListJsonView.as_view()),
@@ -58,11 +58,11 @@ urlpatterns = (
         name="mapping-featureset-geojson",
     ),
     re_path(r"^quicklinks/?$", MapListJsonView.as_view(), name="quicklinks-list"),
-    re_path(rf"^quicklinks/(?P<id>{regex.UUID})/?$", MapDetailView.as_view(), name="quicklinks-detail"),
+    re_path(rf"^quicklink/(?P<id>{regex.UUID})/?$", MapDetailView.as_view(), name="quicklink-detail"),
     # Deprecated: use /quicklinks/ instead
     re_path(r"^maps/?$", DeprecatedMapListJsonView.as_view()),
     re_path(r"^basemaps/?$", LayerListJsonView.as_view(), name="basemaps-list"),
-    re_path(rf"^basemaps/(?P<id>{regex.UUID})/?$", LayerJsonView.as_view(), name="basemaps-detail"),
+    re_path(rf"^basemap/(?P<id>{regex.UUID})/?$", LayerJsonView.as_view(), name="basemap-detail"),
     # Deprecated: use /basemaps/ instead
     re_path(r"^layers/?$", DeprecatedLayerListJsonView.as_view()),
     re_path(rf"^layer/(?P<id>{regex.UUID})/?$", DeprecatedLayerJsonView.as_view()),
@@ -72,9 +72,9 @@ urlpatterns = (
         name="featuretypes-list",
     ),
     re_path(
-        rf"^featuretypes/(?P<id>{regex.UUID})/?$",
+        rf"^featuretype/(?P<id>{regex.UUID})/?$",
         SpatialFeatureTypeDetailView.as_view(),
-        name="featuretypes-detail",
+        name="featuretype-detail",
     ),
     # Deprecated: use /featuretypes/ instead
     re_path(r"^featureclass/?$", DeprecatedSpatialFeatureTypeListView.as_view()),
@@ -85,9 +85,9 @@ urlpatterns = (
         name="displaycategories-list",
     ),
     re_path(
-        rf"^displaycategories/(?P<id>{regex.UUID})/?$",
+        rf"^displaycategory/(?P<id>{regex.UUID})/?$",
         DisplayCategoryDetailView.as_view(),
-        name="displaycategories-detail",
+        name="displaycategory-detail",
     ),
     # Deprecated: use /featuregroups/ instead
     re_path(

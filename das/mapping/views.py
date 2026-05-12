@@ -125,7 +125,7 @@ class DeprecatedFeatureListJsonView(DeprecatedEndpointMixin, FeatureListJsonView
 
 
 class DeprecatedFeatureGeoJsonView(DeprecatedEndpointMixin, FeatureGeoJsonView):
-    deprecated_use_instead = "/api/v2.0/features/<id>/"
+    deprecated_use_instead = "/api/v2.0/feature/<id>/"
 
 
 class FeatureSetListJsonView(APIView):
@@ -263,7 +263,7 @@ class DeprecatedFeatureSetListJsonView(DeprecatedEndpointMixin, FeatureSetListJs
 
 
 class DeprecatedFeatureSetGeoJsonView(DeprecatedEndpointMixin, FeatureSetGeoJsonView):
-    deprecated_use_instead = "/displaycategories/<id>/"
+    deprecated_use_instead = "/displaycategory/<id>/"
 
 
 class MapListJsonView(generics.ListCreateAPIView):
@@ -336,7 +336,7 @@ class DeprecatedLayerListJsonView(DeprecatedEndpointMixin, LayerListJsonView):
 
 
 class DeprecatedLayerJsonView(DeprecatedEndpointMixin, LayerJsonView):
-    deprecated_use_instead = "/basemaps/<id>/"
+    deprecated_use_instead = "/basemap/<id>/"
 
 
 class SpatialFeatureTileView(DRFMVTView):

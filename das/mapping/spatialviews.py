@@ -85,7 +85,7 @@ class DeprecatedSpatialFeatureTypeListView(DeprecatedEndpointMixin, SpatialFeatu
 
 
 class DeprecatedSpatialFeatureTypeDetailView(DeprecatedEndpointMixin, SpatialFeatureTypeDetailView):  # type: ignore[misc]
-    deprecated_use_instead = "/featuretypes/<id>/"
+    deprecated_use_instead = "/featuretype/<id>/"
 
 
 class SpatialFeatureGroupListView(generics.ListCreateAPIView):
@@ -125,7 +125,7 @@ class DeprecatedSpatialFeatureGroupListView(DeprecatedEndpointMixin, SpatialFeat
 
 
 class DeprecatedSpatialFeatureGroupDetailView(DeprecatedEndpointMixin, SpatialFeatureGroupDetailView):  # type: ignore[misc]
-    deprecated_use_instead = "/featuregroups/<id>/"
+    deprecated_use_instead = "/featuregroup/<id>/"
 
 
 class SpatialFeatureListView(generics.ListCreateAPIView, DynamicSchemaDataMixin):
@@ -162,4 +162,4 @@ class DeprecatedSpatialFeatureListView(DeprecatedEndpointMixin, SpatialFeatureLi
 
 
 class DeprecatedSpatialFeatureDetailView(DeprecatedEndpointMixin, SpatialFeatureDetailView):  # type: ignore[misc]
-    deprecated_use_instead = "/api/v2.0/features/<id>/"
+    deprecated_use_instead = "/api/v2.0/feature/<id>/"
