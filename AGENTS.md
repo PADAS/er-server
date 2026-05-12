@@ -85,9 +85,19 @@ When reviewing or writing code that uses one of these cache aliases, **do not ad
 
 ### Settings Structure
 
-- `das_server/settings.py` - Base settings
-- `das_server/local_settings_docker.py` - Local development and prod overrides
-- Environment variables configured via `.env` file for local overrides
+- `das_server/settings.py` - Base settings, **and the home for all environment-driven settings**. Read env vars here via `env.bool(...)` / `env.str(...)` / `env.int(...)` (`env` is already configured at the top of the file from `django-environ`).
+- `das_server/local_settings_docker.py` - Reserved for overrides specific to the Kubernetes production / Docker-compose environment that are **not** driven by env vars. This file predates the project's `django-environ` adoption and is not the default home for new settings. Some older entries (e.g. `PATROL_ENABLED = env.bool("PATROL_ENABLED", True)`) still live here for historical reasons; do not treat them as precedent.
+- `test_scripts/unittest_settings.py` - Test-only overrides (imports `local_settings_docker` first and then forces specific values needed for the test suite).
+- Environment variables for local development go in a `.env` file at the project root; `django-environ` loads it automatically.
+
+#### Where does my new setting go?
+
+- **Configurable from the environment (12-factor)** → `settings.py` with `env.bool("MY_SETTING", <default>)`.
+- **A fixed, hardcoded default that callers never override at runtime** → `settings.py` as `MY_SETTING = <value>`.
+- **Different value when running under Kubernetes/Docker than in dev, and not exposed as an env var** → `local_settings_docker.py`.
+- **Forced value needed only for the test suite to pass** → `test_scripts/unittest_settings.py`.
+
+Do not declare the same setting in both `settings.py` and `local_settings_docker.py` — that was the old pre-`django-environ` workaround and creates two sources of truth.
 
 ### Key Environment Variables
 
