@@ -36,6 +36,8 @@ def get_update_type(revision, previous_revisions=[]):
         if event_state:
             if event_state == Event.SC_RESOLVED:
                 return Event.SC_RESOLVED
+            if event_state == Event.SC_REVIEW:
+                return Event.SC_REVIEW
             if event_state == Event.SC_NEW:
                 return "mark_as_new"
             for row in reversed(previous_revisions):

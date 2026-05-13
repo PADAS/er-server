@@ -403,7 +403,19 @@ class TestEventsExportView:
         url = reverse("events-export")
         subject = subject_source_with_proximity_analyzer_configured.subject
         source = subject_source_with_proximity_analyzer_configured.source
-        can_export_data_permission_set = PermissionSet.objects.get(name="Can Export Data")
+        from django.contrib.auth.models import Permission as DjangoPermission
+        from django.contrib.contenttypes.models import ContentType
+
+        can_export_data_permission_set, _ = PermissionSet.objects.get_or_create(name="Can Export Data")
+        event_ct = ContentType.objects.get(app_label="activity", model="event")
+        for codename, name in (
+            ("can_export_event_data", "Can Export Event Data"),
+            ("can_export_observation_data", "Can Export Observation Data"),
+        ):
+            perm, _ = DjangoPermission.objects.get_or_create(
+                codename=codename, content_type=event_ct, defaults={"name": name}
+            )
+            can_export_data_permission_set.permissions.add(perm)
         ops_user.permission_sets.add(can_export_data_permission_set)
         client = APIClient()
         client.force_authenticate(user=ops_user)

@@ -10,6 +10,7 @@ import pytest
 from django_multitenant.utils import set_current_tenant
 
 from django.contrib.gis.geos import GeometryCollection, Point, Polygon
+from django.core.management import call_command
 from django.test import TestCase
 from django.utils import timezone
 
@@ -49,6 +50,7 @@ class TestFeatureGroupFilterBase(TestCase):
     def setUp(self):
         tenant = DASTenant.objects.first()
         set_current_tenant(tenant)
+        call_command("loaddata_with_tenant", "event_data_model")
 
         geofence_geom = Polygon([(-10, -10.0), (10, -10.0), (10, 10), (-10, 10), (-10, -10.0)])
         self.spatial_feature_type = SpatialFeatureType.objects.get_or_create(name="test_polygon_filter")[0]

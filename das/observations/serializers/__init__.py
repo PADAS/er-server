@@ -249,7 +249,7 @@ class SubjectSerializer(PartialUpdateMixin, serializers.Serializer):
         user = getattr(request, "user", None)
 
         # For buoy gear subjects, use the source's manufacturer_id as the name
-        if instance.subject_subtype and instance.subject_subtype.value == BUOY_GEAR_SUBJECT_SUBTYPE:
+        if instance.subject_subtype_id == BUOY_GEAR_SUBJECT_SUBTYPE:
             rep["name"] = self._get_buoy_gear_display_name(instance)
 
         additional = instance.additional
@@ -435,7 +435,7 @@ class SubjectSerializer(PartialUpdateMixin, serializers.Serializer):
         return models.Subject.objects.create_subject(**validated_data)
 
     def _is_stationary_subject(self, instance):
-        if instance.subject_subtype.subject_type.value == STATIONARY_SUBJECT_VALUE and getattr(
+        if instance.subject_type == STATIONARY_SUBJECT_VALUE and getattr(
             instance, "latest_subjectsource_exists", False
         ):
             return True
@@ -524,7 +524,7 @@ class SubjectSerializer(PartialUpdateMixin, serializers.Serializer):
         Returns a tuple of (display_name, additional, device_status_properties) for buoy gear subjects,
         or (None, None, None) for non-buoy subjects.
         """
-        if not (subject.subject_subtype and subject.subject_subtype.value == BUOY_GEAR_SUBJECT_SUBTYPE):
+        if subject.subject_subtype_id != BUOY_GEAR_SUBJECT_SUBTYPE:
             return None, None, None
 
         # Get the parsed display name (first segment of manufacturer_id)

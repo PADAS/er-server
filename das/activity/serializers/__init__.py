@@ -1,5 +1,6 @@
 from .alert import AlertRuleSerializer
 from .community import CommunitySerializer
+from .community_input import CommunityInputSerializer
 from .event_details import EventDetailsSerializer
 from .events import (
     EventBulkDeleteSerializer,
@@ -54,6 +55,7 @@ from .schemas import EventJSONSchema
 
 __all__ = (
     "AlertRuleSerializer",
+    "CommunityInputSerializer",
     "CommunitySerializer",
     "DuplicateResourceException",
     "EventAttributesField",

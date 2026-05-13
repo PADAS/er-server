@@ -1,12 +1,16 @@
+from __future__ import annotations
+
 import json
 import logging
-from datetime import timedelta
+from datetime import datetime, timedelta
+from datetime import timezone as dt_timezone
 
 from haversine import Unit, haversine
 
 from django.contrib.gis.geos import GeometryCollection as DjangoGeoColl
 from django.contrib.gis.geos import Point as DjangoPoint
 from django.utils import timezone
+from django.utils.dateparse import parse_datetime
 from django.utils.translation import gettext_lazy as _
 
 from activity.models import Event, EventCategory, EventType
@@ -19,6 +23,29 @@ from analyzers.utils import save_analyzer_event
 
 MOVEMENT_CLUSTER_EVENT_TYPE = "movement_cluster"
 MAXIMUM_OBSERVATIONS = 1000
+
+
+def _point_within_search_window(point: dict, cutoff: datetime) -> bool:
+    """Return True if the stored cluster point's recorded time is at or after *cutoff*.
+
+    Uses :func:`django.utils.dateparse.parse_datetime` so that timestamps with a
+    trailing ``Z`` or any UTC-offset suffix are handled correctly.  Naive datetimes
+    (no timezone info) are treated as UTC — not the Django TIME_ZONE setting —
+    because stored cluster-point timestamps are always written as UTC ISO strings.
+    Points that cannot be parsed are treated as aged-out (excluded).
+    """
+    time_str = point.get("time")
+    if not time_str:
+        return False
+    try:
+        dt = parse_datetime(time_str)
+        if dt is None:
+            return False
+        if timezone.is_naive(dt):
+            dt = dt.replace(tzinfo=dt_timezone.utc)
+        return dt >= cutoff
+    except (ValueError, TypeError):
+        return False
 
 
 def _st_dbscan(points, spatial_eps_m, temporal_eps_s, min_points):
@@ -111,7 +138,9 @@ class MovementClusterAnalyzer(SubjectAnalyzer):
         if subject:
             subject_groups = subject.get_ancestor_subject_groups()
             for ac in MovementClusterAnalyzerConfig.objects.select_related("feature_group_filter").filter(
-                subject_group__in=subject_groups, is_active=True
+                subject_group__in=subject_groups,
+                is_active=True,
+                min_subjects_in_cluster=1,
             ):
                 yield cls(subject=subject, config=ac)
 
@@ -134,8 +163,9 @@ class MovementClusterAnalyzer(SubjectAnalyzer):
 
         A result is considered *open* when its ``estimated_time`` falls within
         ``temporal_threshold_seconds`` of now.  Containment is checked by
-        comparing the frozenset of ``(lat, lon, time)`` tuples stored in the
-        result's ``cluster_points`` value against *cluster_point_set*.
+        comparing the frozenset of ``(lat, lon, time, subject_id)`` tuples stored
+        in the result's ``cluster_points`` value against *cluster_point_set*.
+        The ``subject_id`` element is ``None`` for single-subject results.
 
         If the config has not yet been persisted (no PK) the check is skipped
         and an empty list is returned.
@@ -152,13 +182,36 @@ class MovementClusterAnalyzer(SubjectAnalyzer):
             event__state=Event.SC_ACTIVE,
         ).select_related("event")
 
+        # Points older than search_time_hours would not appear in the current
+        # cluster_point_set because they are no longer fetched as observations.
+        # Strip them from the stored set before comparing so that naturally
+        # aged-out points don't prevent a valid open-cluster match.
+        search_cutoff: datetime | None = (
+            timezone.now() - timedelta(hours=self.config.search_time_hours)
+            if self.config.search_time_hours > 0
+            else None
+        )
+
         matches = []
         for result in recent_results:
             prev_points = result.values.get("cluster_points")
             if not prev_points:
                 continue
+
+            if search_cutoff is not None:
+                prev_points = [p for p in prev_points if _point_within_search_window(p, search_cutoff)]
+
+            # If every stored point has aged out there is nothing to compare.
+            if not prev_points:
+                continue
+
             prev_point_set = frozenset(
-                (p.get("location", {}).get("latitude"), p.get("location", {}).get("longitude"), p.get("time"))
+                (
+                    p.get("location", {}).get("latitude"),
+                    p.get("location", {}).get("longitude"),
+                    p.get("time"),
+                    p.get("subject_id"),
+                )
                 for p in prev_points
             )
             if prev_point_set.issubset(cluster_point_set):
@@ -235,7 +288,8 @@ class MovementClusterAnalyzer(SubjectAnalyzer):
                 for f in cluster_fixes
             ]
             cluster_point_set = frozenset(
-                (p["location"]["latitude"], p["location"]["longitude"], p["time"]) for p in cluster_points
+                (p["location"]["latitude"], p["location"]["longitude"], p["time"], p.get("subject_id"))
+                for p in cluster_points
             )
 
             new_values = {
@@ -319,12 +373,6 @@ class MovementClusterAnalyzer(SubjectAnalyzer):
     # ------------------------------------------------------------------
 
     def _ensure_event_type(self) -> None:
-        """Create the ``movement_cluster`` EventType if it does not yet exist.
-
-        Uses ``get_or_create`` so this is safe to call on every event creation
-        without producing duplicates.  The schema is only applied on first
-        creation; subsequent calls are no-ops.
-        """
         ec, _ = EventCategory.objects.get_or_create(
             value="analyzer_event",
             defaults={"display": "Analyzer Events"},
@@ -346,7 +394,6 @@ class MovementClusterAnalyzer(SubjectAnalyzer):
             return None
 
         self._ensure_event_type()
-
         centroid = this_result.geometry_collection[0]
         event_details = {"analyzer_name": self.config.name, "subject_name": self.subject.name}
         event_details.update(this_result.values)

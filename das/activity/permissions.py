@@ -465,6 +465,22 @@ class PatrolTypePermissions(DjangoModelPermissions):
         return True
 
 
+class EventTypePermissions(EventCategoryPermissions):
+    pass
+
+
+class EventsPermissions(EventCategoryGeographicPermission):
+    pass
+
+
+class EventNotesPermissions(EventNotesCategoryGeographicPermissions):
+    pass
+
+
+class EventFilesPermissions(EventCategoryGeographicPermission):
+    pass
+
+
 class StandardModelPermissions(DjangoModelPermissions):
     view_perms = ["%(app_label)s.view_%(model_name)s"]
 

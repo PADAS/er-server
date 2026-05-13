@@ -1052,6 +1052,11 @@ class TrackingDataCsvView(APIView):
         # To include inactive subjects in trackingdata report
         queryset = check_to_include_inactive_subjects(self.request, queryset)
         queryset = queryset.by_user_subjects(self.request.user)
+        # Subject.is_stationary_subject reads subject_subtype.subject_type — pre-join
+        # them so the per-subject observation queryset doesn't fire two extra lookups
+        # for every subject in the export loop (_generate_observation_rows path only;
+        # _generate_current_status_rows uses SubjectStatus and never reads is_stationary_subject).
+        queryset = queryset.select_related("subject_subtype__subject_type")
         if subject_id:
             queryset = queryset.filter(id=subject_id)
         elif source_provider:

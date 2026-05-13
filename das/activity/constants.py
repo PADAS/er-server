@@ -9,9 +9,11 @@ PRIORITY_CHOICES = ((PRI_NONE, "Gray"), (PRI_REFERENCE, "Green"), (PRI_IMPORTANT
 SC_NEW = "new"
 SC_ACTIVE = "active"
 SC_RESOLVED = "resolved"
+SC_REVIEW = "review"
 
 STATE_CHOICES = (
     (SC_NEW, "New"),
     (SC_ACTIVE, "Active"),
     (SC_RESOLVED, "Resolved"),
+    (SC_REVIEW, "Review"),
 )

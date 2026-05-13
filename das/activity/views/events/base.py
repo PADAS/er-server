@@ -52,6 +52,7 @@ from activity.models import (
 from activity.permissions import (
     EventCategoryGeographicPermission,
     EventCategoryPermissions,
+    EventsPermissions,
     IsOwner,
 )
 from activity.schemas.schema_adapter import SchemaAdapterFactory
@@ -508,7 +509,11 @@ class EventsExportView(APIView):
                 "Title": self.escape_string(event.get("title", "")),
                 "Priority": Event.PRIORITY_LABELS_MAP.get(event.get("priority", ""), ""),
                 "Priority_Internal_Value": event.get("priority", ""),
-                "Report_Status": "Resolved" if event["state"] == Event.SC_RESOLVED else "Active",
+                "Report_Status": (
+                    "Resolved"
+                    if event["state"] == Event.SC_RESOLVED
+                    else "Review" if event["state"] == Event.SC_REVIEW else "Active"
+                ),
                 reported_at_label: convert_to_timezone(event["event_time"], current_tz).strftime("%Y-%m-%d %H:%M"),
                 "Latitude": event["location"].y if event["location"] is not None else "",
                 "Longitude": event["location"].x if event["location"] is not None else "",
@@ -672,7 +677,7 @@ class EventsView(ListCreateAPIView):
 
     page_size
     """
-    permission_classes = (EventCategoryGeographicPermission,)
+    permission_classes = (EventsPermissions,)
     filter_backends = (
         EventPermissionsFilter,
         EventListFilter,
@@ -720,6 +725,7 @@ class EventsView(ListCreateAPIView):
         try:
             if self.paginator:
                 page = self.paginate_queryset(queryset)
+                self._attach_patrol_ids(page)
                 context = self.get_serializer_context()
                 if context.get("include_updates"):
                     context["revisions_cache"] = self._build_revisions_cache(page)
@@ -727,6 +733,7 @@ class EventsView(ListCreateAPIView):
                 return self.get_paginated_response(serializer.data)
 
             events = list(queryset)
+            self._attach_patrol_ids(events)
             context = self.get_serializer_context()
             if context.get("include_updates"):
                 context["revisions_cache"] = self._build_revisions_cache(events)
@@ -760,6 +767,7 @@ class EventsView(ListCreateAPIView):
                 return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
             serializer.save()
+
             data = serializer.data
             data = data if len(new_record) > 1 else data[0]
             return Response(data, status=status.HTTP_201_CREATED)
@@ -839,8 +847,18 @@ class EventsView(ListCreateAPIView):
             prefetches.append(Prefetch("files", queryset=EventFile.objects.select_related("created_by")))
 
         queryset = queryset.prefetch_related(*prefetches)
-        queryset = queryset.annotate(patrol_ids=ArrayAgg("patrol_segments__patrol_id"))
         return queryset
+
+    @staticmethod
+    def _attach_patrol_ids(events) -> None:
+        # Compute patrol_ids in Python from the prefetched patrol_segments M2M
+        # instead of annotating with ArrayAgg on the queryset. ArrayAgg forces
+        # the paginator's COUNT(*) to wrap the join+aggregate as a subquery,
+        # which is dramatically more expensive than a plain row count.
+        if not events:
+            return
+        for event in events:
+            event.patrol_ids = [ps.patrol_id for ps in event.patrol_segments.all()]
 
     def add_segment_to_record(self, patrol_segment_id: Union[List[str], str], new_record: List[Dict]) -> List[Dict]:
         for record in new_record:

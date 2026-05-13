@@ -514,6 +514,13 @@ class TestProximityAnalyzer(TestCase):
         """Test the functioning of the proximity analyzer"""
 
         # Create models (Subject, SubjectSource and Source)
+        wildlife_type, _ = SubjectType.objects.get_or_create(value="wildlife", defaults={"display": "Wildlife"})
+        SubjectSubType.objects.get_or_create(
+            value="elephant", defaults={"display": "Elephant", "subject_type": wildlife_type}
+        )
+        SubjectSubType.objects.get_or_create(
+            value="rhino", defaults={"display": "Rhino", "subject_type": wildlife_type}
+        )
 
         # Analysis subject info
         sub = Subject.objects.create(name="Olchoda", subject_subtype_id="elephant")
@@ -681,8 +688,10 @@ class TestFeatureProximityAnalyzerQuietPeriod:
         set_current_tenant(self.das_tenant)
 
         caplog.set_level(logging.INFO)
-        wildlife_subject_type = SubjectType.objects.get(value="wildlife")
-        elephant_subject_subtype = SubjectSubType.objects.get(value="elephant")
+        wildlife_subject_type, _ = SubjectType.objects.get_or_create(value="wildlife", defaults={"display": "Wildlife"})
+        elephant_subject_subtype, _ = SubjectSubType.objects.get_or_create(
+            value="elephant", defaults={"display": "Elephant", "subject_type": wildlife_subject_type}
+        )
         elephant_subject_subtype.subject_type = wildlife_subject_type
         elephant_subject_subtype.save()
 
@@ -735,8 +744,10 @@ class TestFeatureProximityAnalyzerQuietPeriod:
     ):
         caplog.set_level(logging.INFO)
 
-        wildlife_subject_type = SubjectType.objects.get(value="wildlife")
-        elephant_subject_subtype = SubjectSubType.objects.get(value="elephant")
+        wildlife_subject_type, _ = SubjectType.objects.get_or_create(value="wildlife", defaults={"display": "Wildlife"})
+        elephant_subject_subtype, _ = SubjectSubType.objects.get_or_create(
+            value="elephant", defaults={"display": "Elephant", "subject_type": wildlife_subject_type}
+        )
         elephant_subject_subtype.subject_type = wildlife_subject_type
         elephant_subject_subtype.save()
 

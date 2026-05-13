@@ -118,6 +118,8 @@ class EventAttributesField(JSONField):
 class EventSourceRelatedField(RelatedField):
     def get_queryset(self):
         user = self.context["request"].user
+        if not getattr(user, "is_authenticated", False):
+            return EventSource.objects.none()
         return EventSource.objects.filter(eventprovider__owner=user)
 
     def to_representation(self, value):

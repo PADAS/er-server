@@ -1,21 +1,34 @@
 """Tests for the MovementClusterAnalyzer (ST-DBSCAN based)."""
 
 import json
+import uuid
 from datetime import datetime, timedelta, timezone
+from unittest.mock import patch
 
 import pytest
 from django_multitenant.utils import set_current_tenant
 
 from django.contrib.gis.geos import Point
+from django.core.cache import cache
 from django.test import TestCase
-from django.utils import timezone
 
 from activity.models import Event
 from analyzers.exceptions import InsufficientDataAnalyzerException
 from analyzers.models import SubjectAnalyzerResult
 from analyzers.models.base import OK
 from analyzers.models.movement_clustering import MovementClusterAnalyzerConfig
-from analyzers.movement_clustering import MovementClusterAnalyzer, _st_dbscan
+from analyzers.movement_clustering import (
+    MOVEMENT_CLUSTER_EVENT_TYPE,
+    MOVEMENT_CLUSTER_SCHEMA,
+    MovementClusterAnalyzer,
+    _st_dbscan,
+)
+from analyzers.movement_clustering_multi_subject import (
+    MULTI_SUBJECT_MOVEMENT_CLUSTER_EVENT_TYPE,
+    MULTI_SUBJECT_MOVEMENT_CLUSTER_SCHEMA,
+    MultiSubjectMovementClusterAnalyzer,
+    _SubjectPoint,
+)
 from observations import models
 
 # ---------------------------------------------------------------------------
@@ -393,7 +406,6 @@ class TestMovementClusterAnalyzerTrajectory(TestCase):
 
     def test_ensure_event_type_creates_event_type_on_first_call(self):
         from activity.models import EventType
-        from analyzers.movement_clustering import MOVEMENT_CLUSTER_EVENT_TYPE
 
         sg = models.SubjectGroup.objects.create(name="ensure_et_group")
         sg.subjects.add(self.subject)
@@ -407,7 +419,6 @@ class TestMovementClusterAnalyzerTrajectory(TestCase):
 
     def test_ensure_event_type_is_idempotent(self):
         from activity.models import EventType
-        from analyzers.movement_clustering import MOVEMENT_CLUSTER_EVENT_TYPE
 
         sg = models.SubjectGroup.objects.create(name="ensure_et_idempotent_group")
         sg.subjects.add(self.subject)
@@ -421,10 +432,6 @@ class TestMovementClusterAnalyzerTrajectory(TestCase):
 
     def test_ensure_event_type_stores_schema(self):
         from activity.models import EventType
-        from analyzers.movement_clustering import (
-            MOVEMENT_CLUSTER_EVENT_TYPE,
-            MOVEMENT_CLUSTER_SCHEMA,
-        )
 
         sg = models.SubjectGroup.objects.create(name="ensure_et_schema_group")
         sg.subjects.add(self.subject)
@@ -439,7 +446,6 @@ class TestMovementClusterAnalyzerTrajectory(TestCase):
 
     def test_ensure_event_type_uses_analyzer_event_category(self):
         from activity.models import EventType
-        from analyzers.movement_clustering import MOVEMENT_CLUSTER_EVENT_TYPE
 
         sg = models.SubjectGroup.objects.create(name="ensure_et_category_group")
         sg.subjects.add(self.subject)
@@ -485,10 +491,7 @@ class TestMovementClusterAnalyzerTrajectory(TestCase):
     def _save_cluster_result(self, config, cluster_points, end_time):
         from django.contrib.gis.geos import GeometryCollection, Point
 
-        from analyzers.movement_clustering import (
-            MOVEMENT_CLUSTER_EVENT_TYPE,
-            save_analyzer_event,
-        )
+        from analyzers.movement_clustering import save_analyzer_event
 
         ia = MovementClusterAnalyzer(subject=self.subject, config=config)
         ia._ensure_event_type()
@@ -546,7 +549,8 @@ class TestMovementClusterAnalyzerTrajectory(TestCase):
             start_time=self.now + timedelta(hours=1),
         )
         new_point_set = frozenset(
-            (p["location"]["latitude"], p["location"]["longitude"], p["time"]) for p in existing_points + extra_points
+            (p["location"]["latitude"], p["location"]["longitude"], p["time"], p.get("subject_id"))
+            for p in existing_points + extra_points
         )
         ia = MovementClusterAnalyzer(subject=self.subject, config=config)
         assert ia._find_open_clusters(new_point_set)
@@ -560,7 +564,8 @@ class TestMovementClusterAnalyzerTrajectory(TestCase):
         # Completely different points — not a superset of existing
         different_points = self._make_cluster_points(BASE_LAT + 5.0, BASE_LON, count=5)
         diff_point_set = frozenset(
-            (p["location"]["latitude"], p["location"]["longitude"], p["time"]) for p in different_points
+            (p["location"]["latitude"], p["location"]["longitude"], p["time"], p.get("subject_id"))
+            for p in different_points
         )
         ia = MovementClusterAnalyzer(subject=self.subject, config=config)
         assert not ia._find_open_clusters(diff_point_set)
@@ -573,10 +578,60 @@ class TestMovementClusterAnalyzerTrajectory(TestCase):
         self._save_cluster_result(config, existing_points, old_end)
 
         existing_set = frozenset(
-            (p["location"]["latitude"], p["location"]["longitude"], p["time"]) for p in existing_points
+            (p["location"]["latitude"], p["location"]["longitude"], p["time"], p.get("subject_id"))
+            for p in existing_points
         )
         ia = MovementClusterAnalyzer(subject=self.subject, config=config)
         assert not ia._find_open_clusters(existing_set)
+
+    def test_find_open_clusters_matches_when_old_points_aged_out(self):
+        """A stored result whose old points have aged out of search_time_hours still
+        matches if its within-window points are a subset of the new cluster."""
+        config = self._make_saved_config("find_open_aged_out_group")
+        recent_end = datetime.now(timezone.utc) - timedelta(minutes=30)
+
+        # Two points recorded within the search window (< 24 h ago)
+        recent_points = self._make_cluster_points(BASE_LAT, BASE_LON, count=2)
+        # One point recorded 25 hours ago — outside the 24-hour search window
+        old_time = datetime.now(timezone.utc) - timedelta(hours=25)
+        aged_out_point = {
+            "location": {"latitude": round(BASE_LAT, 7), "longitude": round(BASE_LON, 7)},
+            "time": old_time.isoformat(),
+        }
+        all_stored_points = recent_points + [aged_out_point]
+        self._save_cluster_result(config, all_stored_points, recent_end)
+
+        # The new cluster contains only the recent points (aged-out point not present)
+        new_point_set = frozenset(
+            (p["location"]["latitude"], p["location"]["longitude"], p["time"], p.get("subject_id"))
+            for p in recent_points
+        )
+        ia = MovementClusterAnalyzer(subject=self.subject, config=config)
+        assert ia._find_open_clusters(new_point_set)
+
+    def test_find_open_clusters_returns_empty_when_all_points_aged_out(self):
+        """A stored result whose every point has aged out of search_time_hours does
+        not produce a spurious match via an empty-subset comparison."""
+        config = self._make_saved_config("find_open_all_aged_group")
+        recent_end = datetime.now(timezone.utc) - timedelta(minutes=30)
+
+        # All points recorded more than 24 hours ago
+        old_time = datetime.now(timezone.utc) - timedelta(hours=25)
+        aged_out_points = [
+            {
+                "location": {"latitude": round(BASE_LAT, 7), "longitude": round(BASE_LON, 7)},
+                "time": (old_time + timedelta(seconds=i * 1800)).isoformat(),
+            }
+            for i in range(3)
+        ]
+        self._save_cluster_result(config, aged_out_points, recent_end)
+
+        new_point_set = frozenset(
+            (p["location"]["latitude"], p["location"]["longitude"], p["time"], p.get("subject_id"))
+            for p in self._make_cluster_points(BASE_LAT, BASE_LON, count=3)
+        )
+        ia = MovementClusterAnalyzer(subject=self.subject, config=config)
+        assert not ia._find_open_clusters(new_point_set)
 
     def test_find_open_clusters_returns_empty_for_unsaved_config(self):
         unsaved_config = MovementClusterAnalyzerConfig(
@@ -614,7 +669,7 @@ class TestMovementClusterAnalyzerTrajectory(TestCase):
         result.save()
 
         ia = MovementClusterAnalyzer(subject=self.subject, config=config)
-        assert not ia._find_open_clusters(frozenset([("0.0", "36.0", "2024-01-01")]))
+        assert not ia._find_open_clusters(frozenset([("0.0", "36.0", "2024-01-01", None)]))
 
     def test_analyze_updates_existing_cluster_instead_of_creating_new(self):
         config = self._make_saved_config("update_cluster_group")
@@ -763,3 +818,607 @@ class TestMovementClusterAnalyzerTrajectory(TestCase):
         assert (
             merged_result.event_id not in pre_event_ids
         ), "Merged result should have a new event, not reuse a pre-merge event"
+
+
+# ---------------------------------------------------------------------------
+# 3. Multi-subject cluster tests
+# ---------------------------------------------------------------------------
+
+
+def _make_subject_points(subject_id, subject_name, center_lat, center_lon, count, start, interval_s, jitter=0.0005):
+    """Return _SubjectPoint instances clustered around center, like _clustered_obs but tagged with subject."""
+    offsets = [
+        (0.0, 0.0),
+        (jitter, 0.0),
+        (-jitter, 0.0),
+        (0.0, jitter),
+        (0.0, -jitter),
+        (jitter, jitter),
+        (-jitter, -jitter),
+        (jitter, -jitter),
+        (-jitter, jitter),
+        (0.0, jitter * 2),
+    ]
+    points = []
+    for i in range(count):
+        dlat, dlon = offsets[i % len(offsets)]
+        t = start - timedelta(seconds=(count - 1 - i) * interval_s)
+        points.append(
+            _SubjectPoint(
+                lat=center_lat + dlat,
+                lon=center_lon + dlon,
+                recorded_at=t,
+                subject_id=subject_id,
+                subject_name=subject_name,
+            )
+        )
+    return points
+
+
+class TestBuildMultiSubjectClusterResults:
+    """Tests for MultiSubjectMovementClusterAnalyzer._build_cluster_results.
+
+    These tests currently rely on Django DB-backed subject creation and tenant
+    fixtures for setup, even though the clustering inputs themselves are built
+    in memory.
+    """
+
+    _now = datetime(2024, 6, 1, 12, 0, 0, tzinfo=timezone.utc)
+
+    def _unsaved_config(self, min_subjects=2):
+        return MovementClusterAnalyzerConfig(
+            spatial_threshold_meters=200,
+            temporal_threshold_seconds=3600,
+            min_cluster_points=3,
+            min_cluster_duration_seconds=3600,
+            min_subjects_in_cluster=min_subjects,
+        )
+
+    def _analyzer(self, subject, min_subjects=2):
+        return MultiSubjectMovementClusterAnalyzer(subject=subject, config=self._unsaved_config(min_subjects))
+
+    def _labeled_points(self, subject_id_a, subject_id_b, label_a=1, label_b=1):
+        """Six points from two subjects at the same location, labeled as one cluster."""
+        pts_a = _make_subject_points(subject_id_a, "SubjectA", BASE_LAT, BASE_LON, 3, self._now, 1800)
+        pts_b = _make_subject_points(subject_id_b, "SubjectB", BASE_LAT, BASE_LON, 3, self._now, 1800)
+        all_points = pts_a + pts_b
+        labels = [label_a] * 3 + [label_b] * 3
+        return all_points, labels
+
+    @pytest.mark.django_db
+    @pytest.mark.usefixtures("tenant_settings", "das_tenant_monkeypatch")
+    def test_cluster_with_enough_subjects_is_kept(self, das_tenant_monkeypatch):
+        from django_multitenant.utils import set_current_tenant
+
+        set_current_tenant(das_tenant_monkeypatch)
+        subject = models.Subject.objects.create_subject(name="MSC_kept")
+        ia = self._analyzer(subject, min_subjects=2)
+
+        sid_a = subject.id
+        sid_b = uuid.uuid4()
+        all_points, labels = self._labeled_points(sid_a, sid_b)
+
+        results = ia._build_cluster_results(all_points, labels)
+        assert len(results) == 1
+
+    @pytest.mark.django_db
+    @pytest.mark.usefixtures("tenant_settings", "das_tenant_monkeypatch")
+    def test_cluster_with_too_few_subjects_is_discarded(self, das_tenant_monkeypatch):
+        from django_multitenant.utils import set_current_tenant
+
+        set_current_tenant(das_tenant_monkeypatch)
+        subject = models.Subject.objects.create_subject(name="MSC_discarded")
+        ia = self._analyzer(subject, min_subjects=2)
+
+        sid_a = subject.id
+        # All points from the same subject → only 1 distinct subject
+        all_points = _make_subject_points(sid_a, "SubjectA", BASE_LAT, BASE_LON, 6, self._now, 1800)
+        labels = [1] * 6
+
+        results = ia._build_cluster_results(all_points, labels)
+        assert results == []
+
+    @pytest.mark.django_db
+    @pytest.mark.usefixtures("tenant_settings", "das_tenant_monkeypatch")
+    def test_cluster_values_include_subjects_in_cluster(self, das_tenant_monkeypatch):
+        from django_multitenant.utils import set_current_tenant
+
+        set_current_tenant(das_tenant_monkeypatch)
+        subject = models.Subject.objects.create_subject(name="MSC_values")
+        ia = self._analyzer(subject, min_subjects=2)
+
+        sid_a = subject.id
+        sid_b = uuid.uuid4()
+        all_points, labels = self._labeled_points(sid_a, sid_b)
+
+        results = ia._build_cluster_results(all_points, labels)
+        assert len(results) == 1
+        values = results[0].values
+        assert values["subjects_in_cluster"] == 2
+        assert len(values["subject_ids_in_cluster"]) == 2
+        assert str(sid_a) in values["subject_ids_in_cluster"]
+        assert str(sid_b) in values["subject_ids_in_cluster"]
+
+    @pytest.mark.django_db
+    @pytest.mark.usefixtures("tenant_settings", "das_tenant_monkeypatch")
+    def test_cluster_points_include_subject_identity(self, das_tenant_monkeypatch):
+        from django_multitenant.utils import set_current_tenant
+
+        set_current_tenant(das_tenant_monkeypatch)
+        subject = models.Subject.objects.create_subject(name="MSC_identity")
+        ia = self._analyzer(subject, min_subjects=2)
+
+        sid_a = subject.id
+        sid_b = uuid.uuid4()
+        all_points, labels = self._labeled_points(sid_a, sid_b)
+
+        results = ia._build_cluster_results(all_points, labels)
+        cluster_points = results[0].values["cluster_points"]
+        subject_ids_in_points = {pt["subject_id"] for pt in cluster_points}
+        assert str(sid_a) in subject_ids_in_points
+        assert str(sid_b) in subject_ids_in_points
+
+    @pytest.mark.django_db
+    @pytest.mark.usefixtures("tenant_settings", "das_tenant_monkeypatch")
+    def test_cluster_below_duration_threshold_is_discarded(self, das_tenant_monkeypatch):
+        from django_multitenant.utils import set_current_tenant
+
+        set_current_tenant(das_tenant_monkeypatch)
+        subject = models.Subject.objects.create_subject(name="MSC_duration")
+        ia = self._analyzer(subject, min_subjects=2)
+
+        sid_a = subject.id
+        sid_b = uuid.uuid4()
+        # 3 points each at 5-minute intervals → total span 10 min < 1 h threshold
+        pts_a = _make_subject_points(sid_a, "SubjectA", BASE_LAT, BASE_LON, 3, self._now, 300)
+        pts_b = _make_subject_points(sid_b, "SubjectB", BASE_LAT, BASE_LON, 3, self._now, 300)
+        all_points = pts_a + pts_b
+        labels = [1] * 6
+
+        results = ia._build_cluster_results(all_points, labels)
+        assert results == []
+
+    @pytest.mark.django_db
+    @pytest.mark.usefixtures("tenant_settings", "das_tenant_monkeypatch")
+    def test_noise_points_are_excluded(self, das_tenant_monkeypatch):
+        from django_multitenant.utils import set_current_tenant
+
+        set_current_tenant(das_tenant_monkeypatch)
+        subject = models.Subject.objects.create_subject(name="MSC_noise")
+        ia = self._analyzer(subject, min_subjects=2)
+
+        sid_a = subject.id
+        sid_b = uuid.uuid4()
+        # First 3 labelled as cluster 1, last 3 labelled as noise (-1)
+        pts_a = _make_subject_points(sid_a, "SubjectA", BASE_LAT, BASE_LON, 3, self._now, 1800)
+        pts_b = _make_subject_points(sid_b, "SubjectB", BASE_LAT, BASE_LON, 3, self._now, 1800)
+        all_points = pts_a + pts_b
+        labels = [1, 1, 1, -1, -1, -1]  # pts_b are noise
+
+        # Cluster 1 has only pts_a (1 subject) → below min_subjects=2
+        results = ia._build_cluster_results(all_points, labels)
+        assert results == []
+
+
+@pytest.mark.usefixtures("tenant_settings", "das_tenant_monkeypatch")
+@pytest.mark.django_db
+class TestMultiSubjectAnalyzeRouting(TestCase):
+    """Integration tests for MultiSubjectMovementClusterAnalyzer.analyze()."""
+
+    def setUp(self):
+        set_current_tenant(self.das_tenant)
+        self.subject = models.Subject.objects.create_subject(name="MSC_route_subject")
+        self.now = datetime.now(tz=timezone.utc)
+
+    def _make_saved_config(self, group_name, min_subjects=2):
+        sg = models.SubjectGroup.objects.create(name=group_name)
+        sg.subjects.add(self.subject)
+        sg.save()
+        return MovementClusterAnalyzerConfig.objects.create(
+            name=group_name,
+            subject_group=sg,
+            spatial_threshold_meters=200,
+            temporal_threshold_seconds=3600,
+            min_cluster_points=3,
+            min_cluster_duration_seconds=3600,
+            min_subjects_in_cluster=min_subjects,
+        )
+
+    def _subject_points_two_subjects(self, center_lat=BASE_LAT, center_lon=BASE_LON):
+        """Points from self.subject and a freshly created second subject, clustered together."""
+        subject2 = models.Subject.objects.create_subject(name=f"MSC_second_{uuid.uuid4().hex[:8]}")
+        pts_a = _make_subject_points(self.subject.id, self.subject.name, center_lat, center_lon, 6, self.now, 1800)
+        pts_b = _make_subject_points(subject2.id, subject2.name, center_lat, center_lon, 6, self.now, 1800)
+        return pts_a + pts_b
+
+    def test_min_subjects_defaults_to_1(self):
+        sg = models.SubjectGroup.objects.create(name="msc_default_sg")
+        sg.subjects.add(self.subject)
+        sg.save()
+        config = MovementClusterAnalyzerConfig.objects.create(subject_group=sg)
+        assert config.min_subjects_in_cluster == 1
+
+    def test_single_subject_path_used_when_min_subjects_is_1(self):
+        """When min_subjects_in_cluster=1, analyze() uses the single-subject trajectory path."""
+        config = MovementClusterAnalyzerConfig(
+            spatial_threshold_meters=200,
+            temporal_threshold_seconds=3600,
+            min_cluster_points=3,
+            min_cluster_duration_seconds=3600,
+            min_subjects_in_cluster=1,
+        )
+        ia = MovementClusterAnalyzer(subject=self.subject, config=config)
+        obs = _clustered_obs(BASE_LAT, BASE_LON, count=8, start=self.now, interval_s=1800)
+        # Observations passed directly — only works via the single-subject path
+        results = ia.analyze(observations=obs)
+        assert results
+
+    def test_multi_subject_cluster_fires_when_enough_subjects(self):
+        config = self._make_saved_config("msc_fires_group")
+        ia = MultiSubjectMovementClusterAnalyzer(subject=self.subject, config=config)
+
+        points = self._subject_points_two_subjects()
+        with patch.object(ia, "_collect_group_points", return_value=points):
+            results = ia.analyze()
+
+        assert len(results) == 1
+        result, event = results[0]
+        assert result.values["subjects_in_cluster"] == 2
+        assert event is not None
+
+    def test_multi_subject_cluster_silent_when_too_few_subjects(self):
+        config = self._make_saved_config("msc_silent_group", min_subjects=2)
+        ia = MultiSubjectMovementClusterAnalyzer(subject=self.subject, config=config)
+
+        # All points from one subject only
+        points = _make_subject_points(self.subject.id, self.subject.name, BASE_LAT, BASE_LON, 8, self.now, 1800)
+        with patch.object(ia, "_collect_group_points", return_value=points):
+            results = ia.analyze()
+
+        assert results == []
+
+    def test_analyze_raises_insufficient_data_when_too_few_points(self):
+        config = self._make_saved_config("msc_insufficient_group", min_subjects=2)
+        ia = MultiSubjectMovementClusterAnalyzer(subject=self.subject, config=config)
+
+        # Only 2 points — below min_cluster_points=3
+        points = _make_subject_points(self.subject.id, self.subject.name, BASE_LAT, BASE_LON, 2, self.now, 1800)
+        with patch.object(ia, "_collect_group_points", return_value=points):
+            with pytest.raises(InsufficientDataAnalyzerException):
+                ia.analyze()
+
+    def test_multi_subject_cluster_two_spatial_locations_only_overlapping_fires(self):
+        """Two spatial clusters: one shared by both subjects, one containing only one subject."""
+        config = self._make_saved_config("msc_two_locs_group", min_subjects=2)
+        ia = MultiSubjectMovementClusterAnalyzer(subject=self.subject, config=config)
+
+        subject2 = models.Subject.objects.create_subject(name="MSC_two_locs_subject2")
+        # Cluster A — both subjects present (≈5 degrees apart from cluster B)
+        pts_a_subj1 = _make_subject_points(self.subject.id, self.subject.name, BASE_LAT, BASE_LON, 6, self.now, 1800)
+        pts_a_subj2 = _make_subject_points(subject2.id, subject2.name, BASE_LAT, BASE_LON, 6, self.now, 1800)
+        # Cluster B — only self.subject is present (5 degrees away)
+        pts_b_subj1 = _make_subject_points(
+            self.subject.id, self.subject.name, BASE_LAT + 5.0, BASE_LON, 6, self.now, 1800
+        )
+
+        points = pts_a_subj1 + pts_a_subj2 + pts_b_subj1
+        with patch.object(ia, "_collect_group_points", return_value=points):
+            results = ia.analyze()
+
+        # Only cluster A (both subjects) should fire
+        assert len(results) == 1
+        result, _ = results[0]
+        assert result.values["subjects_in_cluster"] == 2
+
+    # ------------------------------------------------------------------
+    # Multi-subject event type bootstrap
+    # ------------------------------------------------------------------
+
+    # ------------------------------------------------------------------
+    # Quiet-period / silent-period
+    # ------------------------------------------------------------------
+
+    def test_quiet_period_cache_is_set_after_multi_subject_cluster_fires(self):
+        """When a multi-subject cluster produces an event and analyzer_key is supplied,
+        the quiet-period cache entry must be written so the task loop can skip
+        subsequent runs within the quiet window."""
+        from datetime import timedelta as td
+
+        config = self._make_saved_config("msc_quiet_group", min_subjects=2)
+        config.quiet_period = td(hours=1)
+        config.save()
+
+        analyzer_key = f"analyzer_silent__{config.id}__{self.subject.id}"
+        cache.delete(analyzer_key)
+
+        ia = MultiSubjectMovementClusterAnalyzer(subject=self.subject, config=config)
+        points = self._subject_points_two_subjects()
+        with patch.object(ia, "_collect_group_points", return_value=points):
+            results = ia.analyze(analyzer_key=analyzer_key)
+
+        assert len(results) == 1
+        assert cache.get(analyzer_key) is not None, "quiet-period cache entry should be set after a cluster event fires"
+
+    def test_quiet_period_cache_not_set_when_no_cluster_qualifies(self):
+        """When no qualifying cluster is found (e.g. too few subjects), the
+        quiet-period cache must remain unset so the next run is not skipped."""
+        from datetime import timedelta as td
+
+        config = self._make_saved_config("msc_quiet_no_event_group", min_subjects=2)
+        config.quiet_period = td(hours=1)
+        config.save()
+
+        analyzer_key = f"analyzer_silent__{config.id}__{self.subject.id}"
+        cache.delete(analyzer_key)
+
+        ia = MultiSubjectMovementClusterAnalyzer(subject=self.subject, config=config)
+        # All points belong to a single subject — cluster won't meet min_subjects=2
+        single_subject_points = _make_subject_points(
+            self.subject.id, self.subject.name, BASE_LAT, BASE_LON, 8, self.now, 1800
+        )
+        with patch.object(ia, "_collect_group_points", return_value=single_subject_points):
+            results = ia.analyze(analyzer_key=analyzer_key)
+
+        assert results == []
+        assert cache.get(analyzer_key) is None, "quiet-period cache must not be set when no event fires"
+
+    # ------------------------------------------------------------------
+    # Multi-subject event type bootstrap
+    # ------------------------------------------------------------------
+
+    def test_ensure_event_type_creates_multi_subject_type_when_configured(self):
+        from activity.models import EventType
+
+        config = self._make_saved_config("msc_et_create_group", min_subjects=2)
+        ia = MultiSubjectMovementClusterAnalyzer(subject=self.subject, config=config)
+
+        assert not EventType.objects.filter(value=MULTI_SUBJECT_MOVEMENT_CLUSTER_EVENT_TYPE).exists()
+        ia._ensure_event_type()
+        assert EventType.objects.filter(value=MULTI_SUBJECT_MOVEMENT_CLUSTER_EVENT_TYPE).exists()
+
+    def test_ensure_event_type_stores_multi_subject_schema(self):
+        from activity.models import EventType
+
+        config = self._make_saved_config("msc_et_schema_group", min_subjects=2)
+        ia = MultiSubjectMovementClusterAnalyzer(subject=self.subject, config=config)
+
+        ia._ensure_event_type()
+        et = EventType.objects.get(value=MULTI_SUBJECT_MOVEMENT_CLUSTER_EVENT_TYPE)
+        assert json.loads(et.schema) == MULTI_SUBJECT_MOVEMENT_CLUSTER_SCHEMA
+
+    def test_ensure_event_type_single_subject_type_unchanged(self):
+        """min_subjects_in_cluster=1 still creates the original movement_cluster event type."""
+        from activity.models import EventType
+
+        sg = models.SubjectGroup.objects.create(name="msc_et_single_group")
+        sg.subjects.add(self.subject)
+        sg.save()
+        config = MovementClusterAnalyzerConfig.objects.create(subject_group=sg, min_subjects_in_cluster=1)
+        ia = MovementClusterAnalyzer(subject=self.subject, config=config)
+
+        ia._ensure_event_type()
+        assert EventType.objects.filter(value=MOVEMENT_CLUSTER_EVENT_TYPE).exists()
+        assert not EventType.objects.filter(value=MULTI_SUBJECT_MOVEMENT_CLUSTER_EVENT_TYPE).exists()
+
+    # ------------------------------------------------------------------
+    # Multi-subject event details
+    # ------------------------------------------------------------------
+
+    def test_multi_subject_event_uses_multi_subject_event_type(self):
+        config = self._make_saved_config("msc_ev_type_group", min_subjects=2)
+        ia = MultiSubjectMovementClusterAnalyzer(subject=self.subject, config=config)
+
+        points = self._subject_points_two_subjects()
+        with patch.object(ia, "_collect_group_points", return_value=points):
+            results = ia.analyze()
+
+        assert len(results) == 1
+        _, event = results[0]
+        assert event.event_type.value == MULTI_SUBJECT_MOVEMENT_CLUSTER_EVENT_TYPE
+
+    def test_multi_subject_event_details_contain_subjects_list(self):
+        config = self._make_saved_config("msc_ev_subjects_group", min_subjects=2)
+        ia = MultiSubjectMovementClusterAnalyzer(subject=self.subject, config=config)
+
+        points = self._subject_points_two_subjects()
+        with patch.object(ia, "_collect_group_points", return_value=points):
+            results = ia.analyze()
+
+        _, event = results[0]
+        details = event.event_details.latest("updated_at").data["event_details"]
+        assert "subjects" in details
+        assert isinstance(details["subjects"], list)
+        assert len(details["subjects"]) == 2
+        for entry in details["subjects"]:
+            assert "subject_id" in entry
+            assert "subject_name" in entry
+
+    def test_multi_subject_event_details_have_no_singular_subject_name(self):
+        """The multi-subject event should not carry the single-subject subject_name key."""
+        config = self._make_saved_config("msc_ev_no_sname_group", min_subjects=2)
+        ia = MultiSubjectMovementClusterAnalyzer(subject=self.subject, config=config)
+
+        points = self._subject_points_two_subjects()
+        with patch.object(ia, "_collect_group_points", return_value=points):
+            results = ia.analyze()
+
+        _, event = results[0]
+        details = event.event_details.latest("updated_at").data["event_details"]
+        assert "subject_name" not in details
+
+    def test_multi_subject_event_related_subjects_contains_all_cluster_subjects(self):
+        config = self._make_saved_config("msc_ev_related_group", min_subjects=2)
+        ia = MultiSubjectMovementClusterAnalyzer(subject=self.subject, config=config)
+
+        points = self._subject_points_two_subjects()
+        with patch.object(ia, "_collect_group_points", return_value=points):
+            results = ia.analyze()
+
+        _, event = results[0]
+        related_ids = {str(s.id) for s in event.related_subjects.all()}
+        # Both subjects must appear in related_subjects
+        assert len(related_ids) == 2
+
+    def test_single_result_created_when_analyzer_runs_for_each_subject_in_group(self):
+        """When the task invokes analyze() once per subject in the group (as
+        get_subject_analyzers yields one instance per subject), only a single
+        SubjectAnalyzerResult should be created for the shared cluster — not
+        one per subject."""
+        subject2 = models.Subject.objects.create_subject(name="MSC_dedup_subject2")
+        config = self._make_saved_config("msc_dedup_group", min_subjects=2)
+        config.subject_group.subjects.add(subject2)
+
+        pts_a = _make_subject_points(self.subject.id, self.subject.name, BASE_LAT, BASE_LON, 6, self.now, 1800)
+        pts_b = _make_subject_points(subject2.id, subject2.name, BASE_LAT, BASE_LON, 6, self.now, 1800)
+        all_points = pts_a + pts_b
+
+        # Simulate the task scheduler invoking analyze() for each subject
+        # separately via get_subject_analyzers, using the same config.
+        ia1 = MultiSubjectMovementClusterAnalyzer(subject=self.subject, config=config)
+        ia2 = MultiSubjectMovementClusterAnalyzer(subject=subject2, config=config)
+
+        with patch.object(ia1, "_collect_group_points", return_value=all_points):
+            ia1.analyze()
+
+        with patch.object(ia2, "_collect_group_points", return_value=all_points):
+            ia2.analyze()
+
+        result_count = SubjectAnalyzerResult.objects.filter(subject_analyzer_id=config.pk).count()
+        assert result_count == 1, (
+            f"Expected 1 SubjectAnalyzerResult for the shared cluster, got {result_count}. "
+            "A multi-subject analyzer config should not create duplicate results when "
+            "run for each subject in the group."
+        )
+
+    # ------------------------------------------------------------------
+    # Leader election in get_subject_analyzers
+    # ------------------------------------------------------------------
+
+    def test_get_subject_analyzers_yields_only_for_leader_subject(self):
+        """The leader is the active group member with the lowest id.  Only the
+        leader should yield a multi-subject analyzer instance — the other
+        members must be silent so ST-DBSCAN runs once per config per tick."""
+        config = self._make_saved_config("msc_leader_yield_group", min_subjects=2)
+        # self.subject is already in the group; add a second active subject.
+        subject2 = models.Subject.objects.create_subject(name="MSC_leader_subject2")
+        config.subject_group.subjects.add(subject2)
+
+        active = list(config.subject_group.subjects.filter(is_active=True).order_by("id"))
+        leader, follower = active[0], active[1]
+
+        leader_analyzers = list(MultiSubjectMovementClusterAnalyzer.get_subject_analyzers(leader))
+        follower_analyzers = list(MultiSubjectMovementClusterAnalyzer.get_subject_analyzers(follower))
+
+        assert any(a.config.pk == config.pk for a in leader_analyzers), "leader subject should yield"
+        assert all(a.config.pk != config.pk for a in follower_analyzers), "follower subject must not yield"
+
+    def test_get_subject_analyzers_excludes_min_subjects_1_configs(self):
+        """MultiSubjectMovementClusterAnalyzer must only consider configs with
+        min_subjects_in_cluster > 1 — single-subject configs are owned by the
+        legacy MovementClusterAnalyzer and would otherwise be picked up twice."""
+        sg = models.SubjectGroup.objects.create(name="msc_min1_group")
+        sg.subjects.add(self.subject)
+        sg.save()
+        single_config = MovementClusterAnalyzerConfig.objects.create(
+            name="msc_min1_group", subject_group=sg, min_subjects_in_cluster=1
+        )
+
+        analyzers = list(MultiSubjectMovementClusterAnalyzer.get_subject_analyzers(self.subject))
+        assert all(a.config.pk != single_config.pk for a in analyzers)
+
+    def test_movement_cluster_analyzer_excludes_multi_subject_configs(self):
+        """The legacy single-subject analyzer must skip configs with
+        min_subjects_in_cluster > 1, mirroring the multi-subject filter so each
+        config is owned by exactly one analyzer class."""
+        multi_config = self._make_saved_config("msc_excludes_multi_group", min_subjects=2)
+
+        analyzers = list(MovementClusterAnalyzer.get_subject_analyzers(self.subject))
+        assert all(a.config.pk != multi_config.pk for a in analyzers)
+
+    # ------------------------------------------------------------------
+    # Query count / N+1 guard
+    # ------------------------------------------------------------------
+
+    def test_collect_group_points_query_count_scales_linearly_with_subjects(self):
+        """_collect_group_points must have a predictable linear query cost.
+
+        The assertions below expect the total query count to be:
+          - 1 query to fetch the group's subjects
+          - 2 queries per active subject
+
+        In other words, the expected per-subject delta is 2 queries. This test
+        intentionally asserts that exact delta rather than merely checking that the
+        query count grows linearly, so the intended query budget remains explicit.
+        """
+        from django.db import connection
+        from django.test.utils import CaptureQueriesContext
+
+        def make_config_with_n_subjects(n, group_name):
+            sg = models.SubjectGroup.objects.create(name=group_name)
+            for i in range(n):
+                s = models.Subject.objects.create_subject(name=f"{group_name}_s{i}")
+                sg.subjects.add(s)
+            sg.save()
+            return MovementClusterAnalyzerConfig.objects.create(
+                name=group_name,
+                subject_group=sg,
+                spatial_threshold_meters=200,
+                temporal_threshold_seconds=3600,
+                min_cluster_points=3,
+                min_cluster_duration_seconds=3600,
+                min_subjects_in_cluster=2,
+            )
+
+        config1 = make_config_with_n_subjects(1, "qc_1subj")
+        config2 = make_config_with_n_subjects(2, "qc_2subj")
+        config3 = make_config_with_n_subjects(3, "qc_3subj")
+
+        ia1 = MultiSubjectMovementClusterAnalyzer(subject=self.subject, config=config1)
+        ia2 = MultiSubjectMovementClusterAnalyzer(subject=self.subject, config=config2)
+        ia3 = MultiSubjectMovementClusterAnalyzer(subject=self.subject, config=config3)
+
+        with CaptureQueriesContext(connection) as ctx1:
+            ia1._collect_group_points()
+        with CaptureQueriesContext(connection) as ctx2:
+            ia2._collect_group_points()
+        with CaptureQueriesContext(connection) as ctx3:
+            ia3._collect_group_points()
+
+        count_1 = len(ctx1.captured_queries)
+        count_2 = len(ctx2.captured_queries)
+        count_3 = len(ctx3.captured_queries)
+
+        # Each additional subject costs exactly two queries in this test environment:
+        #   1. SubjectTrackSegmentFilter.objects.filter(subject_subtype=...).first()
+        #      (inside default_trajectory_filter — one lookup per subject)
+        #   2. SubjectSource.objects.filter(subject=...) evaluated eagerly inside
+        #      Subject.observations() / get_subject_observations_partitioned
+        # The group subjects fetch (with select_related("subject_subtype")) is a single
+        # constant query, so subject_subtype is never re-fetched per subject.
+        # Note: in this test subjects have no observations, so the observations queryset
+        # itself returns self.none() and is never evaluated — no additional query.
+        # In production (with real SubjectSource records) the delta would be 3.
+        # A delta > 2 here means an extra per-subject query has been introduced
+        # (e.g. subject_subtype reloaded without select_related).
+        expected_per_subject_delta = 2
+        delta_1_to_2 = count_2 - count_1
+        delta_2_to_3 = count_3 - count_2
+
+        extra_query_hint = (
+            "A higher delta indicates an extra per-subject query "
+            "(e.g. subject_subtype reloaded without select_related)."
+        )
+        assert delta_1_to_2 == expected_per_subject_delta, (
+            f"Adding a 2nd subject increased query count by {delta_1_to_2}, "
+            f"expected {expected_per_subject_delta}. "
+            f"Counts: 1 subject={count_1}, 2 subjects={count_2}. "
+            f"Expected delta is {expected_per_subject_delta} (trajectory-filter lookup + observations). "
+            + extra_query_hint
+        )
+        assert delta_2_to_3 == expected_per_subject_delta, (
+            f"Adding a 3rd subject increased query count by {delta_2_to_3}, "
+            f"expected {expected_per_subject_delta}. "
+            f"Counts: 2 subjects={count_2}, 3 subjects={count_3}. "
+            f"Expected delta is {expected_per_subject_delta} (trajectory-filter lookup + observations). "
+            + extra_query_hint
+        )

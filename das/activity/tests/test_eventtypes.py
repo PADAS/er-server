@@ -619,6 +619,82 @@ class TestIconsListView:
         assert response["ETag"] == res["ETag"]
 
 
+@pytest.mark.django_db
+class TestIconDownloadView:
+    def _url(self, icon_id):
+        return reverse("eventtype-icon-download", kwargs={"icon_id": icon_id})
+
+    @patch("activity.views.events.types.finders")
+    def test_download_by_stem_returns_svg(self, mock_finders, superuser_client, tmp_path):
+        icon_file = tmp_path / "test_icon.svg"
+        icon_file.write_bytes(b"<svg/>")
+
+        with patch.object(
+            DirectoryIconFinder,
+            "_file_metadata",
+            new_callable=lambda: property(lambda self: (("test_icon.svg", None),)),
+        ):
+            mock_finders.find.return_value = str(icon_file)
+            response = superuser_client.get(self._url("test_icon"))
+
+        assert response.status_code == status.HTTP_200_OK
+        assert response["Content-Type"] == "image/svg+xml"
+
+    @patch("activity.views.events.types.finders")
+    def test_svg_preferred_over_other_extensions(self, mock_finders, superuser_client, tmp_path):
+        svg_file = tmp_path / "test_icon.svg"
+        svg_file.write_bytes(b"<svg/>")
+
+        with patch.object(
+            DirectoryIconFinder,
+            "_file_metadata",
+            new_callable=lambda: property(lambda self: (("test_icon.png", None), ("test_icon.svg", None))),
+        ):
+            mock_finders.find.return_value = str(svg_file)
+            response = superuser_client.get(self._url("test_icon"))
+
+        assert response.status_code == status.HTTP_200_OK
+        mock_finders.find.assert_called_once_with("sprite-src/test_icon.svg")
+
+    @patch("activity.views.events.types.finders")
+    def test_non_svg_returned_when_no_svg_available(self, mock_finders, superuser_client, tmp_path):
+        png_file = tmp_path / "test_icon.png"
+        png_file.write_bytes(b"\x89PNG")
+
+        with patch.object(
+            DirectoryIconFinder,
+            "_file_metadata",
+            new_callable=lambda: property(lambda self: (("test_icon.png", None),)),
+        ):
+            mock_finders.find.return_value = str(png_file)
+            response = superuser_client.get(self._url("test_icon"))
+
+        assert response.status_code == status.HTTP_200_OK
+        assert response["Content-Type"] == "image/png"
+
+    @patch("activity.views.events.types.finders")
+    def test_download_unknown_icon_returns_404(self, mock_finders, superuser_client):
+        with patch.object(DirectoryIconFinder, "_file_metadata", new_callable=lambda: property(lambda self: ())):
+            response = superuser_client.get(self._url("nonexistent"))
+
+        assert response.status_code == status.HTTP_404_NOT_FOUND
+        mock_finders.find.assert_not_called()
+
+    @patch("activity.views.events.types.finders")
+    def test_download_returns_404_when_file_not_on_disk(self, mock_finders, superuser_client):
+        with patch.object(
+            DirectoryIconFinder, "_file_metadata", new_callable=lambda: property(lambda self: (("missing.svg", None),))
+        ):
+            mock_finders.find.return_value = None
+            response = superuser_client.get(self._url("missing"))
+
+        assert response.status_code == status.HTTP_404_NOT_FOUND
+
+    def test_unauthenticated_returns_401(self, client):
+        response = client.get(self._url("some_icon"))
+        assert response.status_code == status.HTTP_401_UNAUTHORIZED
+
+
 @patch("core.utils.staticfiles_storage.listdir", side_effect=Exception("Filesystem error"))
 def test_list_icons_view_error_handling(mock_storage, superuser_client):
     DirectoryIconFinder._instance = None

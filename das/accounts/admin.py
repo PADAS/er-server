@@ -15,12 +15,15 @@ from oauth2_provider.models import (
 import django.contrib.auth.models
 from django.conf import settings
 from django.contrib import admin
+from django.contrib.admin.views.main import IncorrectLookupParameters
 from django.contrib.auth.admin import GroupAdmin as DjangoGroupAdmin
 from django.contrib.auth.admin import UserAdmin as DjangoUserAdmin
 from django.contrib.auth.forms import PasswordResetForm
+from django.contrib.auth.models import Permission
 from django.core.exceptions import PermissionDenied
 from django.core.mail import send_mail
 from django.db import transaction
+from django.db.models import Prefetch
 from django.http.response import HttpResponseRedirect
 from django.shortcuts import get_object_or_404
 from django.template.loader import render_to_string
@@ -89,8 +92,21 @@ class PermissionSetAdmin(ModelAdminDisplayingManyToManyFieldMixin, DjangoGroupAd
     def get_queryset(self, request):
         queryset = PermissionSet.objects.all()
         if not get_tenant_settings().env_settings.patrol_enabled:
-            return queryset.exclude(permissions__in=patrol_mgmt_permissions())
-        return queryset
+            queryset = queryset.exclude(permissions__in=patrol_mgmt_permissions())
+
+        # Prefetch the columns rendered by all_permissions / all_users on the
+        # changelist. Without this, each row triggers its own SELECT for the
+        # tenant-filtered permissions and the user_set, turning a 46-row page
+        # into ~92 round-trips.
+        #
+        # The permissions prefetch needs the explicit tenant filter because
+        # instance.permissions.all() bypasses tenant-scoping on the through
+        # table (see all_permissions for the long-form note).
+        tenant_permissions = Permission.objects.filter(permission_sets__das_tenant=get_current_tenant())
+        return queryset.prefetch_related(
+            Prefetch("permissions", queryset=tenant_permissions, to_attr="_tenant_permissions"),
+            "user_set",
+        )
 
     def formfield_for_dbfield(self, db_field, **kwargs):
         if db_field.name == "children":
@@ -98,12 +114,15 @@ class PermissionSetAdmin(ModelAdminDisplayingManyToManyFieldMixin, DjangoGroupAd
         return super().formfield_for_dbfield(db_field, **kwargs)
 
     def all_permissions(self, instance):
-        # This is the only place where one member of the through table does not have a tenant_id
-        # because of that when we say instance.permissions.all() we get all the permissions assoicated
-        # with thiswithout
-        # filtering by tenant_id
-
-        permissions = instance.permissions.filter(permission_sets__das_tenant=get_current_tenant())
+        # instance.permissions.all() would return permissions across every
+        # tenant — the M2M through table is tenant-scoped but the M2M relation
+        # itself is not, so we must filter by current tenant. get_queryset
+        # populates instance._tenant_permissions via Prefetch; fall back to
+        # the live query for cases where this admin's get_queryset wasn't
+        # used to load the instance.
+        permissions = getattr(instance, "_tenant_permissions", None)
+        if permissions is None:
+            permissions = instance.permissions.filter(permission_sets__das_tenant=get_current_tenant())
         return make_html_list(sorted(ps.name for ps in permissions))
 
     all_permissions.short_description = "Permissions"
@@ -438,33 +457,31 @@ class UserAdmin(ModelAdminDisplayingManyToManyFieldMixin, DefaultFilterMixin, Fi
     _linked_subject_warning.short_description = "Warning"
 
     def changelist_view(self, request, extra_context=None):
-        """Override changelist_view to add alert rules data for JavaScript"""
+        """Override changelist_view to add alert rules data for JavaScript."""
+        # Build the ChangeList ourselves to get the filtered, paginated
+        # result_list without rendering the whole view. The previous
+        # implementation called super().changelist_view twice — once to
+        # discover the filtered queryset, then again with the extra_context
+        # injected. That re-ran every per-admin sidebar query (e.g.
+        # tracking SourceProviderConfigurationAdmin.has_add_permission),
+        # the entire template, and admin app_dict assembly.
+        try:
+            cl = self.get_changelist_instance(request)
+        except IncorrectLookupParameters:
+            # Bad filter params; let the base view produce the standard
+            # invalid-search response.
+            return super().changelist_view(request, extra_context)
 
-        # double render as in the base class rendering is where the filters are applied
-        # and the queryset is populated with filters
-        response = super().changelist_view(request, extra_context)
-        if isinstance(response, HttpResponseRedirect) or not hasattr(response, "context_data"):
-            return response
-
-        queryset = response.context_data["cl"].result_list
+        queryset = cl.result_list
         extra_context = extra_context or {}
 
-        # Get alert rules data for each user and create form index mapping
-        user_alert_rules = {}
-        form_index_to_user_id = {}
-
-        # Get all user IDs that have alert rules in a single query
         user_ids_with_alerts = set(AlertRule.objects.filter(owner__in=queryset).values_list("owner_id", flat=True))
 
+        user_alert_rules = {}
+        form_index_to_user_id = {}
         for index, user in enumerate(queryset):
-            # Map form index to user ID for JavaScript
             form_index_to_user_id[str(index)] = str(user.id)
-
-            # Check if user has alert rules (just boolean, no details needed)
-            if user.id in user_ids_with_alerts:
-                user_alert_rules[str(user.id)] = {"has_alerts": True}
-            else:
-                user_alert_rules[str(user.id)] = {"has_alerts": False}
+            user_alert_rules[str(user.id)] = {"has_alerts": user.id in user_ids_with_alerts}
 
         extra_context["user_alert_rules"] = json.dumps(user_alert_rules)
         extra_context["form_index_to_user_id"] = json.dumps(form_index_to_user_id)

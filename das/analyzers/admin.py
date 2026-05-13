@@ -530,6 +530,7 @@ class MovementClusterAnalyzerAdmin(BaseModelAdminMixin):
                     "temporal_threshold_seconds",
                     "min_cluster_points",
                     "min_cluster_duration_seconds",
+                    "min_subjects_in_cluster",
                 ),
             },
         ),

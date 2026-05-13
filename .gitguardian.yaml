@@ -1,0 +1,5 @@
+version: 2
+secret:
+  ignored_matches:
+    - name: Django dev SECRET_KEY default
+      match: "j(h&tc(u_#z-tf)u(9+3n39gmk92#6-v-he_p0ae+1rs*+2j@b"

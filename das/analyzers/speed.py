@@ -77,7 +77,7 @@ class LowSpeedPercentileAnalyzer(SubjectAnalyzer):
         fixes = traj.relocs.get_fixes("DESC")
 
         # Create the analyzer result
-        title = (self.subject.name + str(_(" is moving normally")),)
+        title = self.subject.name + str(_(" is moving normally"))
         result = SubjectAnalyzerResult(
             subject_analyzer=self.config,
             level=OK,
@@ -259,7 +259,7 @@ class LowSpeedWilcoxAnalyzer(SubjectAnalyzer):
         fixes = traj.relocs.get_fixes("DESC")
 
         # Create the analyzer result
-        title = (self.subject.name + str(_(" is moving normally")),)
+        title = self.subject.name + str(_(" is moving normally"))
         result = SubjectAnalyzerResult(
             subject_analyzer=self.config,
             level=OK,

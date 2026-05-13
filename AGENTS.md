@@ -59,6 +59,19 @@ Key considerations:
 - Tenant-specific configurations and permissions
 - Cross-tenant queries require special authorization
 
+### Tenant-scoped querysets in admin/form classes
+
+Class-level `queryset=` declarations on `ModelChoiceField` / `ModelMultipleChoiceField` (and on `ModelAdmin` attributes that take a queryset) are evaluated **at import time**, before any request — and therefore before the tenant middleware has set the threadlocal. For tenant-scoped models (`User`, `PermissionSet`, `Subject`, anything inheriting `TenantModelMixin`), that import-time evaluation either raises `TenantNotFoundInLocalThreadException` or — worse — silently captures whatever tenant happens to be active during import (tests, management commands, the first request to land on a worker).
+
+The pattern in this codebase is:
+
+- Declare the field with a placeholder queryset at class scope so Django's form/admin machinery is satisfied.
+- **Reassign the queryset in `__init__` (forms) or `get_queryset` / `formfield_for_*` (admins)** so it is rebuilt per-request, with `get_tenant_settings()` resolving inside the request scope.
+
+Example: `accounts/forms.py:PermissionSetAdminForm` declares `User.objects.all()` and `PermissionSet.objects.all()` at class scope, then re-assigns both in `__init__`. Do not "clean up" those reassignments — they look redundant but are load-bearing.
+
+When you reassign a M2M queryset in `__init__`, you also drop any `select_related` / `prefetch_related` that the parent `ModelAdmin.formfield_for_manytomany` had added. If the related model's `__str__` touches a foreign key (e.g. `Permission.__str__` reads `content_type`), reapply the hint yourself or you'll re-introduce N+1s during widget rendering.
+
 ### Tenant-scoped cache and lock keys
 
 Cache aliases configured with `KEY_FUNCTION: utils.tenant.cache.make_cache_key` (see `das_server/settings.py`) automatically prefix every key with the thread-local tenant ID. This applies to:
@@ -72,9 +85,19 @@ When reviewing or writing code that uses one of these cache aliases, **do not ad
 
 ### Settings Structure
 
-- `das_server/settings.py` - Base settings
-- `das_server/local_settings_docker.py` - Local development and prod overrides
-- Environment variables configured via `.env` file for local overrides
+- `das_server/settings.py` - Base settings, **and the home for all environment-driven settings**. Read env vars here via `env.bool(...)` / `env.str(...)` / `env.int(...)` (`env` is already configured at the top of the file from `django-environ`).
+- `das_server/local_settings_docker.py` - Reserved for overrides specific to the Kubernetes production / Docker-compose environment that are **not** driven by env vars. This file predates the project's `django-environ` adoption and is not the default home for new settings. Some older entries (e.g. `PATROL_ENABLED = env.bool("PATROL_ENABLED", True)`) still live here for historical reasons; do not treat them as precedent.
+- `test_scripts/unittest_settings.py` - Test-only overrides (imports `local_settings_docker` first and then forces specific values needed for the test suite).
+- Environment variables for local development go in a `.env` file at the project root; `django-environ` loads it automatically.
+
+#### Where does my new setting go?
+
+- **Configurable from the environment (12-factor)** → `settings.py` with `env.bool("MY_SETTING", <default>)`.
+- **A fixed, hardcoded default that callers never override at runtime** → `settings.py` as `MY_SETTING = <value>`.
+- **Different value when running under Kubernetes/Docker than in dev, and not exposed as an env var** → `local_settings_docker.py`.
+- **Forced value needed only for the test suite to pass** → `test_scripts/unittest_settings.py`.
+
+Do not declare the same setting in both `settings.py` and `local_settings_docker.py` — that was the old pre-`django-environ` workaround and creates two sources of truth.
 
 ### Key Environment Variables
 
@@ -105,6 +128,14 @@ When reviewing or writing code that uses one of these cache aliases, **do not ad
 - Keep functions small and focused on a single responsibility.
 - Always use `logging` and not `print`.
 - Use Python typing `Protocol` and not ABC for defining abstract classes. Rely on the type checker to enforce all required methods are implemented.
+
+### Dates and timezones
+
+- Do **not** use `pytz` in new code — it has been removed from the project. Use the stdlib `datetime`/`zoneinfo` instead.
+- Construct UTC datetimes with `datetime.now(tz=timezone.utc)` or `datetime(..., tzinfo=timezone.utc)`. Do not use `datetime.utcnow()` (returns a naive datetime).
+- For non-UTC zones, use `zoneinfo.ZoneInfo("Region/City")` rather than `pytz.timezone(...)`.
+- In Django code, prefer `django.utils.timezone.now()` for "current time, tenant-aware" and reserve stdlib `datetime.now(tz=...)` for non-Django utilities and tests.
+- Never call `pytz.utc.localize(naive_dt)` — replace with `naive_dt.replace(tzinfo=timezone.utc)` or, better, construct the datetime aware in the first place.
 
 ## Django/Python Conventions
 

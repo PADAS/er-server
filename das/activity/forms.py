@@ -473,3 +473,31 @@ class PatrolSegmentForm(forms.ModelForm):
 
 class PatrolSegmentStackedInline(InlineOSMGeoAdmin):
     template = "admin/edit_inline/stacked.html"
+
+
+class CommunityInputForm(forms.ModelForm):
+    event_types = forms.ModelMultipleChoiceField(
+        queryset=None,
+        required=False,
+        label=_("Event Types"),
+        widget=FilteredSelectMultiple(verbose_name=_("Event Types"), is_stacked=False),
+    )
+
+    class Meta:
+        from activity.models import CommunityInput
+
+        model = CommunityInput
+        fields = ("name", "value", "is_active", "event_types")
+
+    def __init__(self, *args, **kwargs):
+        from activity.models import EventType
+
+        super().__init__(*args, **kwargs)
+        self.fields["event_types"].queryset = EventType.objects.filter(readonly=False).order_by("display", "value")
+        if self.instance and self.instance.pk:
+            ordered_event_types = list(self.instance.event_types.order_by("communityinputeventtype__order"))
+            self.fields["event_types"].initial = ordered_event_types
+            # Pass saved order to JS via a data attribute on the widget.
+            self.fields["event_types"].widget.attrs["data-saved-order"] = ",".join(
+                str(et.pk) for et in ordered_event_types
+            )
