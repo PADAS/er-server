@@ -299,7 +299,12 @@ def extract_from_list(items: list = list, schema_item=None, event=None):
 
     for item in items:
         if item and isinstance(item, (str, bool, int, float)):
-            logger.warning(f"extract_from_list value is not a dict{event_type_info}: {item} from {items}")
+            logger.warning(
+                "extract_from_list value is not a dict%s: %r (list has %d items)",
+                event_type_info,
+                item,
+                len(items),
+            )
             name = item
             if schema_item and isinstance(item, str):
                 name = schema_item.get("items", {}).get("enumNames", {}).get(item, item)

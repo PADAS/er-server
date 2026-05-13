@@ -23,6 +23,7 @@ from analyzers.utils import save_analyzer_event
 
 MOVEMENT_CLUSTER_EVENT_TYPE = "movement_cluster"
 MAXIMUM_OBSERVATIONS = 1000
+MAX_CLUSTER_POINTS_STORED = 200
 
 
 def _point_within_search_window(point: dict, cutoff: datetime) -> bool:
@@ -298,7 +299,7 @@ class MovementClusterAnalyzer(SubjectAnalyzer):
                 "cluster_radius_meters": round(cluster_radius_m, 2),
                 "cluster_start_time": min(times).isoformat(),
                 "cluster_end_time": max(times).isoformat(),
-                "cluster_points": cluster_points,
+                "cluster_points": cluster_points[:MAX_CLUSTER_POINTS_STORED],
             }
 
             open_clusters = self._find_open_clusters(cluster_point_set)
