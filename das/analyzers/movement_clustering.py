@@ -299,7 +299,7 @@ class MovementClusterAnalyzer(SubjectAnalyzer):
                 "cluster_radius_meters": round(cluster_radius_m, 2),
                 "cluster_start_time": min(times).isoformat(),
                 "cluster_end_time": max(times).isoformat(),
-                "cluster_points": cluster_points[:MAX_CLUSTER_POINTS_STORED],
+                "cluster_points": cluster_points[-MAX_CLUSTER_POINTS_STORED:],
             }
 
             open_clusters = self._find_open_clusters(cluster_point_set)

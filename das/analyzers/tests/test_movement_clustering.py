@@ -25,9 +25,6 @@ from analyzers.movement_clustering import (
     _st_dbscan,
 )
 from analyzers.movement_clustering_multi_subject import (
-    MAX_CLUSTER_POINTS_STORED as MULTI_MAX_CLUSTER_POINTS_STORED,
-)
-from analyzers.movement_clustering_multi_subject import (
     MULTI_SUBJECT_MOVEMENT_CLUSTER_EVENT_TYPE,
     MULTI_SUBJECT_MOVEMENT_CLUSTER_SCHEMA,
     MultiSubjectMovementClusterAnalyzer,
@@ -1479,6 +1476,23 @@ class TestClusterPointsCap(TestCase):
         total_count = result.values["cluster_point_count"]
         assert len(stored_points) == total_count
 
+    def test_cluster_points_stores_most_recent_when_capped(self):
+        # The cap must retain the NEWEST points so that _find_open_clusters can still
+        # match them on the next run (old points age out of the search window).
+        oversized = MAX_CLUSTER_POINTS_STORED + 50
+        obs = _clustered_obs(BASE_LAT, BASE_LON, count=oversized, start=self.now, interval_s=300)
+        analyzer = MovementClusterAnalyzer(subject=self.subject, config=self._config())
+        results = analyzer.analyze(observations=obs)
+        assert results
+        result, _ = results[0]
+        stored_points = result.values["cluster_points"]
+        # All stored points should be the newest (largest timestamps)
+        all_times = sorted(pt["time"] for pt in stored_points)
+        # The oldest stored point must be newer than ANY point from the dropped prefix.
+        # The full obs list is ASC-ordered; the dropped prefix is obs[0..oversized-cap-1].
+        dropped_cutoff = obs[oversized - MAX_CLUSTER_POINTS_STORED - 1].recorded_at.isoformat()
+        assert all_times[0] > dropped_cutoff
+
 
 @pytest.mark.usefixtures("tenant_settings", "das_tenant_monkeypatch")
 @pytest.mark.django_db
@@ -1519,7 +1533,7 @@ class TestMultiSubjectClusterPointsCap(TestCase):
         sg = models.SubjectGroup.objects.create(name="cap_test_group_ms")
         sid_a = uuid.uuid4()
         sid_b = uuid.uuid4()
-        oversized = MULTI_MAX_CLUSTER_POINTS_STORED + 50
+        oversized = MAX_CLUSTER_POINTS_STORED + 50
         points_a = self._make_subject_points(oversized // 2, sid_a, "SubjectA")
         points_b = self._make_subject_points(oversized - oversized // 2, sid_b, "SubjectB")
         all_points = points_a + points_b
@@ -1532,5 +1546,5 @@ class TestMultiSubjectClusterPointsCap(TestCase):
         assert results, "Expected a cluster result from oversized point set"
         stored = results[0].values["cluster_points"]
         total = results[0].values["cluster_point_count"]
-        assert len(stored) == MULTI_MAX_CLUSTER_POINTS_STORED
+        assert len(stored) == MAX_CLUSTER_POINTS_STORED
         assert total == len(all_points)
