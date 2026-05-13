@@ -254,9 +254,16 @@ class Revision(object):
             # Prior revision by `sequence`, which is monotonic per object_id
             # and covered by the (object_id, sequence) index. Avoids the
             # unindexed sort that Django's get_previous_by_revision_at forces.
+            # The revision model's default `objects` manager is not tenant-aware
+            # (only the parent model gets the tenant-scoped RevisionManager via
+            # RevisionDescriptor), so we filter by das_tenant_id explicitly.
             return (
                 type(instance)
-                .objects.filter(object_id=instance.object_id, sequence__lt=instance.sequence)
+                .objects.filter(
+                    das_tenant_id=instance.das_tenant_id,
+                    object_id=instance.object_id,
+                    sequence__lt=instance.sequence,
+                )
                 .order_by("-sequence")
                 .first()
             )
