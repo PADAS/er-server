@@ -99,6 +99,7 @@ choice_list_field_json_schema_any_of_schema = {
         "type": "object",
         "properties": {
             "$ref": {
+                "type": "string",
                 "oneOf": [
                     {"pattern": r"^/api/v2\.0/schemas/choices\.json\?field=[^&]+$"},
                     {"pattern": r"^/api/v2\.0/schemas/event_types\.json(\?category=[^&]+)?$"},
