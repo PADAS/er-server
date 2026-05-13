@@ -98,7 +98,18 @@ choice_list_field_json_schema_any_of_schema = {
     "items": {
         "type": "object",
         "properties": {
-            "$ref": {"type": "string", "format": "uri-reference"},
+            "$ref": {
+                "oneOf": [
+                    {"pattern": r"^/api/v2\.0/schemas/choices\.json\?field=[^&]+$"},
+                    {"pattern": r"^/api/v2\.0/schemas/event_types\.json(\?category=[^&]+)?$"},
+                    {"pattern": r"^/api/v2\.0/schemas/spatial_features\.json(\?feature_set=[^&]+)?$"},
+                    {"pattern": r"^/api/v2\.0/schemas/sources\.json$"},
+                    {
+                        "pattern": r"^/api/v2\.0/schemas/subjects\.json(\?(additional__[^=&]+|common_name|common_name_search|group_name|subject_group|subject_subtypes)=[^&]+(&(additional__[^=&]+|common_name|common_name_search|group_name|subject_group|subject_subtypes)=[^&]+)*)?$"
+                    },
+                    {"pattern": r"^/api/v2\.0/schemas/users\.json$"},
+                ],
+            },
         },
         "required": ["$ref"],
         "additionalProperties": False,
@@ -112,22 +123,17 @@ resolved_choice_list_field_json_schema_any_of_schema = {
         "type": "object",
         "properties": {
             "description": {"type": "string"},
-            "oneOf": {
-                "type": "array",
-                "items": {
-                    "type": "object",
-                    "properties": {
-                        "const": {"type": ["string", "number", "boolean"]},
-                        "description": {"type": "string"},
-                        "title": {"type": "string"},
-                    },
-                    "required": ["const", "title"],
-                },
-            },
+            "enum": {"type": "array", "items": {"type": "string"}},
             "title": {"type": "string"},
             "type": {"type": "string"},
+            "x-enumExtra": {
+                "type": "object",
+                "additionalProperties": {
+                    "type": "object",
+                },
+            },
         },
-        "required": ["oneOf", "title", "type"],
+        "required": ["enum", "title", "type", "x-enumExtra"],
     },
     "minItems": 1,
 }
@@ -179,104 +185,17 @@ multiple_choice_list_field_json_schema = {
     "additionalProperties": False,
 }
 
-choice_list_field_ui_schema_choices_array_schema = {"type": "array", "items": {"type": "string"}}
-
 choice_list_field_ui_schema = {
     "type": "object",
     "title": "Choice List field UI schema",
     "properties": {
-        "choices": {
-            "type": "object",
-            "properties": {
-                "eventTypeCategories": choice_list_field_ui_schema_choices_array_schema,
-                "existingChoiceList": choice_list_field_ui_schema_choices_array_schema,
-                "featureCategories": choice_list_field_ui_schema_choices_array_schema,
-                "myDataType": {
-                    "enum": [
-                        "",
-                        "EVENT_TYPES_FROM_EVENT_CATEGORY",
-                        "FEATURES_FROM_FEATURE_CATEGORY",
-                        "SOURCES",
-                        "SUBJECTS_FROM_SUBJECT_GROUP",
-                        "SUBJECTS_FROM_SUBJECT_SUBTYPE",
-                        "USERS",
-                    ],
-                },
-                "subjectGroups": choice_list_field_ui_schema_choices_array_schema,
-                "subjectSubtypes": choice_list_field_ui_schema_choices_array_schema,
-                "type": {"enum": ["EXISTING_CHOICE_LIST", "MY_DATA"]},
-            },
-            "required": ["type"],
-            "allOf": [
-                {
-                    "if": {"properties": {"type": {"const": "EXISTING_CHOICE_LIST"}}, "required": ["type"]},
-                    "then": {"properties": {"existingChoiceList": {"minItems": 1}}, "required": ["existingChoiceList"]},
-                },
-                {
-                    "if": {"properties": {"type": {"const": "MY_DATA"}}, "required": ["type"]},
-                    "then": {"required": ["myDataType"]},
-                },
-                {
-                    "if": {
-                        "allOf": [
-                            {"properties": {"type": {"const": "MY_DATA"}}, "required": ["type"]},
-                            {
-                                "properties": {"myDataType": {"const": "EVENT_TYPES_FROM_EVENT_CATEGORY"}},
-                                "required": ["myDataType"],
-                            },
-                        ]
-                    },
-                    "then": {
-                        "properties": {"eventTypeCategories": {"minItems": 1}},
-                        "required": ["eventTypeCategories"],
-                    },
-                },
-                {
-                    "if": {
-                        "allOf": [
-                            {"properties": {"type": {"const": "MY_DATA"}}, "required": ["type"]},
-                            {
-                                "properties": {"myDataType": {"const": "FEATURES_FROM_FEATURE_CATEGORY"}},
-                                "required": ["myDataType"],
-                            },
-                        ]
-                    },
-                    "then": {"properties": {"featureCategories": {"minItems": 1}}, "required": ["featureCategories"]},
-                },
-                {
-                    "if": {
-                        "allOf": [
-                            {"properties": {"type": {"const": "MY_DATA"}}, "required": ["type"]},
-                            {
-                                "properties": {"myDataType": {"const": "SUBJECTS_FROM_SUBJECT_GROUP"}},
-                                "required": ["myDataType"],
-                            },
-                        ]
-                    },
-                    "then": {"properties": {"subjectGroups": {"minItems": 1}}, "required": ["subjectGroups"]},
-                },
-                {
-                    "if": {
-                        "allOf": [
-                            {"properties": {"type": {"const": "MY_DATA"}}, "required": ["type"]},
-                            {
-                                "properties": {"myDataType": {"const": "SUBJECTS_FROM_SUBJECT_SUBTYPE"}},
-                                "required": ["myDataType"],
-                            },
-                        ]
-                    },
-                    "then": {"properties": {"subjectSubtypes": {"minItems": 1}}, "required": ["subjectSubtypes"]},
-                },
-            ],
-            "additionalProperties": False,
-        },
         "conditionalDependents": conditional_dependents_schema,
         "inputType": {"enum": ["DROPDOWN", "LIST"]},
-        "placeholder": {"type": "string", "maxLength": FIELD_PLACEHOLDER_MAX_LENGTH},
         "parent": field_parent_schema,
+        "placeholder": {"type": "string", "maxLength": FIELD_PLACEHOLDER_MAX_LENGTH},
         "type": {"const": "CHOICE_LIST"},
     },
-    "required": ["choices", "inputType", "parent", "type"],
+    "required": ["inputType", "parent", "type"],
     "additionalProperties": False,
 }
 

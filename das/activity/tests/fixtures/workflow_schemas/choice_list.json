@@ -21,17 +21,6 @@
   "ui": {
     "fields": {
       "choice_list_of_choices": {
-        "choices": {
-          "eventTypeCategories": [],
-          "existingChoiceList": [
-            "service_type"
-          ],
-          "featureCategories": [],
-          "myDataType": "SUBJECTS_FROM_SUBJECT_GROUP",
-          "subjectGroups": [],
-          "subjectSubtypes": [],
-          "type": "EXISTING_CHOICE_LIST"
-        },
         "inputType": "DROPDOWN",
         "placeholder": "",
         "type": "CHOICE_LIST",

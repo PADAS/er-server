@@ -21,17 +21,6 @@
   "ui": {
     "fields": {
       "subjects_from_subject_group": {
-        "choices": {
-          "eventTypeCategories": [],
-          "existingChoiceList": [],
-          "featureCategories": [],
-          "myDataType": "SUBJECTS_FROM_SUBJECT_GROUP",
-          "subjectGroups": [
-            "b4c8e9f6-1ccb-4e3f-8c07-3b727b9ec057"
-          ],
-          "subjectSubtypes": [],
-          "type": "MY_DATA"
-        },
         "inputType": "DROPDOWN",
         "placeholder": "",
         "type": "CHOICE_LIST",

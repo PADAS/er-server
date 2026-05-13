@@ -30,7 +30,7 @@
           "type": "string",
           "anyOf": [
             {
-              "$ref": "/api/v2.0/schemas/subjects.json?subject_subtype=wildlife"
+              "$ref": "/api/v2.0/schemas/subjects.json?subject_subtypes=wildlife"
             }
           ]
         }
@@ -59,34 +59,12 @@
         "parent": "section-1"
       },
       "priority_level": {
-        "choices": {
-          "eventTypeCategories": [],
-          "existingChoiceList": [
-            "service_type"
-          ],
-          "featureCategories": [],
-          "myDataType": "",
-          "subjectGroups": [],
-          "subjectSubtypes": [],
-          "type": "EXISTING_CHOICE_LIST"
-        },
         "inputType": "DROPDOWN",
         "placeholder": "",
         "type": "CHOICE_LIST",
         "parent": "section-1"
       },
       "affected_subjects": {
-        "choices": {
-          "eventTypeCategories": [],
-          "existingChoiceList": [],
-          "featureCategories": [],
-          "myDataType": "SUBJECTS_FROM_SUBJECT_SUBTYPE",
-          "subjectGroups": [],
-          "subjectSubtypes": [
-            "wildlife"
-          ],
-          "type": "MY_DATA"
-        },
         "inputType": "LIST",
         "placeholder": "",
         "type": "CHOICE_LIST",

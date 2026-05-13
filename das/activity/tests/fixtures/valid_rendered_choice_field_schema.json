@@ -14,37 +14,41 @@
                         "type": "string",
                         "title": "Users",
                         "description": "A list of users",
-                        "oneOf": [
-                            {
-                                "const": "12345678-1234-1234-1234-123456789001",
-                                "title": "Mariano M"
+                        "enum": [
+                            "12345678-1234-1234-1234-123456789001",
+                            "12345678-1234-1234-1234-123456789002",
+                            "12345678-1234-1234-1234-123456789003"
+                        ],
+                        "x-enumExtra": {
+                            "12345678-1234-1234-1234-123456789001": {
+                                "display": "Mariano M"
                             },
-                            {
-                                "const": "12345678-1234-1234-1234-123456789002",
-                                "title": "Chris Jones"
+                            "12345678-1234-1234-1234-123456789002": {
+                                "display": "Chris Jones"
                             },
-                            {
-                                "const": "12345678-1234-1234-1234-123456789003",
-                                "title": "Alan Calvillo"
+                            "12345678-1234-1234-1234-123456789003": {
+                                "display": "Alan Calvillo"
                             }
-                        ]
+                        }
                     },
                     {
                         "type": "string",
                         "title": "Other Users",
                         "description": "Other list of users",
-                        "oneOf": [
-                            {
-                                "const": "12345678-1234-1234-1234-123456789004",
-                                "title": "EarthRanger System",
+                        "enum": [
+                            "12345678-1234-1234-1234-123456789004",
+                            "12345678-1234-1234-1234-123456789005"
+                        ],
+                        "x-enumExtra": {
+                            "12345678-1234-1234-1234-123456789004": {
+                                "display": "EarthRanger System",
                                 "description": "Supposedly System"
                             },
-                            {
-                                "const": "12345678-1234-1234-1234-123456789005",
-                                "title": "DAS Admin",
+                            "12345678-1234-1234-1234-123456789005": {
+                                "display": "DAS Admin",
                                 "description": "Barely Admin"
                             }
-                        ]
+                        }
                     }
                 ]
             }

@@ -11,25 +11,31 @@
                 "deprecated": false,
                 "anyOf": [
                     {
-                        "$ref": "http://example.com/choiceA"
+                        "$ref": "/api/v2.0/schemas/choices.json?field=animalcontrolrep_species"
                     },
                     {
-                        "$ref": "/choiceB/path/to/choice-reference.json"
+                        "$ref": "/api/v2.0/schemas/event_types.json"
                     },
                     {
-                        "$ref": "/choiceC/path/to/choice-reference.json?param=value&param2=value2"
+                        "$ref": "/api/v2.0/schemas/event_types.json?category=security"
                     },
                     {
-                        "$ref": "#/choiceD/fragment/path"
+                        "$ref": "/api/v2.0/schemas/spatial_features.json"
                     },
                     {
-                        "$ref": "#ChoiceE_anchor_fragment"
+                        "$ref": "/api/v2.0/schemas/spatial_features.json?feature_set=010abc75-4b2f-4149-b8f6-c6d0f05911ec"
                     },
                     {
-                        "$ref": "http://example.com/choiceF/?param=value&param2=value2#anchor_fragment"
+                        "$ref": "/api/v2.0/schemas/sources.json"
                     },
                     {
-                        "$ref": "http://example.com/choiceG/#/path/fragment"
+                        "$ref": "/api/v2.0/schemas/subjects.json"
+                    },
+                    {
+                        "$ref": "/api/v2.0/schemas/subjects.json?additional__sex=female"
+                    },
+                    {
+                        "$ref": "/api/v2.0/schemas/users.json"
                     }
                 ]
             }
