@@ -244,7 +244,10 @@ class SubjectsView(ListCreateAPIView, TwoWaySubjectSourceMixin, DynamicSchemaDat
 
         filtered_queryset = base_queryset.annotate_with_subjectstatus(
             delay_hours=min_age_days * 24, mou_expiry_date=mou_date
-        ).annotate_with_subjectsource(use_lkl=use_lkl, use_bbox=use_bbox)
+        )
+        # subjectsource_location is only read by by_bbox_last_known_locations (use_lkl path).
+        if use_bbox and use_lkl:
+            filtered_queryset = filtered_queryset.annotate_with_subjectsource(use_lkl=use_lkl, use_bbox=use_bbox)
 
         filtered_queryset = self.filter_on_subject_and_source_groups(filtered_queryset, user, query_params)
 
