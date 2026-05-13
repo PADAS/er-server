@@ -13,7 +13,7 @@ from activity.schemas.schema_retrieving import (
     retrieve_dynamic_schema,
 )
 from schemas.tests.fixtures import MockDynamicSchemaView
-from schemas.view_mixins import DynamicSchemaFromSourceView
+from schemas.view_mixins import ENUM_EXTRA_KEY, DynamicSchemaFromSourceView
 
 
 @pytest.mark.django_db
@@ -34,16 +34,17 @@ class TestDynamicSchemaRetriever:
         assert isinstance(result, Resource)
 
         # Check some expected content in the schema
-        items = result.contents.get("oneOf", [])
-        assert len(items) >= 2
+        enum_vals = result.contents.get("enum", [])
+        extra = result.contents.get(ENUM_EXTRA_KEY, {})
+        assert len(enum_vals) >= 2
 
-        assert items[0]["const"] == "uuid1"
-        assert items[0]["title"] == "John Doe"
-        assert items[0]["description"] == "A person"
+        assert enum_vals[0] == "uuid1"
+        assert extra["uuid1"]["display"] == "John Doe"
+        assert extra["uuid1"]["description"] == "A person"
 
-        assert items[1]["const"] == "uuid2"
-        assert items[1]["title"] == "Brigitte Bardot"
-        assert items[1]["description"] == "Actress and singer"
+        assert enum_vals[1] == "uuid2"
+        assert extra["uuid2"]["display"] == "Brigitte Bardot"
+        assert extra["uuid2"]["description"] == "Actress and singer"
 
     def test_unresolvable_uri(self, api_request):
         # Execute & Assert
@@ -79,17 +80,17 @@ class TestDynamicSchemaRetriever:
         # Setup - The improved fixture returns the namespaced URL name
         url_name = add_view_to_urls(MockDynamicSchemaView, route="test-schema/", name="test-schema")
         base_url = reverse(url_name)
-        url_with_params = f"{base_url}?s_const=custom_id"
+        url_with_params = f"{base_url}?s_enum=custom_id"
 
         result = retrieve_dynamic_schema(url_with_params, api_request)
 
         assert isinstance(result, Resource)
 
-        items = result.contents.get("oneOf", [])
-        assert len(items) >= 2
+        enum_vals = result.contents.get("enum", [])
+        assert len(enum_vals) >= 2
 
-        assert items[0]["const"] == "custom_uuid1"
-        assert items[1]["const"] == "custom_uuid2"
+        assert enum_vals[0] == "custom_uuid1"
+        assert enum_vals[1] == "custom_uuid2"
 
     def test_build_dynamic_schemas_registry(self, api_request):
         registry = build_dynamic_schemas_registry(api_request)

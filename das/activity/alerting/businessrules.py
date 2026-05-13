@@ -239,7 +239,7 @@ def create_new_func(key, return_type, label=None, options_dict=None):
         raise NotImplementedError(f"Return-type {return_type} is not yet supported.")
 
 
-_CHOICE_MARKERS = ("enumNames", "anyOf", "oneOf")
+_CHOICE_MARKERS = ("enumNames", "enum", "anyOf", "oneOf")
 
 _SCHEMA_TYPE_TO_RULE_TYPE = {
     "select": "select",

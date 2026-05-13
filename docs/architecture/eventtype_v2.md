@@ -62,6 +62,8 @@ V2 replaces V1's template variables with standard JSON Schema `$ref` references:
 }
 ```
 
+When the reference is resolved (for example in a pre-rendered event type schema), dynamic schema endpoints expand to an **`enum`** list of allowed values plus **`x-enumExtra`**: an object keyed by each enum value whose values hold a **`display`** string, optional **`description`**, and any extra keys requested via the `enum_extra` query parameter. Callers map list rows to the schema with **`s_enum`** (source field for each enum value), **`s_display`**, **`s_description`**, **`enum_extra`**, and **`s_type`**. This keeps validators from compiling thousands of `oneOf`/`anyOf` branches while preserving display metadata.
+
 #### 3. Enhanced Field Type System
 V2 supports comprehensive field types with proper JSON Schema definitions:
 

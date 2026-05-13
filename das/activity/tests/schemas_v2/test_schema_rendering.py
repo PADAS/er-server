@@ -60,7 +60,7 @@ def test_full_uri_reference():
     output = renderer.dereference_schema(SAMPLE_SCHEMAS["fire_event.json"])
 
     status_prop = output["properties"]["status"]
-    expected_keys = ["title", "type", "oneOf"]
+    expected_keys = ["title", "type", "enum", "x-enumExtra"]
     not_expected_keys = ["$ref", "$id", "$schema"]
 
     # Check expected keys
@@ -103,8 +103,8 @@ def test_full_uri_reference_overrides():
         },
     }
     output = renderer.dereference_schema(schema)
-    assert "oneOf" in output["properties"]["foo"], "Expected to see health_status_options expanded after dereferencing"
-    assert len(output["properties"]["foo"]["oneOf"]) == 4
+    assert "enum" in output["properties"]["foo"], "Expected to see health_status_options expanded after dereferencing"
+    assert len(output["properties"]["foo"]["enum"]) == 4
     assert output["properties"]["foo"]["title"] == "Health Status"  # the value we provided
     assert output["properties"]["foo"]["type"] == "integer"
 
@@ -133,8 +133,8 @@ def test_full_uri_reference_overrides_in_definitions():
     output = renderer.dereference_schema(schema)
 
     # Verify that status_options was fetched and expanded in the definitions
-    assert "oneOf" in output["$defs"]["status_options"]
-    assert len(output["$defs"]["status_options"]["oneOf"]) == 4
+    assert "enum" in output["$defs"]["status_options"]
+    assert len(output["$defs"]["status_options"]["enum"]) == 4
 
     # Verify that only one fetch was made for status_options.json
     assert len(call_counts.keys()) == 2
@@ -309,8 +309,9 @@ def test_not_resolved_reference_is_replaced_by_empty_object():
 
     # The code tries to fetch, fails, so it replaces the $ref with an empty object
     assert "$ref" not in output
-    assert "oneOf" in output
-    assert len(output["oneOf"]) == 0
+    assert "enum" in output
+    assert len(output["enum"]) == 0
+    assert output.get("x-enumExtra") == {}
     assert "type" in output
     assert output["type"] == "string"
 
@@ -327,13 +328,13 @@ def test_nested_references():
     output = renderer.dereference_schema(nested_schema)
 
     # Check that the nested references were dereferenced
-    assert "oneOf" in output["properties"]["status"]
+    assert "enum" in output["properties"]["status"]
     assert "properties" in output["properties"]["fire_event"]
     assert "properties" in output["properties"]["animal_event"]
 
     # Check that status has been dereferenced for fire_event and animal_event
-    assert "oneOf" in output["properties"]["fire_event"]["properties"]["status"]
-    assert "oneOf" in output["properties"]["animal_event"]["properties"]["status"]
+    assert "enum" in output["properties"]["fire_event"]["properties"]["status"]
+    assert "enum" in output["properties"]["animal_event"]["properties"]["status"]
 
     # We should have exactly 5 fetch calls
     assert len(call_counts) == 5

@@ -1047,7 +1047,8 @@ class TestEventTypesV2SchemaRendering:
         assert "properties" in rendered_schema
         assert "subject" in rendered_schema["properties"]
         assert "$ref" not in rendered_schema["properties"]["subject"]
-        assert "oneOf" in rendered_schema["properties"]["subject"]
+        assert "enum" in rendered_schema["properties"]["subject"]
+        assert "x-enumExtra" in rendered_schema["properties"]["subject"]
 
         # Test with pre_render=False
         response = superuser_client.get(url, {"pre_render": False})
@@ -1056,7 +1057,7 @@ class TestEventTypesV2SchemaRendering:
         rendered_schema = response.data["json"]
         assert "properties" in rendered_schema
         assert "$ref" in rendered_schema["properties"]["subject"]
-        assert "oneOf" not in rendered_schema["properties"]["subject"]
+        assert "enum" not in rendered_schema["properties"]["subject"]
 
         # Test with pre_render=None (default)
         response = superuser_client.get(url)
@@ -1065,7 +1066,7 @@ class TestEventTypesV2SchemaRendering:
         rendered_schema = response.data["json"]
         assert "properties" in rendered_schema
         assert "$ref" in rendered_schema["properties"]["subject"]
-        assert "oneOf" not in rendered_schema["properties"]["subject"]
+        assert "enum" not in rendered_schema["properties"]["subject"]
 
 
 @pytest.mark.django_db

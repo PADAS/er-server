@@ -93,9 +93,7 @@ class TestV2EventTypeAlerts:
 
         # Add choice structure for trap_type
         trap_choices = {"snare": "Snare", "pitfall": "Pitfall", "other": "Other"}
-        v2_schema["json"]["properties"]["trap_type"]["anyOf"] = [
-            {"oneOf": [{"const": k, "title": v} for k, v in trap_choices.items()]}
-        ]
+        v2_schema["json"]["properties"]["trap_type"].update(V2SchemaBuilder._enum_choice_payload(trap_choices))
         v2_event_type = EventTypeFactory.create(
             category=five_event_categories[0],
             version=EventType.VersionChoices.VERSION_2,
@@ -232,7 +230,7 @@ class TestV2MultiSelectAlerts:
             "title": "Severity",
             "deprecated": False,
             "description": "",
-            "anyOf": [{"oneOf": [{"const": k, "title": v} for k, v in single_choices.items()]}],
+            **V2SchemaBuilder._enum_choice_payload(single_choices),
         }
 
         v2_event_type = EventTypeFactory.create(
