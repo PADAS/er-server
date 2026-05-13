@@ -250,6 +250,17 @@ class Revision(object):
             )
             return result
 
+        def get_previous(instance):
+            # Prior revision by `sequence`, which is monotonic per object_id
+            # and covered by the (object_id, sequence) index. Avoids the
+            # unindexed sort that Django's get_previous_by_revision_at forces.
+            return (
+                type(instance)
+                .objects.filter(object_id=instance.object_id, sequence__lt=instance.sequence)
+                .order_by("-sequence")
+                .first()
+            )
+
         user_field = self.user_field_class(related_name=rel_name, editable=False, on_delete=models.SET_NULL)
 
         # check if this manager has been attached to auth user model
@@ -272,6 +283,7 @@ class Revision(object):
             ),
             "tenant_id": "das_tenant_id",
             "__str__": to_str,
+            "get_previous": get_previous,
             "__module__": model.__module__,
         }
 
