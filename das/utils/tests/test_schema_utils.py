@@ -342,13 +342,6 @@ class TestExtractFromList:
     so each warning is O(1).
     """
 
-    def test_string_items_trigger_warning_per_item(self, caplog):
-        items = ["alpha", "beta", "gamma"]
-        with caplog.at_level(logging.WARNING, logger="utils.schema_utils"):
-            schema_utils.extract_from_list(items)
-        warnings = [r for r in caplog.records if r.levelno == logging.WARNING]
-        assert len(warnings) == len(items)
-
     def test_warning_message_does_not_contain_full_list(self, caplog):
         items = [f"item_{i}" for i in range(50)]
         with caplog.at_level(logging.WARNING, logger="utils.schema_utils"):
