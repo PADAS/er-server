@@ -1,4 +1,5 @@
 import json
+import logging
 from collections import OrderedDict
 from unittest.mock import MagicMock
 
@@ -342,8 +343,6 @@ class TestExtractFromList:
     """
 
     def test_string_items_trigger_warning_per_item(self, caplog):
-        import logging
-
         items = ["alpha", "beta", "gamma"]
         with caplog.at_level(logging.WARNING, logger="utils.schema_utils"):
             schema_utils.extract_from_list(items)
@@ -351,8 +350,6 @@ class TestExtractFromList:
         assert len(warnings) == len(items)
 
     def test_warning_message_does_not_contain_full_list(self, caplog):
-        import logging
-
         items = [f"item_{i}" for i in range(50)]
         with caplog.at_level(logging.WARNING, logger="utils.schema_utils"):
             schema_utils.extract_from_list(items)
@@ -363,8 +360,6 @@ class TestExtractFromList:
             )
 
     def test_warning_message_contains_item_count(self, caplog):
-        import logging
-
         items = ["x", "y", "z"]
         with caplog.at_level(logging.WARNING, logger="utils.schema_utils"):
             schema_utils.extract_from_list(items)
@@ -372,8 +367,6 @@ class TestExtractFromList:
             assert "3" in record.getMessage()
 
     def test_dict_items_produce_no_warning(self, caplog):
-        import logging
-
         items = [{"name": "foo", "value": "bar"}]
         with caplog.at_level(logging.WARNING, logger="utils.schema_utils"):
             schema_utils.extract_from_list(items)
