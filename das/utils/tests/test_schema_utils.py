@@ -1,4 +1,5 @@
 import json
+import logging
 from collections import OrderedDict
 from unittest.mock import MagicMock
 
@@ -330,3 +331,43 @@ class TestDynamicChoices:
         assert dict(
             [(sub.additional["external_id"], sub.additional["external_name"]) for sub in rhino_list]
         ) == json.loads(names_list)
+
+
+class TestExtractFromList:
+    """extract_from_list must not include the full items list in each warning.
+
+    When a list contains N non-dict values the previous implementation logged
+    ``f"... from {items}"`` inside the per-item loop, allocating an O(N²)
+    number of characters just for logging.  The fix logs only the item count
+    so each warning is O(1).
+    """
+
+    def test_string_items_trigger_warning_per_item(self, caplog):
+        items = ["alpha", "beta", "gamma"]
+        with caplog.at_level(logging.WARNING, logger="utils.schema_utils"):
+            schema_utils.extract_from_list(items)
+        warnings = [r for r in caplog.records if r.levelno == logging.WARNING]
+        assert len(warnings) == len(items)
+
+    def test_warning_message_does_not_contain_full_list(self, caplog):
+        items = [f"item_{i}" for i in range(50)]
+        with caplog.at_level(logging.WARNING, logger="utils.schema_utils"):
+            schema_utils.extract_from_list(items)
+        for record in caplog.records:
+            assert str(items) not in record.getMessage(), (
+                "Warning message must not dump the full items list — "
+                "that causes O(N²) memory allocations for large cluster_points lists."
+            )
+
+    def test_warning_message_contains_item_count(self, caplog):
+        items = ["x", "y", "z"]
+        with caplog.at_level(logging.WARNING, logger="utils.schema_utils"):
+            schema_utils.extract_from_list(items)
+        for record in caplog.records:
+            assert "3" in record.getMessage()
+
+    def test_dict_items_produce_no_warning(self, caplog):
+        items = [{"name": "foo", "value": "bar"}]
+        with caplog.at_level(logging.WARNING, logger="utils.schema_utils"):
+            schema_utils.extract_from_list(items)
+        assert not caplog.records

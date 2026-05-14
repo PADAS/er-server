@@ -23,7 +23,11 @@ from analyzers.exceptions import InsufficientDataAnalyzerException
 from analyzers.models import SubjectAnalyzerResult
 from analyzers.models.base import OK
 from analyzers.models.movement_clustering import MovementClusterAnalyzerConfig
-from analyzers.movement_clustering import _point_within_search_window, _st_dbscan
+from analyzers.movement_clustering import (
+    MAX_CLUSTER_POINTS_STORED,
+    _point_within_search_window,
+    _st_dbscan,
+)
 from analyzers.utils import save_analyzer_event
 from observations.models import Subject
 
@@ -247,7 +251,7 @@ class MultiSubjectMovementClusterAnalyzer(SubjectAnalyzer):
                 "cluster_radius_meters": round(cluster_radius_m, 2),
                 "cluster_start_time": min(times).isoformat(),
                 "cluster_end_time": max(times).isoformat(),
-                "cluster_points": cluster_points,
+                "cluster_points": cluster_points[-MAX_CLUSTER_POINTS_STORED:],
                 "subjects_in_cluster": len(subject_ids),
                 "subject_ids_in_cluster": [str(sid) for sid in sorted(subject_ids, key=str)],
             }
