@@ -1341,7 +1341,7 @@ class SubjectAdmin(ExportCsvMixin, FieldSetElementMixin, ObservationsContextMixi
     def change_view(self, request, object_id, form_url="", extra_context=None):
         subject = models.Subject.objects.get(id=object_id)
         latest_observations = subject.observations().values(
-            "source__manufacturer_id", "recorded_at", "location", "additional"
+            "id", "source__manufacturer_id", "recorded_at", "location", "additional"
         )
         extra_context = self.get_observations_context(extra_context, latest_observations, object_id)
 

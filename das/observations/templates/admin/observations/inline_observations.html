@@ -63,7 +63,7 @@
             {% for observation in observations %}
             <tr class="{% cycle 'row1' 'row2' %}">
                 <td>{{ observation.source__manufacturer_id }}</td>
-                <td>{{ observation.recorded_at }}</td>
+                <td><a href="/admin/observations/observation/{{ observation.id }}/change/">{{ observation.recorded_at }}</a></td>
                 <td>{{ observation.recorded_at|naturaltime }}</td>
                 <td>{{ observation.location.x }}</td>
                 <td>{{ observation.location.y }}</td>
