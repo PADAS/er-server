@@ -18,6 +18,7 @@ from analyzers.models import SubjectAnalyzerResult
 from analyzers.models.base import OK
 from analyzers.models.movement_clustering import MovementClusterAnalyzerConfig
 from analyzers.movement_clustering import (
+    MAX_CLUSTER_POINTS_STORED,
     MOVEMENT_CLUSTER_EVENT_TYPE,
     MOVEMENT_CLUSTER_SCHEMA,
     MovementClusterAnalyzer,
@@ -265,7 +266,7 @@ class TestMovementClusterAnalyzerTrajectory(TestCase):
         assert event.location is not None
         cluster_points = result.values["cluster_points"]
         assert isinstance(cluster_points, list)
-        assert len(cluster_points) == result.values["cluster_point_count"]
+        assert len(cluster_points) <= result.values["cluster_point_count"]
         for pt in cluster_points:
             assert "location" in pt
             assert "latitude" in pt["location"]
@@ -1422,3 +1423,128 @@ class TestMultiSubjectAnalyzeRouting(TestCase):
             f"Expected delta is {expected_per_subject_delta} (trajectory-filter lookup + observations). "
             + extra_query_hint
         )
+
+
+# ---------------------------------------------------------------------------
+# cluster_points cap — OOM guard
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.usefixtures("tenant_settings", "das_tenant_monkeypatch")
+@pytest.mark.django_db
+class TestClusterPointsCap(TestCase):
+    """cluster_points stored in new_values must not exceed MAX_CLUSTER_POINTS_STORED
+    even when the cluster contains more observations than the cap.  The full count
+    is still reflected in cluster_point_count so callers are not misled.
+    """
+
+    def setUp(self):
+        set_current_tenant(self.das_tenant)
+        self.subject = models.Subject.objects.create_subject(name="CapTestSubject")
+        self.now = datetime.now(tz=timezone.utc)
+
+    def _config(self, **kwargs):
+        defaults = dict(
+            spatial_threshold_meters=200,
+            temporal_threshold_seconds=7 * 24 * 3600,
+            min_cluster_points=3,
+            min_cluster_duration_seconds=3600,
+        )
+        defaults.update(kwargs)
+        return MovementClusterAnalyzerConfig(**defaults)
+
+    def test_cluster_points_capped_when_cluster_exceeds_limit(self):
+        oversized = MAX_CLUSTER_POINTS_STORED + 50
+        obs = _clustered_obs(BASE_LAT, BASE_LON, count=oversized, start=self.now, interval_s=300)
+        analyzer = MovementClusterAnalyzer(subject=self.subject, config=self._config())
+        results = analyzer.analyze(observations=obs)
+        assert results, "Expected a cluster to form from the oversized observation set"
+        result, _ = results[0]
+        stored_points = result.values["cluster_points"]
+        total_count = result.values["cluster_point_count"]
+        assert len(stored_points) == MAX_CLUSTER_POINTS_STORED
+        assert total_count == oversized
+
+    def test_cluster_points_not_truncated_when_under_limit(self):
+        count = MAX_CLUSTER_POINTS_STORED - 10
+        obs = _clustered_obs(BASE_LAT, BASE_LON, count=count, start=self.now, interval_s=300)
+        analyzer = MovementClusterAnalyzer(subject=self.subject, config=self._config())
+        results = analyzer.analyze(observations=obs)
+        assert results
+        result, _ = results[0]
+        stored_points = result.values["cluster_points"]
+        total_count = result.values["cluster_point_count"]
+        assert len(stored_points) == total_count
+
+    def test_cluster_points_stores_most_recent_when_capped(self):
+        # The cap must retain the NEWEST points so that _find_open_clusters can still
+        # match them on the next run (old points age out of the search window).
+        oversized = MAX_CLUSTER_POINTS_STORED + 50
+        obs = _clustered_obs(BASE_LAT, BASE_LON, count=oversized, start=self.now, interval_s=300)
+        analyzer = MovementClusterAnalyzer(subject=self.subject, config=self._config())
+        results = analyzer.analyze(observations=obs)
+        assert results
+        result, _ = results[0]
+        stored_points = result.values["cluster_points"]
+        # All stored points should be the newest (largest timestamps)
+        all_times = sorted(pt["time"] for pt in stored_points)
+        # The oldest stored point must be newer than ANY point from the dropped prefix.
+        # The full obs list is ASC-ordered; the dropped prefix is obs[0..oversized-cap-1].
+        dropped_cutoff = obs[oversized - MAX_CLUSTER_POINTS_STORED - 1].recorded_at.isoformat()
+        assert all_times[0] > dropped_cutoff
+
+
+@pytest.mark.usefixtures("tenant_settings", "das_tenant_monkeypatch")
+@pytest.mark.django_db
+class TestMultiSubjectClusterPointsCap(TestCase):
+    """Same cap guarantee for MultiSubjectMovementClusterAnalyzer."""
+
+    def setUp(self):
+        set_current_tenant(self.das_tenant)
+        self.now = datetime.now(tz=timezone.utc)
+
+    def _make_subject_points(self, n, subject_id, subject_name):
+        points = []
+        for i in range(n):
+            t = self.now - timedelta(seconds=(n - 1 - i) * 300)
+            points.append(
+                _SubjectPoint(
+                    lat=BASE_LAT + (i % 10) * 0.0005,
+                    lon=BASE_LON + (i % 10) * 0.0005,
+                    recorded_at=t,
+                    subject_id=subject_id,
+                    subject_name=subject_name,
+                )
+            )
+        return points
+
+    def _make_config(self, subject_group):
+        return MovementClusterAnalyzerConfig(
+            pk=uuid.uuid4(),
+            spatial_threshold_meters=200,
+            temporal_threshold_seconds=7 * 24 * 3600,
+            min_cluster_points=3,
+            min_cluster_duration_seconds=3600,
+            min_subjects_in_cluster=2,
+            subject_group=subject_group,
+        )
+
+    def test_multi_subject_cluster_points_capped(self):
+        sg = models.SubjectGroup.objects.create(name="cap_test_group_ms")
+        sid_a = uuid.uuid4()
+        sid_b = uuid.uuid4()
+        oversized = MAX_CLUSTER_POINTS_STORED + 50
+        points_a = self._make_subject_points(oversized // 2, sid_a, "SubjectA")
+        points_b = self._make_subject_points(oversized - oversized // 2, sid_b, "SubjectB")
+        all_points = points_a + points_b
+        labels = [1] * len(all_points)
+
+        config = self._make_config(sg)
+        subject = models.Subject.objects.create_subject(name="MSCapLeader")
+        analyzer = MultiSubjectMovementClusterAnalyzer(subject=subject, config=config)
+        results = analyzer._build_cluster_results(all_points, labels)
+        assert results, "Expected a cluster result from oversized point set"
+        stored = results[0].values["cluster_points"]
+        total = results[0].values["cluster_point_count"]
+        assert len(stored) == MAX_CLUSTER_POINTS_STORED
+        assert total == len(all_points)
