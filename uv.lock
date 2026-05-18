@@ -282,18 +282,22 @@ wheels = [
 
 [[package]]
 name = "auth0-python"
-version = "4.13.0"
+version = "5.4.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "aiohttp" },
     { name = "cryptography" },
+    { name = "httpx" },
+    { name = "pydantic" },
+    { name = "pydantic-core" },
     { name = "pyjwt" },
     { name = "requests" },
+    { name = "typing-extensions" },
     { name = "urllib3" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/4f/87/3c54624c8fe121a68d36dd9f9158fa6878e4be378487b8f787ddc2fa2f3d/auth0_python-4.13.0.tar.gz", hash = "sha256:72f58bd26b078e3b493e4d24928cc75fa41842aae35cef488ed6f8db0fb701fb", size = 76115, upload-time = "2025-09-17T19:26:31.643Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/4c/cb/9cc054bef8591024e4244df00852822a8b08377247f7b8abf0dba6b8d915/auth0_python-5.4.0.tar.gz", hash = "sha256:87c8fe8a8892f6347c945bfb230a34f03f4e8c4a6f5430af77ef790042818e04", size = 778821, upload-time = "2026-05-04T11:08:29.25Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/c0/01/3f52cf8ee6aa6e62f48020703ac3c67cf8a36ddc927dfde54b42c59a6e00/auth0_python-4.13.0-py3-none-any.whl", hash = "sha256:8e3266fcfc2e3cc4f477e01f964c0a6c9a3563653a2feb226355bc825cd4932c", size = 142088, upload-time = "2025-09-17T19:26:29.689Z" },
+    { url = "https://files.pythonhosted.org/packages/d8/ae/a08e7173eb860509526bdb3acadc027c2bd98034205b1cf43e0711e36ed3/auth0_python-5.4.0-py3-none-any.whl", hash = "sha256:89047126722293771f33e8a7af335727860b3b1c37e93f3d05d0b8821842f73b", size = 2350344, upload-time = "2026-05-04T11:08:27.508Z" },
 ]
 
 [[package]]
@@ -948,7 +952,7 @@ requires-dist = [
     { name = "arcgis", specifier = "==2.4.1.3" },
     { name = "arcgis2geojson" },
     { name = "async-lru", specifier = "==1.0.3" },
-    { name = "auth0-python", specifier = ">=4.13.0,<5" },
+    { name = "auth0-python", specifier = ">=5.4.0,<6" },
     { name = "authlib", specifier = ">=1.6.11,<2" },
     { name = "bleach", specifier = "==6.2.0" },
     { name = "boto3" },
