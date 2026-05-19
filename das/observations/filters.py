@@ -57,10 +57,14 @@ class ObservationSegmentVectorTileFilterSet(filters.FilterSet):
     @property
     def qs(self):
         qs = super().qs
-        if "range" not in self.data:
+        # Use cleaned_data (not raw self.data) so that an invalid value that fails
+        # TypedChoiceFilter/BooleanFilter validation still triggers the default —
+        # a bad param and a missing param both mean "apply the safe default."
+        cleaned = self.form.cleaned_data
+        if "range" not in cleaned:
             cutoff = timezone.now() - timedelta(days=int(self.RANGE_DEFAULT))
             qs = qs.filter(end_recorded_at__gte=cutoff)
-        if "show_excluded" not in self.data:
+        if "show_excluded" not in cleaned:
             qs = qs.filter(exclusion_flags=0)
         return qs
 
