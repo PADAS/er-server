@@ -13,7 +13,8 @@ OUTPUT_FORMAT_ENUM = "enum"
 OUTPUT_FORMAT_ONE_OF = "oneOf"
 OUTPUT_FORMATS = frozenset({OUTPUT_FORMAT_ENUM, OUTPUT_FORMAT_ONE_OF})
 
-# One element of ``get_mapped_items``: keys from ``get_fields_map`` (``value``, ``label``, optional ``description``, …).
+# One row produced by the view's per-item mapping: keys from ``get_fields_map``
+# (``value``, ``label``, optional ``description``, plus any ``x_<name>`` extras).
 MappedItem = dict[str, Any]
 
 SchemaFragmentSerializer = Callable[[dict[str, Any], list[MappedItem]], None]

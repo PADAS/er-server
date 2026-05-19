@@ -91,6 +91,13 @@ class TestDynamicSchemaFromSourceView:
         assert "oneOf" in data
         assert "enum" not in data
 
+    def test_unsupported_s_format_returns_400(self, superuser_client, add_view_to_urls):
+        """Bad ``s_format`` is user input; should return ``400``, not ``500``."""
+        url_name = add_view_to_urls(MockDynamicSchemaView, route="bad-format-schema", name="bad-format-schema")
+        response = superuser_client.get(reverse(url_name), {"s_format": "bogus"})
+        assert response.status_code == 400
+        assert "s_format" in response.data
+
     def test_output_format_override_pins_format_for_in_process_renders(self, superuser_client, add_view_to_urls, rf):
         """Direct ``generate_dynamic_schema`` calls inside the override produce ``oneOf`` even when
         the view's ``default_format`` is ``enum`` and the request omits ``s_format``."""

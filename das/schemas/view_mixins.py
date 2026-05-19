@@ -3,6 +3,7 @@ from typing import Any, Dict, List, Optional, Type
 
 from django.db.models import QuerySet
 from django.http import QueryDict
+from rest_framework.exceptions import ValidationError
 from rest_framework.request import Request
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -199,7 +200,9 @@ class DynamicSchemaFromSourceView(APIView):
         query_params = self.get_query_params(request)
         output_format = query_params.get("s_format") or self.default_format
         if output_format not in OUTPUT_FORMATS:
-            raise ValueError(f"Unsupported s_format: {output_format}. Allowed: {', '.join(sorted(OUTPUT_FORMATS))}")
+            raise ValidationError(
+                {"s_format": f"Unsupported value: {output_format!r}. Allowed: {', '.join(sorted(OUTPUT_FORMATS))}."}
+            )
         return output_format
 
     def get_data_from_source_view(self, request: Request) -> List[Dict[str, Any]]:

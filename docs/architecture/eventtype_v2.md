@@ -66,7 +66,7 @@ When the reference is resolved (for example in a pre-rendered event type schema)
 
 ##### Pipeline & internal rendering
 
-`DynamicSchemaFromSourceView` follows a small pipeline: it pulls **`source_items`** from the embedded list view, runs each through **`get_mapped_items`** (driven by `get_fields_map` + `get_schema_field_from_item`) to produce **mapped items**, then hands them to the fragment serializer chosen by **`s_format`** (`serialize_enum_fragment` / `serialize_one_of_fragment`, registered in `schemas.format_serializers`).
+`DynamicSchemaFromSourceView` follows a small pipeline: it pulls the source rows from the embedded list view (`get_data_from_source_view`), maps each row to output keys via `get_schema_items` (driven by `get_fields_map`, with optional `get_<field>_from_item` hooks), then hands the mapped rows to the fragment serializer chosen by **`s_format`** (`serialize_enum_fragment` / `serialize_one_of_fragment`, registered in `schemas.format_serializers`).
 
 Internal consumers that cannot deal with two shapes (currently `AlertingSchemaPropertiesAdapter`, which speaks `anyOf` / `oneOf`) wrap their call in `output_format_override(OUTPUT_FORMAT_ONE_OF)`. The override is a `ContextVar` checked by `DynamicSchemaFromSourceView.get_output_format` *before* `s_format` / `default_format`, so any nested `$ref` expansion produced during dereferencing comes back as **`oneOf`** regardless of the source view's default. Public API endpoints are unaffected — they only see the override if their request is itself made inside one.
 
