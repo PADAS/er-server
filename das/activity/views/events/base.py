@@ -48,6 +48,7 @@ from activity.models import (
     EventNote,
     EventProvider,
     EventRelationship,
+    PatrolSegment,
 )
 from activity.permissions import (
     EventCategoryGeographicPermission,
@@ -815,7 +816,7 @@ class EventsView(ListCreateAPIView):
         prefetches = [
             Prefetch("eventsource_event_refs__eventsource__eventprovider"),
             Prefetch("reported_by"),
-            Prefetch("patrol_segments"),
+            Prefetch("patrol_segments", queryset=PatrolSegment.objects.only("id", "patrol_id")),
             Prefetch("geometries"),
             Prefetch("related_subjects", to_attr="related_subjects_set"),
             Prefetch(
