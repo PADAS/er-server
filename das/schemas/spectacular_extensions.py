@@ -25,6 +25,11 @@ from rest_framework.views import APIView
 from das_server.views import CustomSchema
 from schemas.view_mixins import ENUM_EXTRA_KEY, DynamicSchemaFromSourceView
 
+# JSON Schema ``type`` values the dynamic-schema endpoint accepts (and may echo back). Used for both
+# the ``s_type`` query-parameter enum and the response ``type`` field so the OpenAPI spec stays
+# internally consistent.
+JSON_SCHEMA_TYPES = ["string", "number", "boolean", "array", "object"]
+
 
 class DynamicSchemaViewExtension(OpenApiViewExtension):
     """
@@ -69,8 +74,8 @@ class DynamicSchemaViewExtension(OpenApiViewExtension):
                                 default="https://json-schema.org/draft/2020-12/schema",
                             ),
                             "type": serializers.ChoiceField(
-                                choices=["string", "array", "object"],
-                                help_text="JSON Schema type based on s_type parameter",
+                                choices=JSON_SCHEMA_TYPES,
+                                help_text="JSON Schema type echoed from ``s_type`` (defaults to 'string').",
                             ),
                             "title": serializers.CharField(help_text="Human-readable schema title"),
                             "description": serializers.CharField(help_text="Schema description", required=False),
@@ -181,7 +186,7 @@ class DynamicSchemaViewExtension(OpenApiViewExtension):
                 required=False,
                 description="JSON Schema ``type`` for the field. Defaults to 'string'.",
                 type=OpenApiTypes.STR,
-                enum=["string", "number", "boolean", "array", "object"],
+                enum=JSON_SCHEMA_TYPES,
                 examples=[OpenApiExample(name="type_example", value="string")],
             ),
             OpenApiParameter(

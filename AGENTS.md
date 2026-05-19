@@ -81,6 +81,17 @@ Cache aliases configured with `KEY_FUNCTION: utils.tenant.cache.make_cache_key` 
 
 When reviewing or writing code that uses one of these cache aliases, **do not add an explicit `tenant_id` to the key string** — it would double-prefix at the backend. Trust the `KEY_FUNCTION`. Only build a tenant-prefixed key by hand when bypassing the configured cache (e.g. talking to a raw `redis.Redis` client like `MultitenantRedisClient`, where the prefix is applied by the wrapper, not by you).
 
+## Dynamic schemas (`das/schemas/`)
+
+`DynamicSchemaFromSourceView` emits choice fields in two interchangeable shapes — **`enum` + `x-enumExtra`** (default) and **`oneOf`** — picked per request via `?s_format`, per subclass via `default_format`, or per call site via `schemas.format_serializers.output_format_override(...)`.
+
+Landmines (full guidance: [.cursor/rules/das-dynamic-schemas.mdc](.cursor/rules/das-dynamic-schemas.mdc)):
+
+- Internal consumers that can only understand one shape (currently `AlertingSchemaPropertiesAdapter._process_v2_schema` and `V2SchemaAdapter._ensure_rendered`) wrap their `EventTypeSchemaService.get_rendered_schema(...)` call in `output_format_override(OUTPUT_FORMAT_ONE_OF)`. Never wrap the service itself — it serves the public API too.
+- `_CHOICE_MARKERS` in `activity/alerting/businessrules.py` accepts `enumNames`, `x-enumExtra`, `anyOf`, `oneOf`. **Do not add bare `enum`** — a V1 `{"type":"string","enum":[…]}` without `enumNames` is a string-validation constraint, not a choice; reclassifying it drops `equal_to` / `contains` and breaks existing alert rules.
+- Invalid request input (e.g. `?s_format=bogus`) must raise `rest_framework.exceptions.ValidationError` (→ 400). Plain `ValueError` becomes a 500 because `utils/drf.api_exception_handler` only maps DRF `APIException` to 4xx. Plain `ValueError` is fine inside helpers where a 500 *is* the right signal (programmer-input validation).
+- OpenAPI: use `schemas.spectacular_extensions.JSON_SCHEMA_TYPES` wherever JSON Schema `type` values are listed — single source of truth for the `s_type` query enum and the response `type` field.
+
 ## Configuration
 
 ### Settings Structure

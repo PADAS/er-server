@@ -1,0 +1,58 @@
+---
+description: Conventions for dynamic schema endpoints, format serializers, and the output-format override
+globs: das/schemas/**,das/activity/alerting/**,das/activity/schemas/**
+alwaysApply: false
+---
+
+# Dynamic schemas & output-format override
+
+`DynamicSchemaFromSourceView` (in `das/schemas/view_mixins.py`) emits choice fields in **two interchangeable shapes**:
+
+- **`enum` + `x-enumExtra`** (default — see `OUTPUT_FORMAT_ENUM`, `ENUM_EXTRA_KEY` in `das/schemas/format_serializers.py`)
+- **`oneOf`** (legacy / single-shape consumers — `OUTPUT_FORMAT_ONE_OF`)
+
+The shape is picked per request via `?s_format=…`, per subclass via `default_format`, or per call site via `output_format_override(...)`.
+
+## When you need a single shape internally
+
+Some internal consumers can't deal with both shapes (currently `AlertingSchemaPropertiesAdapter._process_v2_schema` and `V2SchemaAdapter._ensure_rendered`). They pin `oneOf`:
+
+```python
+from schemas.format_serializers import OUTPUT_FORMAT_ONE_OF, output_format_override
+
+with output_format_override(OUTPUT_FORMAT_ONE_OF):
+    result = self.v2_service.get_rendered_schema(event_type, request)
+```
+
+- **Wrap at the boundary** — the smallest scope around the `EventTypeSchemaService.get_rendered_schema(...)` call. Never wrap the service itself (it serves the public API too, where `s_format` must remain client-controlled).
+- The override is a `ContextVar`, so it survives `async`/`await` and `sync_to_async`, and is exception-safe.
+
+## Choice-field markers (alerting)
+
+`_CHOICE_MARKERS` in `das/activity/alerting/businessrules.py` flags fields whose values come from a closed set. Keep these markers and **only** these:
+
+| Marker | Schema era |
+|---|---|
+| `enumNames` | V1 single/multi-select |
+| `x-enumExtra` | V2 inline choice (`enum` + `x-enumExtra`) |
+| `anyOf`, `oneOf` | V2 ref-based choice |
+
+**Do not add bare `enum`.** A V1 `{"type": "string", "enum": […]}` without `enumNames` is a string-validation constraint, not a choice — adding `enum` reclassifies it as `select_multiple_rule_variable`, which drops the `equal_to` / `contains` operators and silently breaks existing alert rules. The right V2 marker is the metadata key `x-enumExtra`.
+
+## Validation errors are user errors
+
+`get_output_format` raises `rest_framework.exceptions.ValidationError` (→ 400) for a bad `s_format`. Don't substitute plain `ValueError`: the project's `utils.drf.api_exception_handler` only maps DRF `APIException` to 4xx; everything else becomes a 500.
+
+Reserve plain `ValueError` (and similar) for **programmer-input** validation inside helpers (`output_format_override`, `apply_output_format`) where a 500 *is* the right signal.
+
+## Keep the OpenAPI spec internally consistent
+
+`das/schemas/spectacular_extensions.py` exposes `JSON_SCHEMA_TYPES` — use it for both the `s_type` query-parameter enum and the response `type` field. Don't hand-maintain parallel lists.
+
+## Minimal-diff posture
+
+`view_mixins.py` is a hot file; many subclasses depend on its attribute names. When changing it:
+
+- Keep develop's types (`Dict`/`List`/`Optional`/`Type`), variable names (`original_request`), and untyped helpers (`def handle_exception(exc):`) unless you have a reason to touch them.
+- Only land **feature deltas** in `view_mixins.py`; cosmetic modernization belongs in a follow-up PR.
+- New module surface goes in `format_serializers.py` (pure functions + the override). `view_mixins.py` imports from it.
