@@ -53,8 +53,14 @@ class ObservationSegmentTileViewSchema(CustomSchema):
                 {
                     "name": "range",
                     "in": "query",
-                    "description": "Time range: '45' (segments that ended in the last 45 days, default) or 'all'",
-                    "schema": {"type": "string", "enum": ["45", "all"]},
+                    "description": (
+                        "Time range in days (30, 45, 60, 90, 150, 210, 365, 500) or 'all'. "
+                        "Filters to segments that ended within the window. Default: 30."
+                    ),
+                    "schema": {
+                        "type": "string",
+                        "enum": ["30", "45", "60", "90", "150", "210", "365", "500", "all"],
+                    },
                 },
                 {
                     "name": "show_excluded",
@@ -77,7 +83,7 @@ class ObservationSegmentTileView(DRFMVTView):
     computed metrics (speed, time gap, distance).
 
     Features:
-    - range: "45" (default) limits to segments that ended in the last 45 days; "all" for no limit
+    - range: number of days (30, 45, 60, 90, 150, 210, 365, 500) or "all"; default 30
     - show_excluded: include segments with truthy exclusion flags when true (default: excluded)
     - Ordered by start_recorded_at
 

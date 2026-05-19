@@ -24,21 +24,26 @@ class ObservationSegmentVectorTileFilterSet(filters.FilterSet):
     Filter for observation segment vector tiles.
 
     Supports:
-    - range: "45" (default) limits to segments that ended in the last 45 days;
-      "all" applies no time-range limit.
+    - range: number of days (30, 45, 60, 90, 150, 210, 365, 500) or "all".
+      Filters to segments whose end_recorded_at falls within the window.
+      Default: 30 days.
     - show_excluded: when true, include segments with non-zero exclusion_flags;
       when false or omitted, exclude them.
     """
 
-    RANGE_45 = "45"
+    RANGE_DAYS = (30, 45, 60, 90, 150, 210, 365, 500)
     RANGE_ALL = "all"
-    RANGE_CHOICES = (RANGE_45, RANGE_ALL)
+    RANGE_DEFAULT = "30"
+    RANGE_CHOICES = tuple(str(d) for d in RANGE_DAYS) + (RANGE_ALL,)
 
     range = filters.TypedChoiceFilter(
-        choices=[(v, v) for v in ("45", "all")],
-        coerce=lambda x: str(x).lower() if x else "45",
+        choices=[(v, v) for v in RANGE_CHOICES],
+        coerce=lambda x: str(x).lower() if x else "30",
         method="filter_range",
-        help_text="Time range: '45' (last 45 days by end time, default) or 'all'.",
+        help_text=(
+            "Time range in days (30, 45, 60, 90, 150, 210, 365, 500) or 'all'. "
+            "Filters to segments that ended within the window. Default: 30."
+        ),
     )
     show_excluded = filters.BooleanFilter(
         method="filter_exclusion_flags",
@@ -53,26 +58,27 @@ class ObservationSegmentVectorTileFilterSet(filters.FilterSet):
     def qs(self):
         qs = super().qs
         if "range" not in self.data:
-            cutoff = timezone.now() - timedelta(days=45)
+            cutoff = timezone.now() - timedelta(days=int(self.RANGE_DEFAULT))
             qs = qs.filter(end_recorded_at__gte=cutoff)
         if "show_excluded" not in self.data:
             qs = qs.filter(exclusion_flags=0)
         return qs
 
     def filter_range(self, queryset, _name, value):
-        """Limit to segments that ended in the last 45 days when range=45; no limit when range=all."""
+        """Filter segments to those ending within the specified day window; no limit for 'all'."""
         if value == self.RANGE_ALL:
             return queryset
-        if value == self.RANGE_45 or value is None:
-            cutoff = timezone.now() - timedelta(days=45)
-            return queryset.filter(end_recorded_at__gte=cutoff)
-        # Unrecognized value: treat as 45 for safety
-        logger.warning(
-            "Unexpected value for range filter: %r (type %s); using 45-day window.",
-            value,
-            type(value).__name__,
-        )
-        cutoff = timezone.now() - timedelta(days=45)
+        try:
+            days = int(value)
+        except (TypeError, ValueError):
+            logger.warning(
+                "Unexpected value for range filter: %r (type %s); using %s-day window.",
+                value,
+                type(value).__name__,
+                self.RANGE_DEFAULT,
+            )
+            days = int(self.RANGE_DEFAULT)
+        cutoff = timezone.now() - timedelta(days=days)
         return queryset.filter(end_recorded_at__gte=cutoff)
 
     def filter_exclusion_flags(self, queryset, _name, value):
