@@ -3,7 +3,6 @@ import logging
 
 import sendsms.api
 
-from django.db.models import ObjectDoesNotExist
 from django.template.loader import render_to_string
 from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
@@ -209,15 +208,13 @@ def get_revised_event_fields(event_revision):
     if not event_revision:
         return {}
 
-    try:
-        previous_version = event_revision.get_previous_by_revision_at(object_id=event_revision.object_id)
-    except ObjectDoesNotExist:
+    previous_version = event_revision.get_previous()
+    if previous_version is None:
         return {}
-    else:
-        current_data = event_revision.data
-        previous_data = previous_version.data
-        revision_changes = dict_changes(current_data, previous_data)
-        return revision_changes
+
+    current_data = event_revision.data
+    previous_data = previous_version.data
+    return dict_changes(current_data, previous_data)
 
 
 def get_revised_event_details_fields(event_details_revision):
@@ -229,17 +226,13 @@ def get_revised_event_details_fields(event_details_revision):
     if not event_details_revision:
         return {}
 
-    try:
-        previous_version = event_details_revision.get_previous_by_revision_at(
-            object_id=event_details_revision.object_id
-        )
-    except ObjectDoesNotExist:
+    previous_version = event_details_revision.get_previous()
+    if previous_version is None:
         return {}
-    else:
-        current_data = event_details_revision.data["data"].get("event_details")
-        previous_data = previous_version.data["data"].get("event_details")
-        revision_changes = dict_changes(current_data, previous_data)
-        return revision_changes
+
+    current_data = event_details_revision.data["data"].get("event_details")
+    previous_data = previous_version.data["data"].get("event_details")
+    return dict_changes(current_data, previous_data)
 
 
 def dict_changes(current, previous, ignore_these=("sort_at", "updated_at", "created_at")):

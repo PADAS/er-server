@@ -725,6 +725,7 @@ class EventsView(ListCreateAPIView):
         try:
             if self.paginator:
                 page = self.paginate_queryset(queryset)
+                self._attach_patrol_ids(page)
                 context = self.get_serializer_context()
                 if context.get("include_updates"):
                     context["revisions_cache"] = self._build_revisions_cache(page)
@@ -732,6 +733,7 @@ class EventsView(ListCreateAPIView):
                 return self.get_paginated_response(serializer.data)
 
             events = list(queryset)
+            self._attach_patrol_ids(events)
             context = self.get_serializer_context()
             if context.get("include_updates"):
                 context["revisions_cache"] = self._build_revisions_cache(events)
@@ -766,9 +768,11 @@ class EventsView(ListCreateAPIView):
 
             serializer.save()
 
-            data = serializer.data
-            data = data if len(new_record) > 1 else data[0]
-            return Response(data, status=status.HTTP_201_CREATED)
+        # Serialize the response outside the transaction so read queries don't
+        # hold the write lock and on_commit callbacks fire before serialization.
+        data = serializer.data
+        data = data if len(new_record) > 1 else data[0]
+        return Response(data, status=status.HTTP_201_CREATED)
 
     def get_serializer_class(self) -> Type[Serializer]:
         if self.kwargs.get("patrol_segment") and self.request.method == "GET":
@@ -845,8 +849,18 @@ class EventsView(ListCreateAPIView):
             prefetches.append(Prefetch("files", queryset=EventFile.objects.select_related("created_by")))
 
         queryset = queryset.prefetch_related(*prefetches)
-        queryset = queryset.annotate(patrol_ids=ArrayAgg("patrol_segments__patrol_id"))
         return queryset
+
+    @staticmethod
+    def _attach_patrol_ids(events) -> None:
+        # Compute patrol_ids in Python from the prefetched patrol_segments M2M
+        # instead of annotating with ArrayAgg on the queryset. ArrayAgg forces
+        # the paginator's COUNT(*) to wrap the join+aggregate as a subquery,
+        # which is dramatically more expensive than a plain row count.
+        if not events:
+            return
+        for event in events:
+            event.patrol_ids = [ps.patrol_id for ps in event.patrol_segments.all()]
 
     def add_segment_to_record(self, patrol_segment_id: Union[List[str], str], new_record: List[Dict]) -> List[Dict]:
         for record in new_record:

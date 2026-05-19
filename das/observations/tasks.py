@@ -70,7 +70,7 @@ def _emit_segment_task_metrics(
       freshness (observation insert → segment row).
     - ``observation_segment.<prefix>.duration_ms``: wall-clock processing time.
     - ``observation_segment.<prefix>.backlog_threshold_breach``: incremented when lag exceeds
-      ``OBSERVATION_SEGMENT_BACKLOG_LAG_WARN_SECONDS`` so log-based alerts can fire.
+      ``OBSERVATION_SEGMENT_BACKLOG_LAG_WARN_SECONDS``.
     """
     tags = [f"domain:{domain}"] if domain else []
     stats.histogram(f"observation_segment.{metric_prefix}.batch_size", batch_size, tags=tags)
@@ -78,19 +78,13 @@ def _emit_segment_task_metrics(
 
     if oldest_recorded_at is None:
         return
-    lag_seconds = (datetime.now(tz=timezone.utc) - oldest_recorded_at).total_seconds()
+    # Clamp at 0: clock skew (device or worker NTP drift) can put recorded_at slightly in
+    # the future. Telegraf's statsd input rejects negative values on histograms.
+    lag_seconds = max(0.0, (datetime.now(tz=timezone.utc) - oldest_recorded_at).total_seconds())
     stats.histogram(f"observation_segment.{metric_prefix}.lag_seconds", lag_seconds, tags=tags)
     threshold = int(getattr(django_settings, "OBSERVATION_SEGMENT_BACKLOG_LAG_WARN_SECONDS", 300))
     if lag_seconds > threshold:
         stats.increment(f"observation_segment.{metric_prefix}.backlog_threshold_breach", tags=tags)
-        logger.warning(
-            "observation_segment.%s lag %.1fs exceeds threshold %ds (batch=%d, domain=%s)",
-            metric_prefix,
-            lag_seconds,
-            threshold,
-            batch_size,
-            domain,
-        )
 
 
 def _coerce_task_datetime(value: Any) -> datetime | None:
