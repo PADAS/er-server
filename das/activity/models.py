@@ -1183,9 +1183,13 @@ class Event(TenantModelMixin, SerialNumberModelMixin, RevisionMixin, Timestamped
             update_fields.update(save_fields)
             kwargs["update_fields"] = list(update_fields)
 
+        # Capture before super().save() flips _state.adding to False.
+        is_insert = self._state.adding
         result = super().save(*args, **kwargs)
 
-        if notify_parent_events:
+        # On insert, no parent collection can contain this event yet — parent
+        # "contains" relationships are wired up after create_event returns.
+        if notify_parent_events and not is_insert:
             self.update_parent_events(updated_at=self.updated_at, sort_at=self.sort_at)
 
         return result

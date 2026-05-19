@@ -43,9 +43,13 @@ def event_post_save(sender, instance, created, **kwargs):
     )
 
     transaction.on_commit(lambda: evaluate_alert_rules.apply_async(args=(instance.id, created)))
-    for segment in instance.patrol_segments.all():
-        # Send patrol_update rt message
-        verify_patrol_constituent_for_rt_messaging(segment)
+    # On create, patrol_segments M2M is empty at post_save time — event_linked_to_patrol_segment
+    # publishes patrol_update when segments are linked. For updates, fetch only patrol_ids
+    # to avoid N+1 on segment.patrol.
+    if not created:
+        patrol_ids = instance.patrol_segments.values_list("patrol_id", flat=True).distinct()
+        for patrol_id in patrol_ids:
+            transaction.on_commit(lambda pid=patrol_id: pubsub.publish({"patrol_id": str(pid)}, "das.patrol.update"))
 
 
 @receiver(post_delete, sender=Event)

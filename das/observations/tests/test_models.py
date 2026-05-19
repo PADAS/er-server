@@ -868,6 +868,30 @@ class TestObservationQuerySet(TestCase):
         result = Observation.objects.get_latest_observation_for_subject(subject)
         self.assertIsNone(result)
 
+    def test_get_latest_observation_for_subject_beyond_extended_window(self):
+        """Subjects with observations only outside the extended window are treated as inactive."""
+        from datetime import timezone as dt_timezone
+
+        from observations.models import EXTENDED_OBSERVATION_LOOKBACK_DAYS
+
+        now = datetime.now(dt_timezone.utc)
+        subject = Subject.objects.create(name="Test Subject Beyond Extended")
+        source = Source.objects.create(provider_id=1)
+        SubjectSource.objects.create(
+            subject=subject,
+            source=source,
+            assigned_range=(now - timedelta(days=EXTENDED_OBSERVATION_LOOKBACK_DAYS + 30), now + timedelta(days=1)),
+        )
+
+        Observation.objects.create(
+            source=source,
+            recorded_at=now - timedelta(days=EXTENDED_OBSERVATION_LOOKBACK_DAYS + 1),
+            location="POINT(1.0 1.0)",
+        )
+
+        result = Observation.objects.get_latest_observation_for_subject(subject)
+        self.assertIsNone(result)
+
 
 @pytest.mark.django_db
 @pytest.mark.usefixtures("tenant_settings", "das_tenant_monkeypatch")

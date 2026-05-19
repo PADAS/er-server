@@ -762,9 +762,12 @@ class EventsView(ListCreateAPIView):
                 return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
             serializer.save()
-            data = serializer.data
-            data = data if len(new_record) > 1 else data[0]
-            return Response(data, status=status.HTTP_201_CREATED)
+
+        # Serialize the response outside the transaction so read queries don't
+        # hold the write lock and on_commit callbacks fire before serialization.
+        data = serializer.data
+        data = data if len(new_record) > 1 else data[0]
+        return Response(data, status=status.HTTP_201_CREATED)
 
     def get_serializer_class(self) -> Type[Serializer]:
         if self.kwargs.get("patrol_segment") and self.request.method == "GET":
