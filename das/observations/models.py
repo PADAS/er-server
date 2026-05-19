@@ -102,9 +102,12 @@ GPX_FILES_FOLDER = getattr(settings, "GPX_FILES_FOLDER", "observations/gpxfile")
 # Threshold for warning about high SubjectSource assignment counts that may cause deeply nested SQL
 HIGH_ASSIGNMENT_COUNT_THRESHOLD = 10
 
-# Default lookback window (in days) for queries that need the latest observation
-# without scanning the entire observation table.
+# Lookback windows (in days) for finding the latest observation without scanning
+# the entire observation table. The recent window is tried first; if empty, the
+# extended window is tried before giving up. Subjects silent past the extended
+# window are treated as inactive.
 RECENT_OBSERVATION_LOOKBACK_DAYS = 30
+EXTENDED_OBSERVATION_LOOKBACK_DAYS = 365
 
 SOURCE_TYPES = sorted(
     (
@@ -915,21 +918,22 @@ class ObservationQuerySet(models.QuerySet, FilterMixin):
     def get_latest_observation_for_subject(self, subject, until=None):
         """Get the most recent observation for a subject.
 
-        Tries a recent time window first to avoid a full table scan, then falls
-        back to an unbounded query if no observation is found.
+        Tries a recent window first, then widens to an extended window. Subjects
+        with no observations within the extended window are treated as inactive
+        and return None rather than triggering an unbounded scan.
         """
         if until is None:
             until = datetime.now(tz=timezone.utc)
 
-        since = until - timedelta(days=RECENT_OBSERVATION_LOOKBACK_DAYS)
-        observation = self.get_subject_observations_partitioned(
-            subject=subject, since=since, until=until, limit=1
-        ).first()
+        for lookback_days in (RECENT_OBSERVATION_LOOKBACK_DAYS, EXTENDED_OBSERVATION_LOOKBACK_DAYS):
+            since = until - timedelta(days=lookback_days)
+            observation = self.get_subject_observations_partitioned(
+                subject=subject, since=since, until=until, limit=1
+            ).first()
+            if observation is not None:
+                return observation
 
-        if observation is None:
-            observation = self.get_subject_observations_partitioned(subject=subject, until=until, limit=1).first()
-
-        return observation
+        return None
 
 
 class ObservationManager(TenantManagerMixin, models.Manager.from_queryset(ObservationQuerySet)):
