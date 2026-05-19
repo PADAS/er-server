@@ -33,8 +33,8 @@ class TestFormatSerializers:
         serialize_one_of_fragment(schema, mapped_items)
         assert schema["oneOf"][0] == {"const": 1, "title": "One", "x-icon": "i1"}
 
-    def test_enum_fragment_stringified_keys_collide_documented_behavior(self) -> None:
-        """``x-enumExtra`` keys are ``str(value)``; values whose stringifications collide overwrite."""
+    def test_enum_fragment_uses_value_as_extra_key(self) -> None:
+        """``x-enumExtra`` keys are the same objects as ``enum`` values (no stringification)."""
         schema: dict = {}
         serialize_enum_fragment(
             schema,
@@ -44,7 +44,7 @@ class TestFormatSerializers:
             ],
         )
         assert schema["enum"] == [1, "1"]
-        assert schema[ENUM_EXTRA_KEY] == {"1": {"display": "Str one"}}
+        assert schema[ENUM_EXTRA_KEY] == {1: {"display": "Int one"}, "1": {"display": "Str one"}}
 
     def test_apply_output_format_enum(self) -> None:
         schema: dict = {"type": "string"}

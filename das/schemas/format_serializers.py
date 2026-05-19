@@ -19,22 +19,17 @@ MappedItem = dict[str, Any]
 SchemaFragmentSerializer = Callable[[dict[str, Any], list[MappedItem]], None]
 
 
-def _enum_key(value: Any) -> str:
-    """Stable string key for ``x-enumExtra`` lookups (matches JSON serialization of ``enum``).
-
-    ``x-enumExtra`` is a JSON object, so keys are strings even though ``enum`` keeps native values.
-    Two enum values whose ``str(...)`` collapses to the same string (e.g. ``1`` and ``"1"``) will
-    overwrite each other here; callers are expected to keep ``value`` distinct after stringifying.
-    """
-    return str(value)
-
-
 def serialize_enum_fragment(schema: dict[str, Any], mapped_items: list[MappedItem]) -> None:
-    """Write ``enum`` + ``x-enumExtra`` from mapped items (preserves order)."""
-    enum_extra: dict[str, Any] = {}
+    """Write ``enum`` + ``x-enumExtra`` from mapped items (preserves order).
+
+    Each ``value`` is keyed into ``x-enumExtra`` as-is, so the lookup key in ``x-enumExtra``
+    is the same value present in ``enum``. JSON serialization will coerce non-string keys
+    per the JSON spec when the schema is rendered.
+    """
+    enum_extra: dict[Any, Any] = {}
     enum_values: list[Any] = []
     for mi in mapped_items:
-        v = mi["value"]
+        value = mi["value"]
         entry: dict[str, Any] = {"display": mi["label"]}
         for key, val in mi.items():
             if key in ("value", "label"):
@@ -42,8 +37,8 @@ def serialize_enum_fragment(schema: dict[str, Any], mapped_items: list[MappedIte
             if key == "description" and val is None:
                 continue
             entry[key] = val
-        enum_values.append(v)
-        enum_extra[_enum_key(v)] = entry
+        enum_values.append(value)
+        enum_extra[value] = entry
     schema["enum"] = enum_values
     schema[ENUM_EXTRA_KEY] = enum_extra
 
