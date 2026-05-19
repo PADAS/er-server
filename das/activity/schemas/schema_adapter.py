@@ -15,7 +15,6 @@ from rest_framework.request import Request as DRFRequest
 import utils.schema_utils as schema_utils
 from activity.models import EventType
 from activity.schemas.eventtype_service import EventTypeSchemaService
-from schemas.view_mixins import ENUM_EXTRA_KEY
 
 logger = logging.getLogger(__name__)
 
@@ -174,10 +173,6 @@ class V2SchemaAdapter:
         # Get the title from schema
         title = schema_item.get("title", "")
 
-        display = self._display_from_inline_enum(schema_item, value)
-        if display is not None:
-            return title, value, display
-
         # Handle choice fields with anyOf/oneOf structure
         if "anyOf" in schema_item:
             display = self._find_choice_display(schema_item["anyOf"], value)
@@ -199,25 +194,14 @@ class V2SchemaAdapter:
 
         # Handle choice list fields
         if "items" in schema_item:
-            items_schema = schema_item["items"]
-        else:
-            items_schema = schema_item
+            schema_item = schema_item["items"]
 
-        if "enum" in items_schema and isinstance(items_schema.get(ENUM_EXTRA_KEY), dict):
-            extracted_values = []
-            display_values = []
-            for value in values:
-                display = self._display_from_inline_enum(items_schema, value)
-                extracted_values.append(str(value))
-                display_values.append(display if display is not None else str(value))
-            return title, ";".join(extracted_values), ";".join(display_values)
-
-        if "anyOf" in items_schema:
+        if "anyOf" in schema_item:
             extracted_values = []
             display_values = []
 
             for value in values:
-                display = self._find_choice_display(items_schema["anyOf"], value)
+                display = self._find_choice_display(schema_item["anyOf"], value)
                 extracted_values.append(str(value))
                 display_values.append(display if display is not None else str(value))
 
@@ -226,27 +210,9 @@ class V2SchemaAdapter:
         # Handle simple list values
         return title, ";".join(str(v) for v in values), ";".join(str(v) for v in values)
 
-    def _display_from_inline_enum(self, schema_dict: Dict[str, Any], value: Any) -> Optional[str]:
-        """Resolve human-readable label from ``enum`` + ``x-enumExtra`` (``display`` key) when present."""
-        extra = schema_dict.get(ENUM_EXTRA_KEY)
-        if "enum" not in schema_dict or not isinstance(extra, dict):
-            return None
-        entry = extra.get(value)
-        if entry is None:
-            entry = extra.get(str(value))
-        if not isinstance(entry, dict):
-            return None
-        if "display" in entry and entry["display"] is not None:
-            return str(entry["display"])
-        return None
-
     def _find_choice_display(self, any_of_array: List[Dict[str, Any]], value: Any) -> Optional[str]:
         """Find the display title for a choice value in V2 schema anyOf structure."""
         for choice_ref in any_of_array:
-            display = self._display_from_inline_enum(choice_ref, value)
-            if display is not None:
-                return display
-
             if "$ref" in choice_ref:
                 # This is a reference that should be resolved in the rendered schema
                 # Look in the rendered schema's $defs
@@ -255,14 +221,10 @@ class V2SchemaAdapter:
                     def_key = ref_path.replace("#/$defs/", "")
                     if self._rendered_schema and "$defs" in self._rendered_schema:
                         def_schema = self._rendered_schema["$defs"].get(def_key)
-                        if def_schema:
-                            display = self._display_from_inline_enum(def_schema, value)
-                            if display is not None:
-                                return display
-                            if "oneOf" in def_schema:
-                                for choice_item in def_schema["oneOf"]:
-                                    if choice_item.get("const") == value:
-                                        return choice_item.get("title", str(value))
+                        if def_schema and "oneOf" in def_schema:
+                            for choice_item in def_schema["oneOf"]:
+                                if choice_item.get("const") == value:
+                                    return choice_item.get("title", str(value))
                 continue
 
             if "oneOf" in choice_ref:

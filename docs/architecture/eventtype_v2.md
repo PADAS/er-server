@@ -62,7 +62,13 @@ V2 replaces V1's template variables with standard JSON Schema `$ref` references:
 }
 ```
 
-When the reference is resolved (for example in a pre-rendered event type schema), dynamic schema endpoints expand to an **`enum`** list of allowed values plus **`x-enumExtra`**: an object keyed by each enum value whose values hold a **`display`** string, optional **`description`**, and any extra keys requested via the `enum_extra` query parameter. Callers map list rows to the schema with **`s_enum`** (source field for each enum value), **`s_display`**, **`s_description`**, **`enum_extra`**, and **`s_type`**. This keeps validators from compiling thousands of `oneOf`/`anyOf` branches while preserving display metadata.
+When the reference is resolved (for example in a pre-rendered event type schema), dynamic schema endpoints expand to an **`enum`** list of allowed values plus **`x-enumExtra`**: an object keyed by each enum value whose values hold a **`display`** string, optional **`description`**, and any extra keys mapped from **`x_<name>`** query parameters (for example **`x_icon=icon_url`**). Callers select source paths with **`s_value`**, **`s_label`**, **`s_description`**, **`s_format`**, and **`s_type`**. Schema mapping uses the **`s_`** / **`x_`** prefix so those keys do not overlap typical list API query parameters on the embedded endpoints. Use **`s_format=oneOf`** if you need the **`const`** / **`title`** branch layout. This keeps validators from compiling thousands of **`oneOf`** / **`anyOf`** branches while preserving display metadata.
+
+##### Pipeline & internal rendering
+
+`DynamicSchemaFromSourceView` follows a small pipeline: it pulls **`source_items`** from the embedded list view, runs each through **`get_mapped_items`** (driven by `get_fields_map` + `get_schema_field_from_item`) to produce **mapped items**, then hands them to the fragment serializer chosen by **`s_format`** (`serialize_enum_fragment` / `serialize_one_of_fragment`, registered in `schemas.format_serializers`).
+
+Internal consumers that cannot deal with two shapes (currently `AlertingSchemaPropertiesAdapter`, which speaks `anyOf` / `oneOf`) wrap their call in `output_format_override(OUTPUT_FORMAT_ONE_OF)`. The override is a `ContextVar` checked by `DynamicSchemaFromSourceView.get_output_format` *before* `s_format` / `default_format`, so any nested `$ref` expansion produced during dereferencing comes back as **`oneOf`** regardless of the source view's default. Public API endpoints are unaffected — they only see the override if their request is itself made inside one.
 
 #### 3. Enhanced Field Type System
 V2 supports comprehensive field types with proper JSON Schema definitions:

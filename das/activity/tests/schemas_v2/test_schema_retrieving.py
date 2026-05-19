@@ -80,7 +80,7 @@ class TestDynamicSchemaRetriever:
         # Setup - The improved fixture returns the namespaced URL name
         url_name = add_view_to_urls(MockDynamicSchemaView, route="test-schema/", name="test-schema")
         base_url = reverse(url_name)
-        url_with_params = f"{base_url}?s_enum=custom_id"
+        url_with_params = f"{base_url}?s_value=custom_id"
 
         result = retrieve_dynamic_schema(url_with_params, api_request)
 
