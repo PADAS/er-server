@@ -25,13 +25,18 @@ from rest_framework.views import APIView
 from das_server.views import CustomSchema
 from schemas.view_mixins import ENUM_EXTRA_KEY, DynamicSchemaFromSourceView
 
+# JSON Schema ``type`` values the dynamic-schema endpoint accepts (and may echo back). Used for both
+# the ``s_type`` query-parameter enum and the response ``type`` field so the OpenAPI spec stays
+# internally consistent.
+JSON_SCHEMA_TYPES = ["string", "number", "boolean", "array", "object"]
+
 
 class DynamicSchemaViewExtension(OpenApiViewExtension):
     """
     Custom OpenAPI extension for DynamicSchemaFromSourceView subclasses.
 
     Generates comprehensive documentation for dynamic query parameters including:
-    - Schema control parameters (s_enum, s_display, etc.)
+    - Schema control parameters (s_value, s_label, x_*, s_format, etc.)
     - Source view parameters
     - Available field paths for nested property access
     """
@@ -69,21 +74,25 @@ class DynamicSchemaViewExtension(OpenApiViewExtension):
                                 default="https://json-schema.org/draft/2020-12/schema",
                             ),
                             "type": serializers.ChoiceField(
-                                choices=["string", "array", "object"],
-                                help_text="JSON Schema type based on s_type parameter",
+                                choices=JSON_SCHEMA_TYPES,
+                                help_text="JSON Schema type echoed from ``s_type`` (defaults to 'string').",
                             ),
                             "title": serializers.CharField(help_text="Human-readable schema title"),
                             "description": serializers.CharField(help_text="Schema description", required=False),
                             "enum": serializers.ListField(
                                 child=serializers.JSONField(),
-                                help_text="Allowed values for this field (from the source row field mapped by s_enum)",
+                                help_text="Allowed values (s_format=enum; mapped by s_value)",
                                 required=False,
                             ),
                             ENUM_EXTRA_KEY: serializers.JSONField(
                                 help_text=(
-                                    "Map of enum value -> metadata (display, optional description, "
-                                    "and keys from enum_extra / default_enum_extra_fields)"
+                                    "Map of value -> metadata (display, description, x_* extras) when s_format=enum"
                                 ),
+                                required=False,
+                            ),
+                            "oneOf": serializers.ListField(
+                                child=serializers.JSONField(),
+                                help_text="const/title branches when s_format=oneOf",
                                 required=False,
                             ),
                         },
@@ -109,17 +118,23 @@ class DynamicSchemaViewExtension(OpenApiViewExtension):
 
         return parameters
 
+    def _target_schema_default_description(self) -> str:
+        val = getattr(self.target, "default_description_field", None)
+        return "None" if val is None else str(val)
+
     def get_schema_control_parameters(self) -> List[OpenApiParameter]:
-        """Generate parameters for schema control (s_enum, s_display, etc.)."""
+        """Generate parameters for schema control (s_value, s_label, x_*, s_format, etc.)."""
+        default_value = str(getattr(self.target, "default_value_field", "id"))
+        default_label = str(getattr(self.target, "default_label_field", "name"))
+        default_description = self._target_schema_default_description()
         return [
             OpenApiParameter(
-                name="s_enum",
+                name="s_value",
                 location=OpenApiParameter.QUERY,
                 required=False,
                 description=(
-                    "Source field path for each value in the top-level ``enum`` list. "
-                    f"Defaults to '{getattr(self.target, 'default_enum_field', 'id')}'. "
-                    "Supports dotted paths for nested properties (e.g., 'properties.name')."
+                    "Source field path for each option's machine value (``enum`` member or ``const``). "
+                    f"Defaults to '{default_value}'. Supports dotted paths."
                 ),
                 type=OpenApiTypes.STR,
                 examples=[
@@ -128,18 +143,17 @@ class DynamicSchemaViewExtension(OpenApiViewExtension):
                 ],
             ),
             OpenApiParameter(
-                name="s_display",
+                name="s_label",
                 location=OpenApiParameter.QUERY,
                 required=False,
                 description=(
-                    "Source field path for the ``display`` string inside each ``x-enumExtra`` entry. "
-                    f"Defaults to '{getattr(self.target, 'default_display_field', 'name')}'. "
-                    "Supports dotted paths for nested properties."
+                    "Source field path for the human-readable label (``display`` in ``x-enumExtra``, "
+                    f"or ``title`` in ``oneOf``). Defaults to '{default_label}'."
                 ),
                 type=OpenApiTypes.STR,
                 examples=[
                     OpenApiExample(name="name_field", summary="Name field", value="name"),
-                    OpenApiExample(name="nested_display", summary="Nested display access", value="metadata.label"),
+                    OpenApiExample(name="nested_label", summary="Nested label access", value="metadata.label"),
                 ],
             ),
             OpenApiParameter(
@@ -147,9 +161,7 @@ class DynamicSchemaViewExtension(OpenApiViewExtension):
                 location=OpenApiParameter.QUERY,
                 required=False,
                 description=(
-                    "Source field path for the ``description`` key inside each ``x-enumExtra`` entry. "
-                    f"Defaults to '{getattr(self.target, 'default_description_field', 'None')}'. "
-                    "Supports dotted paths for nested properties."
+                    "Source field path for optional ``description`` metadata. " f"Defaults to '{default_description}'."
                 ),
                 type=OpenApiTypes.STR,
                 examples=[
@@ -160,24 +172,34 @@ class DynamicSchemaViewExtension(OpenApiViewExtension):
                 ],
             ),
             OpenApiParameter(
+                name="s_format",
+                location=OpenApiParameter.QUERY,
+                required=False,
+                description="Output shape: ``enum`` (default, with ``x-enumExtra``) or ``oneOf`` (alternate).",
+                type=OpenApiTypes.STR,
+                enum=["enum", "oneOf"],
+                examples=[OpenApiExample(name="enum_format", value="enum")],
+            ),
+            OpenApiParameter(
                 name="s_type",
                 location=OpenApiParameter.QUERY,
                 required=False,
-                description="Type for schema values. Defaults to 'string'.",
+                description="JSON Schema ``type`` for the field. Defaults to 'string'.",
                 type=OpenApiTypes.STR,
-                enum=["string", "number", "boolean", "array", "object"],
+                enum=JSON_SCHEMA_TYPES,
                 examples=[OpenApiExample(name="type_example", value="string")],
             ),
             OpenApiParameter(
-                name="enum_extra",
+                name="x_<name>",
                 location=OpenApiParameter.QUERY,
                 required=False,
                 description=(
-                    "JSON object mapping extra keys to include under each ``x-enumExtra`` entry "
-                    "to source field paths (supports dotted paths). "
-                    'Example: \'{"icon": "properties.icon_url", "priority": "metadata.level"}\''
+                    "Repeatable: map extra per-option metadata. "
+                    "Example: ``x_icon=icon_url`` resolves source field ``icon_url`` into key ``icon``. "
+                    "Class-level ``default_extra_fields`` provides defaults; query ``x_*`` overrides on collision."
                 ),
                 type=OpenApiTypes.STR,
+                examples=[OpenApiExample(name="icon_extra", summary="Icon metadata", value="properties.icon_url")],
             ),
         ]
 
@@ -407,17 +429,19 @@ This endpoint dynamically generates JSON schemas based on data from {source_name
 
 **Query Parameter Categories:**
 
-1. **Schema Control Parameters** (s_* and related): Control how the schema is generated
-   - `s_enum`: Source field path for each ``enum`` value (supports dotted paths)
-   - `s_display`: Source field for the ``display`` string inside ``x-enumExtra`` (supports dotted paths)
-   - `s_description`: Field to use for ``description`` inside ``x-enumExtra`` (supports dotted paths)
-   - `enum_extra`: JSON object mapping extra keys to source field paths (merged into ``x-enumExtra`` entries)
+1. **Schema Control Parameters** (s_* and x_*): Control how the schema is generated
+   - `s_value`: Source field path for each option value (supports dotted paths)
+   - `s_label`: Source field for the label (``display`` in ``x-enumExtra`` or ``title`` in ``oneOf``)
+   - `s_description`: Field for ``description`` metadata (supports dotted paths)
+   - `x_<name>`: Extra per-option metadata, e.g. ``x_icon=icon_url``
+   - `s_format`: ``enum`` (default) or ``oneOf``
    - `s_type`: JSON Schema ``type`` for the field
 
 {source_params_section}
 {nested_fields_section}
 
 **Example Usage:**
-- Basic: `?s_display=name&s_enum=id`
-- Nested: `?s_display=properties.display_name&s_description=metadata.summary`
-- Extra metadata: `?enum_extra={{"icon": "properties.icon_url", "priority": "metadata.level"}}`"""
+- Basic: `?s_label=name&s_value=id`
+- Nested: `?s_label=properties.display_name&s_description=metadata.summary`
+- Extra metadata: `?x_icon=properties.icon_url&x_priority=metadata.level`
+- Alternate output: `?s_format=oneOf`"""

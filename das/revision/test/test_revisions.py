@@ -1,18 +1,25 @@
 import os
 import tempfile
+from datetime import timedelta
 
 import pytest
 
 from django.urls import reverse
+from django.utils import timezone
 
 from activity.models import PRI_NONE, PRI_URGENT, SC_ACTIVE, Event, EventNote
 from activity.serializers import EventNoteSerializer, EventSerializer
-from revision.manager import get_object_by_id
+from revision.manager import (
+    ACTION_DELETED,
+    ACTION_RELATION_DELETED,
+    get_object_by_id,
+    relation_deleted,
+)
 from utils.text import humanize_field_name
 
 
 @pytest.mark.django_db
-@pytest.mark.usefixtures("tenant_settings", "das_tenant_monkeypatch")
+@pytest.mark.usefixtures("tenant_settings", "das_tenant_monkeypatch", "acoustic_detection_event_type")
 class TestEventRevisionsMessage:
     def test_new_event(self, event_with_detail):
         event = event_with_detail.event
@@ -95,6 +102,47 @@ class TestEventRevisionsMessage:
 
         assert result
 
+    def test_event_details_patch_does_not_duplicate_state_change(self, superuser_client):
+        # Reproduces the "Changed State: active → active" bogus revision row:
+        # a frontend PATCH that sends both event_details and state=active on
+        # an event that already has an EventDetails row triggers
+        # dependent_table_updated -> Event.save (via EventDetails.save) AND a
+        # second Event.save for the state field. Without refreshing
+        # revision_original between the two saves, both diffs include state
+        # and the updates list shows two state-change rows. The second renders
+        # as "active → active" because by then state was already active in
+        # the prior revision.
+        create_resp = superuser_client.post(
+            reverse("events"),
+            {
+                "event_type": "acoustic_detection",
+                "state": "new",
+                "priority": PRI_NONE,
+                "time": "2023-03-09T22:25:20.329Z",
+                "event_details": {"some_field": "initial"},
+            },
+            format="json",
+        )
+        event_id = create_resp.data["id"]
+
+        # dependent_table_updated short-circuits within 1 second of created_at,
+        # so push the event into the past to make sure the bug path runs.
+        Event.objects.filter(pk=event_id).update(created_at=timezone.now() - timedelta(seconds=10))
+
+        superuser_client.patch(
+            reverse("event-view", kwargs={"id": event_id}),
+            {
+                "state": "active",
+                "event_details": {"some_field": "updated"},
+            },
+            format="json",
+        )
+
+        event = Event.objects.get(pk=event_id)
+        updates = EventSerializer(event).data["updates"]
+        state_messages = [u["message"] for u in updates if u.get("type") == "update_event_state"]
+        assert state_messages == [f"Changed State: new → {SC_ACTIVE}"]
+
 
 @pytest.mark.django_db
 @pytest.mark.usefixtures("tenant_settings", "das_tenant_monkeypatch")
@@ -160,6 +208,80 @@ class TestEventFileRevisionsMessages:
         result = [revision for revision in updates if f"File Added: {payload['filename']}" in revision["message"]]
 
         assert result
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("tenant_settings", "das_tenant_monkeypatch")
+class TestRevisionActions:
+    """Cover the action branches in revision.manager.create_revision."""
+
+    def test_delete_writes_action_deleted_revision(self, five_events):
+        event = five_events[0]
+        event_id = event.id
+        initial_count = event.revision.count()
+
+        event.delete()
+
+        # Instance is unscoped after delete (pk cleared), so query via the
+        # class-level descriptor with an explicit object_id filter.
+        revisions = list(Event.revision.filter(object_id=event_id).order_by("sequence"))
+
+        assert len(revisions) == initial_count + 1
+        deleted = revisions[-1]
+        assert deleted.action == ACTION_DELETED
+        assert deleted.data == {}
+        assert deleted.sequence == initial_count + 1
+
+    def test_relation_deleted_signal_writes_revision(self, five_events):
+        event, related = five_events[0], five_events[1]
+        initial_count = event.revision.count()
+
+        relation_deleted.send(
+            sender=Event,
+            relation=related,
+            instance=event,
+            related_query_name="relationship",
+        )
+
+        revisions = list(event.revision.order_by("sequence"))
+        assert len(revisions) == initial_count + 1
+        rel_del = revisions[-1]
+        assert rel_del.action == ACTION_RELATION_DELETED
+        assert rel_del.data == {
+            "relation_id": str(related.id),
+            "relation_model": "activity.Event",
+            "related_query_name": "relationship",
+        }
+
+    def test_repeated_save_does_not_re_record_first_save_changes(self, event):
+        # Two consecutive saves on the same in-memory instance must not record
+        # the same field change twice. revision_original is captured in
+        # post_init; without refreshing it after each save, the second save's
+        # diff still compares against the pre-load snapshot and re-emits the
+        # field that save #1 already persisted. This is what produced the
+        # "Changed State: active → active" rows on event_details updates that
+        # also dependent_table_updated → save the parent Event.
+        new_priority = PRI_URGENT if event.priority != PRI_URGENT else PRI_NONE
+        event.priority = new_priority
+        event.save()
+        event.save()
+
+        last_two = list(event.revision.order_by("-sequence")[:2])
+        second_save_revision, first_save_revision = last_two
+        assert first_save_revision.data.get("priority") == new_priority
+        assert "priority" not in second_save_revision.data
+
+    def test_added_revision_stores_actual_serial_number(self, event):
+        # SerialNumberModelMixin assigns a Coalesce/Subquery expression to the
+        # serial_number attribute before super().save(), so the post_save
+        # revision captured by RevisionMixin records the str() of the
+        # expression object. After refresh_from_db reveals the real integer,
+        # _sync_serial_number_into_added_revision rewrites the revision row
+        # to match.
+        added = event.revision.order_by("sequence").first()
+        assert added.action == "added"
+        assert added.data["serial_number"] == event.serial_number
+        assert isinstance(added.data["serial_number"], int)
 
 
 @pytest.mark.django_db

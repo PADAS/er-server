@@ -475,7 +475,7 @@ class TestEventTypesDynamicSchemaViewCommunityInput:
         url = reverse("community-event-types-schema", kwargs={"community_input_value": active_community_input.value})
         response = client.get(url)
         assert response.status_code == status.HTTP_200_OK
-        returned_ids = {item["const"] for item in response.json()["oneOf"]}
+        returned_ids = {item["const"] for item in _dynamic_schema_rows(response.json())}
         assert str(event_type.id) in returned_ids
         assert str(other_event_type.id) not in returned_ids
 

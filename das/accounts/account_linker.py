@@ -10,7 +10,6 @@ Two entry points converge on the same PKCE OAuth flow and callback:
 import logging
 import secrets
 
-from auth0.management import Auth0 as Auth0Management
 from authlib.integrations.django_client import OAuth
 
 from django.conf import settings
@@ -23,10 +22,7 @@ from django.urls import reverse
 from django.views.decorators.csrf import csrf_exempt
 
 from accounts.models import User
-from utils.auth0.helpers import (
-    get_auth0_custom_domain,
-    get_auth0_management_api_access_token,
-)
+from utils.auth0.helpers import create_auth0_management_client, get_auth0_custom_domain
 from utils.tenant import get_tenant_settings
 from utils.tenant.decorators import require_enabled_idp_configs
 
@@ -243,7 +239,5 @@ def account_linker_callback(request):
 
 def _add_user_to_auth0_org(auth0_sub, org_id):
     """Add an Auth0 user to an Auth0 organization via the Management API."""
-    token = get_auth0_management_api_access_token()
-    domain = get_auth0_custom_domain()
-    client = Auth0Management(domain, token)
-    client.organizations.create_organization_members(org_id, {"members": [auth0_sub]})
+    client = create_auth0_management_client()
+    client.organizations.members.create(org_id, members=[auth0_sub])

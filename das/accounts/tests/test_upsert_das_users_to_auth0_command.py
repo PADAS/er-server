@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from io import StringIO
 from unittest.mock import ANY, Mock, patch
 
@@ -35,8 +37,7 @@ class TestUpsertDasUsersToAuth0Command:
     @pytest.fixture
     def mock_provisioner(self):
         """Mock AuthZeroUserProvisioner."""
-        mock = Mock()
-        return mock
+        return Mock()
 
     @pytest.fixture
     def mock_stdout(self):
@@ -48,18 +49,8 @@ class TestUpsertDasUsersToAuth0Command:
         """Create Command instance with mocked dependencies for testing."""
         return Command(
             provisioner_factory=mock_provisioner_factory,
-            token_factory=lambda: "test-token",
             stdout=mock_stdout,
         )
-
-    def test_init_behavior(self, mock_tenant_settings):
-        """Test that __init__ properly initializes command attributes."""
-        command = Command(
-            provisioner_factory=Mock(),
-            token_factory=lambda: "test-token",
-        )
-
-        assert command.token == "test-token"
 
     def test_handle_raises_command_error_when_idp_org_id_is_none(self, mock_tenant_settings):
         """Test that handle raises CommandError when idp_org_id is None."""
@@ -68,10 +59,7 @@ class TestUpsertDasUsersToAuth0Command:
 
         mock_tenant_settings.feature_flags = mock_feature_flags
 
-        command = Command(
-            provisioner_factory=Mock(),
-            token_factory=lambda: "test-token",
-        )
+        command = Command(provisioner_factory=Mock())
 
         with pytest.raises(CommandError, match="idp_org_id is not configured in tenant feature flags"):
             command.handle()
@@ -81,10 +69,7 @@ class TestUpsertDasUsersToAuth0Command:
         """Test that handle raises CommandError when domain cannot be converted to site."""
         mock_tenant_settings.domain = bad_domain
 
-        command = Command(
-            provisioner_factory=Mock(),
-            token_factory=lambda: "test-token",
-        )
+        command = Command(provisioner_factory=Mock())
 
         with pytest.raises(
             CommandError,
@@ -131,7 +116,6 @@ class TestUpsertDasUsersToAuth0Command:
             das_user_email=ANY,
             das_site_name=expected_site,
             auth0_organization_id=ANY,
-            token_factory=ANY,
         )
 
     def test_new_user_gets_provisioned_and_saved(
@@ -161,7 +145,6 @@ class TestUpsertDasUsersToAuth0Command:
             das_user_email="test-user@example.com",
             das_site_name="testsite",
             auth0_organization_id=mock_tenant_settings.feature_flags.idp_org_id,
-            token_factory=ANY,
         )
 
         test_user = User.objects.get(username="test-user")
@@ -201,7 +184,6 @@ test-user\thttps://auth0.example.com/reset-password?token=abc123
             das_user_email="test-user@example.com",
             das_site_name="testsite",
             auth0_organization_id=mock_tenant_settings.feature_flags.idp_org_id,
-            token_factory=ANY,
         )
 
         test_user = User.objects.get(username="test-user")
@@ -245,7 +227,6 @@ test-user\tNone
             das_user_email="test-user@example.com",
             das_site_name="testsite",
             auth0_organization_id=mock_tenant_settings.feature_flags.idp_org_id,
-            token_factory=ANY,
         )
 
         test_user = User.objects.get(username="test-user")

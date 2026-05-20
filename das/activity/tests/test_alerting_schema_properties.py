@@ -165,9 +165,9 @@ class TestAlertingSchemaPropertiesAdapter:
 
         assert result.status == "success"
         assert "status" in result.properties
-        assert "enum" in result.properties["status"]
+        assert "anyOf" in result.properties["status"]
 
-        # Test choice options extraction from V2 enum + x-enumExtra structure
+        # Test choice options extraction from V2 oneOf structure
         assert "status" in result.choice_options_map
         choice_options = result.choice_options_map["status"]
         assert choice_options["active"] == "Active"
@@ -346,7 +346,7 @@ class TestAlertingSchemaPropertiesAdapter:
             "title": "Severity",
             "deprecated": False,
             "description": "",
-            **V2SchemaBuilder._enum_choice_payload(single_choices),
+            "anyOf": [{"oneOf": [{"const": k, "title": v} for k, v in single_choices.items()]}],
         }
 
         v2_event_type = EventTypeFactory.create(

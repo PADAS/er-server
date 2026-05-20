@@ -48,6 +48,7 @@ from activity.models import (
     EventNote,
     EventProvider,
     EventRelationship,
+    PatrolSegment,
 )
 from activity.permissions import (
     EventCategoryGeographicPermission,
@@ -768,9 +769,11 @@ class EventsView(ListCreateAPIView):
 
             serializer.save()
 
-            data = serializer.data
-            data = data if len(new_record) > 1 else data[0]
-            return Response(data, status=status.HTTP_201_CREATED)
+        # Serialize the response outside the transaction so read queries don't
+        # hold the write lock and on_commit callbacks fire before serialization.
+        data = serializer.data
+        data = data if len(new_record) > 1 else data[0]
+        return Response(data, status=status.HTTP_201_CREATED)
 
     def get_serializer_class(self) -> Type[Serializer]:
         if self.kwargs.get("patrol_segment") and self.request.method == "GET":
@@ -815,7 +818,7 @@ class EventsView(ListCreateAPIView):
         prefetches = [
             Prefetch("eventsource_event_refs__eventsource__eventprovider"),
             Prefetch("reported_by"),
-            Prefetch("patrol_segments"),
+            Prefetch("patrol_segments", queryset=PatrolSegment.objects.only("id", "patrol_id")),
             Prefetch("geometries"),
             Prefetch("related_subjects", to_attr="related_subjects_set"),
             Prefetch(
