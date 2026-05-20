@@ -166,20 +166,17 @@ class Revision(object):
         manager = getattr(instance, self.manager_name)
         adapter = self.revision_adapter(type(instance))
 
-        # ACTION_ADDED fires from post_save with created=True, meaning the
-        # parent row was just inserted with a fresh PK — no prior revisions
-        # can exist for this object_id, so skip the lookup. For other
-        # actions, one aggregate gives us both "is this the first revision?"
-        # and the next sequence number (previously done as two queries).
-        if action == ACTION_ADDED:
-            max_sequence = 0
-        else:
-            max_sequence = (
-                manager.filter(object_id=instance.id).aggregate(max_sequence=Max("sequence")).get("max_sequence") or 0
-            )
+        # Always compute next sequence from existing revisions: callers can
+        # legitimately reuse an object_id whose prior incarnation was deleted
+        # (revisions are retained as a tombstone history so a delete can be
+        # restored), so an ACTION_ADDED on that id needs sequence = max + 1,
+        # not 1.
+        max_sequence = (
+            manager.filter(object_id=instance.id).aggregate(max_sequence=Max("sequence")).get("max_sequence") or 0
+        )
         instance.revision_sequence = max_sequence
 
-        if max_sequence == 0:
+        if action == ACTION_ADDED or max_sequence == 0:
             data = adapter.get_serialized_data(instance)
         elif action == ACTION_DELETED:
             data = {}
