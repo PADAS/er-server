@@ -89,10 +89,16 @@ class EventTypeSchemaService:
 
         Always returns a `SchemaResult`, even when errors occur we try to return the schema gathered so far
         so that clients can still inspect or use it (e.g. when the error is in a non-required field).
+
+        This applies a temporary postprocessing to remove `additionalProperties: false`
+        and `unevaluatedProperties: false` from the root level only, enabling clients to validate
+        legacy event data that may contain fields removed from the schema.
         """
         schema, errors = self.parse_schema(event_type.schema)
         if not errors:
             schema, errors = self.render_schema(schema, request)
+            # Temporary: Remove strict validation properties for client-side compatibility
+            self._remove_strict_validation_properties(schema)
         return SchemaResult(event_type_value=event_type.value, schema=schema, errors=errors)
 
     def parse_schema(self, raw_schema: str) -> Tuple[Optional[dict], List[SchemaError]]:
@@ -179,3 +185,23 @@ class EventTypeSchemaService:
                 cause=exc,
             )
             return parsed_schema, [schema_error]
+
+    def _remove_strict_validation_properties(self, schema: dict) -> None:
+        """
+        Remove strict validation properties from V2 schema root (in-place mutation).
+
+        Temporarily removes `additionalProperties: false` and `unevaluatedProperties: false`
+        from the root level of the JSON schema only. This allows clients to validate event
+        data that may contain legacy fields removed from the schema, while still preserving
+        strict validation within nested objects (e.g., collection field items).
+
+        This is a temporary measure until a better solution is implemented for handling
+        legacy event data validation.
+
+        Args:
+            schema: The parsed V2 schema dict with "json" and "ui" keys. Mutated in place.
+        """
+        json_schema = schema["json"]
+        # Remove strict validation properties only at root level
+        json_schema.pop("additionalProperties", None)
+        json_schema.pop("unevaluatedProperties", None)

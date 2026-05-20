@@ -646,12 +646,15 @@ class EventFilteringQuerySet(models.QuerySet, FilterFieldMixin):
             return self
         ts_query = ":* & ".join(words) + ":*"
         search_query = SearchQuery(ts_query, search_type="raw")
-        filter_query = (
-            Q(tsvectormodel__tsvector_event=search_query)
-            | Q(tsvectormodel__tsvector_event_note=search_query)
-            | Q(serial_number__istartswith=search_text)
-        )
-        return self.filter(filter_query)
+        # Wrap tsvector matches in Exists subqueries so the OR with serial_number
+        # doesn't force a LEFT OUTER JOIN to activity_tsvectormodel — the join
+        # made the paginator's COUNT(*) wrapper prohibitively expensive.
+        ts_event_match = TSVectorModel.objects.filter(event_id=OuterRef("pk"), tsvector_event=search_query)
+        ts_note_match = TSVectorModel.objects.filter(event_id=OuterRef("pk"), tsvector_event_note=search_query)
+        return self.alias(
+            _ts_event_match=Exists(ts_event_match),
+            _ts_note_match=Exists(ts_note_match),
+        ).filter(Q(_ts_event_match=True) | Q(_ts_note_match=True) | Q(serial_number__istartswith=search_text))
 
     def by_created_date(self, lower=None, upper=None):
         if lower and upper:
@@ -1188,9 +1191,13 @@ class Event(TenantModelMixin, SerialNumberModelMixin, RevisionMixin, Timestamped
             update_fields.update(save_fields)
             kwargs["update_fields"] = list(update_fields)
 
+        # Capture before super().save() flips _state.adding to False.
+        is_insert = self._state.adding
         result = super().save(*args, **kwargs)
 
-        if notify_parent_events:
+        # On insert, no parent collection can contain this event yet — parent
+        # "contains" relationships are wired up after create_event returns.
+        if notify_parent_events and not is_insert:
             self.update_parent_events(updated_at=self.updated_at, sort_at=self.sort_at)
 
         return result
