@@ -61,10 +61,10 @@ class ObservationSegmentVectorTileFilterSet(filters.FilterSet):
         # TypedChoiceFilter/BooleanFilter validation still triggers the default —
         # a bad param and a missing param both mean "apply the safe default."
         cleaned = self.form.cleaned_data
-        if "range" not in cleaned:
+        if not cleaned.get("range"):
             cutoff = timezone.now() - timedelta(days=int(self.RANGE_DEFAULT))
             qs = qs.filter(end_recorded_at__gte=cutoff)
-        if "show_excluded" not in cleaned:
+        if cleaned.get("show_excluded") is not True:
             qs = qs.filter(exclusion_flags=0)
         return qs
 
