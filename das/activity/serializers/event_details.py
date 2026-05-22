@@ -61,6 +61,11 @@ class EventDetailsSerializer(ModelSerializer):
 
         elif current_details.data != validated_data:
             current_details.data = validated_data
+            # Reuse the caller's Event so dependent_table_updated runs on the
+            # same Python object as a follow-up Event save in the parent
+            # serializer. Otherwise both saves diff against their own stale
+            # revision_original snapshot and duplicate the state-change row.
+            current_details.event = instance
             current_details.save()
             logger.info(f"Event Details updated for event id: {instance.id}")
 

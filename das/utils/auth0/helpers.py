@@ -1,29 +1,34 @@
+from __future__ import annotations
+
 import logging
+from functools import cache
 from urllib.parse import urlsplit
 
-from auth0.authentication import GetToken
+from auth0.management import ManagementClient
 
 from django.conf import settings
 
 logger = logging.getLogger(__name__)
 
 
-def get_auth0_management_api_access_token() -> str:
-    """Get Auth0 management API access token for backend operations."""
-    client_id = getattr(settings, "AUTH0_CLIENT_ID_FOR_MANAGEMENT_API")
-    client_secret = getattr(settings, "AUTH0_CLIENT_SECRET_FOR_MANAGEMENT_API")
+@cache
+def create_auth0_management_client() -> ManagementClient:
+    """Create a cached Auth0 Management API client.
 
-    get_token_endpoints = GetToken(get_auth0_custom_domain(), client_id, client_secret=client_secret)
-
-    management_api_audience = f"https://{get_auth0_tenant_domain_for_management_api_only()}/api/v2/"
-    management_api_token = get_token_endpoints.client_credentials(audience=management_api_audience)
-
-    return management_api_token["access_token"]
+    The ManagementClient handles token acquisition and refresh internally
+    via client credentials. The @cache decorator ensures a single instance
+    is shared across the process, reusing the SDK's token cache and httpx
+    connection pool. Both are thread-safe.
+    """
+    return ManagementClient(
+        domain=get_auth0_tenant_domain_for_management_api_only(),
+        client_id=getattr(settings, "AUTH0_CLIENT_ID_FOR_MANAGEMENT_API"),
+        client_secret=getattr(settings, "AUTH0_CLIENT_SECRET_FOR_MANAGEMENT_API"),
+    )
 
 
 def get_auth0_custom_domain() -> str:
-    """
-    Extract and validate the Auth0 custom domain from Django settings.
+    """Extract and validate the Auth0 custom domain from Django settings.
 
     Retrieves the AUTH0_CUSTOM_DOMAIN setting and parses it to return only the
     hostname portion. This ensures consistent domain formatting even if the
@@ -40,8 +45,7 @@ def get_auth0_custom_domain() -> str:
 
 
 def get_auth0_tenant_domain_for_management_api_only() -> str:
-    """
-    Extract and validate the Auth0 non-custom domain for Management API access.
+    """Extract and validate the Auth0 non-custom domain for Management API access.
 
     Retrieves the AUTH0_TENANT_DOMAIN setting and
     parses it to return only the hostname portion. This domain is specifically
@@ -59,8 +63,7 @@ def get_auth0_tenant_domain_for_management_api_only() -> str:
 
 
 def _get_auth0_domain(settings_key: str) -> str:
-    """
-    Internal helper to extract and validate Auth0 domain settings.
+    """Internal helper to extract and validate Auth0 domain settings.
 
     Retrieves the specified Auth0 domain setting from Django configuration and
     parses it using urlsplit to extract only the hostname portion. This handles

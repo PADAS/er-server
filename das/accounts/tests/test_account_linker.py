@@ -251,17 +251,21 @@ class TestAccountLinkerCallback:
         session_key = f"{SESSION_KEY_PREFIX}{FAKE_LINK_ATTEMPT}"
         request.session = {session_key: str(active_user.id)}
 
+        mock_management_client = Mock()
+
         with patch(
             "accounts.account_linker._account_linker_auth0_client.auth0.authorize_access_token"
         ) as mock_exchange:
-            with patch("accounts.account_linker._add_user_to_auth0_org") as mock_add_org:
+            with patch("accounts.account_linker.create_auth0_management_client", return_value=mock_management_client):
                 mock_exchange.return_value = self._make_mock_token()
 
                 result = account_linker_callback(request)
 
                 active_user.refresh_from_db()
                 assert active_user.auth0_id == "auth0|new_sub_123"
-                mock_add_org.assert_called_once_with("auth0|new_sub_123", "org_test456")
+                mock_management_client.organizations.members.create.assert_called_once_with(
+                    "org_test456", members=["auth0|new_sub_123"]
+                )
                 assert result.status_code == 302
                 assert result.url == "/"
                 assert session_key not in request.session
@@ -273,10 +277,12 @@ class TestAccountLinkerCallback:
         request = request_factory.get(f"/auth/account-linker/callback/?state={FAKE_LINK_ATTEMPT}")
         request.session = {f"{SESSION_KEY_PREFIX}{FAKE_LINK_ATTEMPT}": str(active_user.id)}
 
+        mock_management_client = Mock()
+
         with patch(
             "accounts.account_linker._account_linker_auth0_client.auth0.authorize_access_token"
         ) as mock_exchange:
-            with patch("accounts.account_linker._add_user_to_auth0_org") as mock_add_org:
+            with patch("accounts.account_linker.create_auth0_management_client", return_value=mock_management_client):
                 mock_exchange.return_value = self._make_mock_token(sub="auth0|existing")
 
                 with caplog.at_level(logging.INFO, logger="accounts.account_linker"):
@@ -284,7 +290,9 @@ class TestAccountLinkerCallback:
 
         active_user.refresh_from_db()
         assert active_user.auth0_id == "auth0|existing"
-        mock_add_org.assert_called_once_with("auth0|existing", "org_test456")
+        mock_management_client.organizations.members.create.assert_called_once_with(
+            "org_test456", members=["auth0|existing"]
+        )
         assert result.status_code == 302
         assert result.url == "/"
         assert "already has auth0_id" in caplog.text
@@ -298,10 +306,12 @@ class TestAccountLinkerCallback:
         request = request_factory.get(f"/auth/account-linker/callback/?state={FAKE_LINK_ATTEMPT}")
         request.session = {f"{SESSION_KEY_PREFIX}{FAKE_LINK_ATTEMPT}": str(active_user.id)}
 
+        mock_management_client = Mock()
+
         with patch(
             "accounts.account_linker._account_linker_auth0_client.auth0.authorize_access_token"
         ) as mock_exchange:
-            with patch("accounts.account_linker._add_user_to_auth0_org") as mock_add_org:
+            with patch("accounts.account_linker.create_auth0_management_client", return_value=mock_management_client):
                 mock_exchange.return_value = self._make_mock_token(sub="auth0|different")
 
                 with caplog.at_level(logging.WARNING, logger="accounts.account_linker"):
@@ -309,7 +319,7 @@ class TestAccountLinkerCallback:
 
         active_user.refresh_from_db()
         assert active_user.auth0_id == "auth0|existing"
-        mock_add_org.assert_not_called()
+        mock_management_client.organizations.members.create.assert_not_called()
         assert result.status_code == 400
         assert b"Unable to associate your accounts" in result.content
         assert "Auth0 subject mismatch" in caplog.text
@@ -328,10 +338,12 @@ class TestAccountLinkerCallback:
         request = request_factory.get(f"/auth/account-linker/callback/?state={FAKE_LINK_ATTEMPT}")
         request.session = {f"{SESSION_KEY_PREFIX}{FAKE_LINK_ATTEMPT}": str(active_user.id)}
 
+        mock_management_client = Mock()
+
         with patch(
             "accounts.account_linker._account_linker_auth0_client.auth0.authorize_access_token"
         ) as mock_exchange:
-            with patch("accounts.account_linker._add_user_to_auth0_org") as mock_add_org:
+            with patch("accounts.account_linker.create_auth0_management_client", return_value=mock_management_client):
                 mock_exchange.return_value = self._make_mock_token(sub="auth0|taken_sub")
 
                 with caplog.at_level(logging.WARNING, logger="accounts.account_linker"):
@@ -339,7 +351,7 @@ class TestAccountLinkerCallback:
 
         active_user.refresh_from_db()
         assert active_user.auth0_id is None
-        mock_add_org.assert_not_called()
+        mock_management_client.organizations.members.create.assert_not_called()
         assert result.status_code == 400
         assert b"Unable to associate your accounts" in result.content
         assert "already linked to another user" in caplog.text
@@ -423,13 +435,16 @@ class TestAccountLinkerCallback:
         request = request_factory.get(f"/auth/account-linker/callback/?state={FAKE_LINK_ATTEMPT}")
         request.session = {f"{SESSION_KEY_PREFIX}{FAKE_LINK_ATTEMPT}": str(active_user.id)}
 
+        mock_management_client = Mock()
+        mock_management_client.organizations.members.create.side_effect = Exception("Management API error")
+
         with caplog.at_level(logging.ERROR, logger="accounts.account_linker"):
             with patch(
                 "accounts.account_linker._account_linker_auth0_client.auth0.authorize_access_token"
             ) as mock_exchange:
                 with patch(
-                    "accounts.account_linker._add_user_to_auth0_org",
-                    side_effect=Exception("Management API error"),
+                    "accounts.account_linker.create_auth0_management_client",
+                    return_value=mock_management_client,
                 ):
                     mock_exchange.return_value = self._make_mock_token()
 

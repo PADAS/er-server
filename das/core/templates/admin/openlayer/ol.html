@@ -8,7 +8,8 @@
 <style class="text/css">
 #{{ id }}_map { width: {{ map_width }}px; height: {{ map_height }}px; }
 #{{ id }}_map .aligned label { float:inherit; }
-#{{ id }}_admin_map { position: relative; vertical-align: top; float: {{ LANGUAGE_BIDI|yesno:"right,left" }}; }
+#{{ id }}_admin_map { position: relative; vertical-align: top; float: {{ LANGUAGE_BIDI|yesno:"right,left" }}; flex-shrink: 0; min-width: {{ map_width }}px; }
+.form-row.field-{{ field_name }} { overflow: visible; }
 </style>
 {% endblock %}
 

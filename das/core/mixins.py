@@ -128,6 +128,7 @@ class SerialNumberModelMixin:
 
                     result = super().save(*args, **kwargs)
                 self.refresh_from_db()
+                self._sync_serial_number_into_added_revision(serial_number_field_name)
                 return result
 
             except IntegrityError as exc:
@@ -161,3 +162,23 @@ class SerialNumberModelMixin:
             f"Serial number field not found. Please either add a serial_number field "
             f"or set serial_number_field in {self.__class__.__name__}"
         )
+
+    def _sync_serial_number_into_added_revision(self, field_name):
+        # The post_save signal fires inside super().save() while the field
+        # still holds the Coalesce/Subquery expression we assigned above, so
+        # the ADDED revision JSON-stringifies that expression instead of the
+        # integer the DB computed. refresh_from_db has just put the real
+        # value on the instance — copy it onto the revision row.
+        from revision.manager import ACTION_ADDED
+
+        revision_manager = getattr(self, "revision", None)
+        if revision_manager is None:
+            return
+        added = revision_manager.filter(action=ACTION_ADDED).order_by("-sequence").first()
+        if added is None:
+            return
+        actual_value = getattr(self, field_name)
+        if added.data.get(field_name) == actual_value:
+            return
+        added.data[field_name] = actual_value
+        added.save(update_fields=["data"])

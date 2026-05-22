@@ -1,17 +1,17 @@
+from __future__ import annotations
+
 import logging
 import time
 from typing import Callable, NamedTuple
 
-from auth0.exceptions import Auth0Error
-from auth0.management import Auth0
+from auth0.management import ManagementClient
+from auth0.management.errors import ConflictError
 from authlib.common.security import generate_token
 
 from django.conf import settings
 
-from utils.auth0.helpers import (
-    get_auth0_custom_domain,
-    get_auth0_management_api_access_token,
-)
+from utils.auth0.helpers import create_auth0_management_client
+from utils.auth0.invariants import required
 from utils.decorator import retry_on_exception
 
 logger = logging.getLogger(__name__)
@@ -25,8 +25,9 @@ class AuthZeroUserProvisioningResult(NamedTuple):
 class AuthZeroUserProvisioner:
     """Provisioner to configure users in Auth0 for EarthRanger.
 
-    This class is designed to provision a single user to avoid token lifetime issues.
-    Each instance should be created for one-time use.
+    Uses the v5 ManagementClient which handles token lifecycle internally.
+    The client_factory default returns a process-wide cached instance that
+    reuses the SDK's token cache and httpx connection pool.
     """
 
     def __init__(
@@ -35,8 +36,7 @@ class AuthZeroUserProvisioner:
         das_user_email: str | None,
         das_site_name: str,
         auth0_organization_id: str,
-        token_factory: Callable[[], str] = get_auth0_management_api_access_token,
-        auth0_factory: Callable[[str, str], Auth0] = Auth0,
+        client_factory: Callable[[], ManagementClient] = create_auth0_management_client,
     ):
         """Initialize provisioner to provision a single DAS user in Auth0.
 
@@ -46,15 +46,11 @@ class AuthZeroUserProvisioner:
             das_site_name: EarthRanger site name used to
                             derive a fallback email address for use on provisioned Auth0 user
             auth0_organization_id: Auth0 opaque organization id to which the Auth0
-                                    user should be added,
-            token_factory: Function that returns Auth0 management API access token
-            auth0_factory: Function that takes (domain, token) and returns Auth0 client instance.
-                          Defaults to Auth0 constructor.
+                                    user should be added
+            client_factory: Function that returns an Auth0 ManagementClient instance.
+                          Defaults to the cached create_auth0_management_client factory.
         """
-        domain = get_auth0_custom_domain()
-        token = token_factory()
-
-        self.auth0 = auth0_factory(domain, token)
+        self.auth0 = client_factory()
         self.auth0_organization_id = auth0_organization_id
         self.connection_name = getattr(settings, "AUTH0_USER_DB_CONNECTION_NAME")
         self.resolved_email_address = das_user_email or f"{das_user_username}.{das_site_name}@managed.pamdas.org"
@@ -72,28 +68,25 @@ class AuthZeroUserProvisioner:
     def _upsert_auth0_user(self) -> bool:
         try:
             self.auth0.users.create(
-                {
-                    "connection": self.connection_name,
-                    "password": generate_token(),
-                    "username": self.das_user_username,
-                    "email": self.resolved_email_address,
-                }
+                connection=self.connection_name,
+                password=generate_token(),
+                username=self.das_user_username,
+                email=self.resolved_email_address,
             )
             time.sleep(5)  # Auth0's api is eventually consistent
             return True
-        except Auth0Error as e:
-            if e.status_code == 409:
-                logger.warning("User '%s' already exists in Auth0", self.das_user_username)
-                return False
-            else:
-                raise
+        except ConflictError:
+            logger.warning("User '%s' already exists in Auth0", self.das_user_username)
+            return False
 
     @retry_on_exception(ValueError, delay=5, max_retries=6)
     def _get_auth0_user_id_by_username(self) -> str:
-        matching_users = self.auth0.users.list(
-            q=f'username:"{self.das_user_username}" AND identities.connection:"{self.connection_name}"',
-            include_totals=False,
-            fields=["user_id"],
+        matching_users = list(
+            self.auth0.users.list(
+                q=f'username:"{self.das_user_username}" AND identities.connection:"{self.connection_name}"',
+                include_totals=False,
+                fields="user_id",
+            )
         )
 
         if not matching_users:
@@ -104,15 +97,11 @@ class AuthZeroUserProvisioner:
                 f"Multiple users found with username '{self.das_user_username}' in Auth0 connection '{self.connection_name}'"
             )
 
-        return matching_users[0]["user_id"]
+        return required(matching_users[0].user_id, field="user_id")
 
     def _add_auth0_user_to_auth0_org(self, auth0_id: str) -> None:
-        self.auth0.organizations.create_organization_members(self.auth0_organization_id, {"members": [auth0_id]})
+        self.auth0.organizations.members.create(self.auth0_organization_id, members=[auth0_id])
 
     def _create_password_change_ticket(self, auth0_id: str) -> str:
-        result = self.auth0.tickets.create_pswd_change(
-            {
-                "user_id": auth0_id,
-            }
-        )
-        return result["ticket"]
+        result = self.auth0.tickets.change_password(user_id=auth0_id)
+        return result.ticket

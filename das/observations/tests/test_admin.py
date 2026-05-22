@@ -1,13 +1,22 @@
+import uuid
+
 import pytest
 
 from django.contrib.admin import site as admin_site
-from django.contrib.admin.models import DELETION, LogEntry
+from django.contrib.admin.models import ADDITION, DELETION, LogEntry
 from django.contrib.contenttypes.models import ContentType
+from django.contrib.messages.storage.fallback import FallbackStorage
 from django.test import RequestFactory
 
-from factories import ObservationFactory, SubjectFactory
-from observations.admin import ObservationAdmin, SubjectAdmin
-from observations.models import Observation, Subject
+from factories import (
+    ObservationFactory,
+    ProviderFactory,
+    SubjectFactory,
+    TenantFactory,
+    UserFactory,
+)
+from observations.admin import ObservationAdmin, SourceProviderAdmin, SubjectAdmin
+from observations.models import Observation, SourceProvider, Subject
 
 
 @pytest.mark.django_db
@@ -122,3 +131,77 @@ class TestObservationAdminBulkDelete:
         actions = admin.get_actions(request)
         assert "delete_selected" not in actions, "default action would re-introduce per-row LogEntry inserts"
         assert "delete_selected_observations" in actions
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("tenant_settings", "das_tenant_monkeypatch")
+class TestHistoryViewPaginatesActionList:
+    """
+    Regression test for the bug where history_view passed a raw QuerySet as
+    action_list in extra_context instead of a paginated Page object.
+
+    Django's parent history_view merges extra_context last, so the raw
+    queryset overwrote the page object that Django had already built.  The
+    template then called action_list.paginator.count on a QuerySet — which has
+    no .paginator attribute — producing None, which caused:
+
+        TemplateSyntaxError: 'counter' argument to 'blocktranslate' tag must be
+        a number
+    """
+
+    def _make_history_request(self, superuser):
+        request = RequestFactory().get("/")
+        request.user = superuser
+        # history_view renders a TemplateResponse which does not require a
+        # full middleware stack, but admin.each_context checks has_permission,
+        # and some template tags require these attributes.
+        setattr(request, "session", {})
+        setattr(request, "_messages", FallbackStorage(request))
+        return request
+
+    def test_history_view_returns_200(self, superuser):
+        provider = ProviderFactory()
+        # Create a LogEntry so that action_list is non-empty and the template
+        # enters the {% if action_list %} branch that contains the blocktranslate
+        # tag with counter=action_list.paginator.count.  Without at least one
+        # entry the branch is skipped and the TemplateSyntaxError caused by a
+        # non-integer counter (i.e. a raw QuerySet with no .paginator attribute)
+        # would never be triggered.
+        LogEntry.objects.log_action(
+            user_id=superuser.pk,
+            content_type_id=ContentType.objects.get_for_model(SourceProvider).pk,
+            object_id=provider.pk,
+            object_repr=str(provider),
+            action_flag=ADDITION,
+        )
+        admin_instance = SourceProviderAdmin(model=SourceProvider, admin_site=admin_site)
+        request = self._make_history_request(superuser)
+
+        response = admin_instance.history_view(request, str(provider.pk))
+
+        assert response.status_code == 200
+        # Force template rendering so that any TemplateSyntaxError raised during
+        # blocktranslate (e.g. from a non-integer counter argument) surfaces here
+        # rather than being silently swallowed by the lazy TemplateResponse.
+        response.rendered_content
+
+    def test_history_view_excludes_log_entries_from_other_tenant_users(self, superuser):
+        provider = ProviderFactory()
+        other_tenant = TenantFactory(id=uuid.uuid4(), domain="other.com")
+        other_user = UserFactory(das_tenant=other_tenant)
+        LogEntry.objects.log_action(
+            user_id=other_user.pk,
+            content_type_id=ContentType.objects.get_for_model(SourceProvider).pk,
+            object_id=provider.pk,
+            object_repr=str(provider),
+            action_flag=ADDITION,
+        )
+        admin_instance = SourceProviderAdmin(model=SourceProvider, admin_site=admin_site)
+        request = self._make_history_request(superuser)
+
+        response = admin_instance.history_view(request, str(provider.pk))
+
+        action_list = response.context_data["action_list"]
+        assert (
+            action_list.paginator.count == 0
+        ), "log entries authored by users from another tenant must not appear in history_view"

@@ -12,12 +12,47 @@ from google.auth import impersonated_credentials
 from google.auth.transport import requests
 from google.cloud.exceptions import NotFound
 from storages.backends.gcloud import GoogleCloudStorage
+from whitenoise.storage import CompressedManifestStaticFilesStorage
 
 from django.conf import settings
 
 from utils.tenant.thread import get_tenant_settings
 
 logger = logging.getLogger(__name__)
+
+
+class TolerantManifestStaticFilesStorage(CompressedManifestStaticFilesStorage):
+    """Hashed-filename static storage that tolerates missing url() targets.
+
+    Vendored assets (e.g. core/static/css/bootstrap-colorpicker.css) ship
+    with a `sourceMappingURL=...map` comment whose .map file isn't included.
+    The default manifest post-processor raises MissingFileError on those,
+    breaking `collectstatic`. We leave such references unrewritten instead
+    of failing the whole collect step.
+    """
+
+    def url_converter(self, name, hashed_files, template=None):
+        original = super().url_converter(name, hashed_files, template)
+
+        def converter(matchobj):
+            try:
+                return original(matchobj)
+            except ValueError as exc:
+                # Django's hashed_name() raises a plain ValueError ("The file
+                # '...' could not be found with ...") at django/contrib/staticfiles
+                # /storage.py:143 when a referenced asset is missing. WhiteNoise
+                # only wraps that into MissingFileError later, in post_process's
+                # exception-collection loop -- AFTER this converter has returned --
+                # so catching MissingFileError here would never match. We match
+                # the message prefix instead to avoid swallowing the other
+                # ValueErrors hashed_name() can raise (e.g. "could not be hashed
+                # with ..." after max recursion passes).
+                if not str(exc).startswith("The file '"):
+                    raise
+                logger.warning("static post-process: leaving broken ref in %s unchanged (%s)", name, exc)
+                return matchobj["matched"]
+
+        return converter
 
 
 class TenantGoogleCloudStorage(GoogleCloudStorage):

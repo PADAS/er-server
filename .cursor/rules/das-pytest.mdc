@@ -1,0 +1,9 @@
+---
+description: How to run pytest in this repo and interpret DB-related failures
+alwaysApply: true
+---
+
+# Running pytest (EarthRanger / DAS)
+
+- **Working directory:** Run pytest from the **repository root** (where `pytest.ini` lives), not from `das/`. Example: `cd /workspaces/das-copy && python -m pytest das/schemas/tests/test_views.py -q`. Root `pytest.ini` sets `DJANGO_SETTINGS_MODULE`, `pythonpath = ./das`, and `addopts` (including `--reuse-db`).
+- **PostgreSQL:** These are Django tests against PostgreSQL. If almost every test reports **ERROR** in a fraction of a second with truncated messages like `django...` or warnings about being unable to connect to the `postgres` database, the blocker is **environment / database availability**, not the code under test. Do not treat that as proof that a small change broke the suite; start Postgres (or use the devcontainer stack) and re-run.

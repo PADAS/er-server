@@ -297,8 +297,16 @@ def extract_from_list(items: list = list, schema_item=None, event=None):
     if event and hasattr(event, "event_type"):
         event_type_info = f" for event type '{event.event_type.value}'"
 
+    primitive_count = 0
+    primitive_sample = None
+    unparseable_count = 0
+    unparseable_sample = None
+
     for item in items:
         if item and isinstance(item, (str, bool, int, float)):
+            if primitive_sample is None:
+                primitive_sample = item
+            primitive_count += 1
             name = item
             if schema_item and isinstance(item, str):
                 name = schema_item.get("items", {}).get("enumNames", {}).get(item, item)
@@ -309,7 +317,28 @@ def extract_from_list(items: list = list, schema_item=None, event=None):
             names.append(item["name"])
             ids.append(item["value"])
         else:
-            logger.warning(f"extract_from_list cannot parse in value{event_type_info}: {item} from {items}")
+            if unparseable_sample is None:
+                unparseable_sample = item
+            unparseable_count += 1
+
+    # Log once per call rather than once per item — the previous per-item log also
+    # serialized the full `items` list each time, making this O(N^2) on long lists.
+    if primitive_count:
+        logger.warning(
+            "extract_from_list received %d primitive (non-dict) value(s)%s out of %d; sample: %r",
+            primitive_count,
+            event_type_info,
+            len(items),
+            primitive_sample,
+        )
+    if unparseable_count:
+        logger.warning(
+            "extract_from_list cannot parse %d value(s)%s out of %d; sample: %r",
+            unparseable_count,
+            event_type_info,
+            len(items),
+            unparseable_sample,
+        )
 
     return ";".join(ids), ";".join(names)
 
