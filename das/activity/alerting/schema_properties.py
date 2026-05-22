@@ -16,6 +16,7 @@ from activity.models import EventType
 from activity.schemas.errors import SchemaError
 from activity.schemas.eventtype_service import EventTypeSchemaService
 from core.utils import NonHttpRequest
+from schemas.format_serializers import OUTPUT_FORMAT_ONE_OF, output_format_override
 from utils import schema_utils
 
 logger = logging.getLogger(__name__)
@@ -109,9 +110,14 @@ class AlertingSchemaPropertiesAdapter:
             )
 
     def _process_v2_schema(self, event_type: EventType, request: DRFRequest) -> SchemaPropertiesResult:
-        """V2-specific processing using EventTypeSchemaService."""
-        # Delegate to existing V2 service
-        schema_result = self.v2_service.get_rendered_schema(event_type, request)
+        """V2-specific processing using EventTypeSchemaService.
+
+        Forces nested dynamic-schema renders to ``oneOf`` so this adapter only needs to understand
+        a single choice shape (``anyOf`` / ``oneOf``), regardless of each source view's
+        ``default_format`` or what the public API would return for ``s_format``.
+        """
+        with output_format_override(OUTPUT_FORMAT_ONE_OF):
+            schema_result = self.v2_service.get_rendered_schema(event_type, request)
 
         # Extract properties from V2 nested structure
         properties = {}

@@ -239,7 +239,11 @@ def create_new_func(key, return_type, label=None, options_dict=None):
         raise NotImplementedError(f"Return-type {return_type} is not yet supported.")
 
 
-_CHOICE_MARKERS = ("enumNames", "anyOf", "oneOf")
+# Keys that flag a field as a choice/multi-select.
+#  - ``enumNames``       — V1 single/multi-select shape.
+#  - ``x-enumExtra``     — V2 ref-based choice shape with enum format (``enum`` + ``x-enumExtra``).
+#  - ``anyOf`` / ``oneOf`` — V2 ref-based choice shape with oneOf format (``oneOf``).
+_CHOICE_MARKERS = ("enumNames", "x-enumExtra", "anyOf", "oneOf")
 
 _SCHEMA_TYPE_TO_RULE_TYPE = {
     "select": "select",
