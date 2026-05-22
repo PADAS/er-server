@@ -270,6 +270,9 @@ STORAGES = {
         "BACKEND": "django.core.files.storage.FileSystemStorage",
     },
     "staticfiles": {
+        # Dev/runserver uses plain StaticFilesStorage so `{% static %}` works
+        # without first running `collectstatic`. The manifest (hashed-filename)
+        # backend is enabled only in local_settings_docker.py for production.
         "BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage",
     },
 }

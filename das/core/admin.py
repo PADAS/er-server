@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import logging
 from uuid import UUID
 
@@ -14,9 +16,11 @@ from django.contrib.admin import widgets
 from django.contrib.admin.checks import BaseModelAdminChecks
 from django.contrib.admin.models import LogEntry
 from django.contrib.admin.options import get_content_type_for_model
+from django.contrib.admin.views.main import PAGE_VAR
 from django.db.models import QuerySet
 from django.forms import HiddenInput
 from django.forms.widgets import SelectMultiple
+from django.http import HttpResponse
 from django.utils.text import format_lazy
 from django.utils.translation import gettext as _
 
@@ -52,17 +56,32 @@ class ModelAdminHistoryViewHideSharedAdminUserRevisionsMixin(admin.ModelAdmin):
             user_id__in=users_in_tenant,
         ).order_by("-action_time")
 
-    def history_view(self, request, object_id, extra_context=None):
+    def history_view(self, request, object_id, extra_context=None) -> HttpResponse:
         """
         Override the `history_view` method to filter out log entries that are
         not part of the current tenant.
         """
+        # Must match the hard-coded page size in Django's ModelAdmin.history_view
+        # so that pagination state we build here mirrors what the parent template
+        # would have produced.
+        per_page = 100
         tenant_id = request.user.das_tenant_id
         action_list = self._get_queryset_log_entries_for_tenant(
             tenant_id=tenant_id,
             object_id=object_id,
         )
-        extra_context = {"action_list": action_list}
+        paginator = self.get_paginator(request, action_list, per_page)
+        page_number = request.GET.get(PAGE_VAR, 1)
+        page_obj = paginator.get_page(page_number)
+        page_range = paginator.get_elided_page_range(page_obj.number)
+
+        extra_context = {
+            **(extra_context or {}),
+            "action_list": page_obj,
+            "page_range": page_range,
+            "page_var": PAGE_VAR,
+            "pagination_required": paginator.count > per_page,
+        }
 
         return super().history_view(
             request=request,

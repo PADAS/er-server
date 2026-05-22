@@ -4,6 +4,7 @@ from django.contrib.gis import admin
 from django.contrib.gis.admin.widgets import OpenLayersWidget
 from django.templatetags.static import static
 from django.utils import translation
+from django.utils.functional import lazy
 
 from core.admin import SaveCoordinatesToCookieMixin
 
@@ -11,6 +12,12 @@ from .mixins import TileLayersMixin
 
 geo_context = {"LANGUAGE_BIDI": translation.get_language_bidi()}
 logger = logging.getLogger("django.contrib.gis")
+
+# Defer static() resolution until first access. Class-body static() calls run
+# during admin autodiscovery (django.setup()), which happens BEFORE collectstatic
+# has built the manifest -- with ManifestStaticFilesStorage that raises
+# "Missing staticfiles manifest entry".
+static_lazy = lazy(static, str)
 
 
 class OlWidget(OpenLayersWidget):
@@ -76,7 +83,7 @@ class PropsOSMGeoAdminMixin(TileLayersMixin, admin.OSMGeoAdmin, SaveCoordinatesT
     wms_layer = "terrain,overlay"
     wms_url = "http://tiles.maps.eox.at/wms/"
     map_template = "admin/openlayer/ol.html"
-    openlayers_url = static("openlayers/v6/ol.js")
+    openlayers_url = static_lazy("openlayers/v6/ol.js")
     map_srid = 4326
     display_wkt = True
     num_zoom = 19
