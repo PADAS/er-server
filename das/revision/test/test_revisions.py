@@ -319,6 +319,24 @@ class TestRevisionActions:
 
 @pytest.mark.django_db
 @pytest.mark.usefixtures("tenant_settings", "das_tenant_monkeypatch")
+class TestPostInitDeferredFields:
+    def test_post_init_does_not_recurse_on_deferred_field_instance(self, event, django_assert_num_queries):
+        # Regression: fetching a revision-tracked model with .only() caused infinite recursion.
+        # post_init → get_data_copy → serialize all fields → DeferredAttribute.__get__ →
+        # refresh_from_db → from_db → post_init → ∞
+        instance = Event.objects.only("id", "title").get(pk=event.pk)
+        from revision.manager import Revision
+
+        revision = Revision()
+        with django_assert_num_queries(0):
+            # Must complete without RecursionError and without hitting the DB.
+            revision.post_init(instance)
+
+        assert hasattr(instance, "revision_original")
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("tenant_settings", "das_tenant_monkeypatch")
 class TestGetObjectById:
     def test_get_subject_object(self, subject):
         uuid = str(subject.id)
