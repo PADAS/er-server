@@ -149,7 +149,15 @@ STORAGES = {
         "BACKEND": "core.storages.TenantGoogleCloudStorage",
     },
     "staticfiles": {
-        "BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage",
+        # Hashed filenames (e.g. SelectBox.abc123.js) so each Django/admin
+        # upgrade automatically invalidates browser caches. Without this,
+        # after the 3.2 -> 4.2.30 bump in PR #3732, browsers held the old
+        # SelectBox.js while loading the new SelectFilter2.js --
+        # "SelectBox.get_hidden_node_count is not a function". The tolerant
+        # subclass also lets vendored CSS/JS with missing sourcemap refs
+        # (e.g. bootstrap-colorpicker) pass collectstatic. Pre-compresses
+        # (gz/br) for WhiteNoise.
+        "BACKEND": "core.storages.TolerantManifestStaticFilesStorage",
     },
 }
 GS_BUCKET_NAME = env.str("GS_BUCKET_NAME", "earthranger-uploads-default")
