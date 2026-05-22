@@ -149,6 +149,10 @@ jobs:
 
   deploy-dev:
     needs: [config, unit-test-gate]
+    if: |
+      always() &&
+      needs.config.result == 'success' &&
+      needs.unit-test-gate.result == 'success'
     uses: PADAS/serca-pipelines/.github/workflows/_argocd-deploy.yml@main
     with:
       app-name: das-server
