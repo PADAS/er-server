@@ -1343,7 +1343,7 @@ class SubjectAdmin(ExportCsvMixin, FieldSetElementMixin, ObservationsContextMixi
         # Bounded to the current monthly partition window to avoid a full table scan;
         # the inline preview only renders the first 25 observations.
         latest_observations = subject.observations(last_hours=30 * 24).values(
-            "source__manufacturer_id", "recorded_at", "location", "additional"
+            "id", "source__manufacturer_id", "recorded_at", "location", "additional"
         )
         extra_context = self.get_observations_context(extra_context, latest_observations, object_id)
 
