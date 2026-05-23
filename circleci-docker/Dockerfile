@@ -1,4 +1,4 @@
-FROM ghcr.io/osgeo/gdal:ubuntu-small-3.12.1
+FROM ghcr.io/osgeo/gdal:ubuntu-small-3.12.3
 LABEL org.opencontainers.image.description maintainer="EarthRanger Developers developers@earthranger.com"
 
 

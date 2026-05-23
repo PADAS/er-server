@@ -44,7 +44,7 @@ class TestSoftDelete(BaseAPITest):
         request.user = MockSuperUser()
 
         querysets = self.admin.get_queryset(request)
-        self.assertQuerysetEqual(
+        self.assertQuerySetEqual(
             querysets,
             Choice.objects.all().order_by("value"),
             transform=lambda x: x,
@@ -61,7 +61,7 @@ class TestSoftDelete(BaseAPITest):
 
         obj = Choice.objects.filter(value="rhino")
         obj.disable_choices()
-        self.assertQuerysetEqual(obj, Choice.objects.filter_inactive_choices(), transform=lambda x: x)
+        self.assertQuerySetEqual(obj, Choice.objects.filter_inactive_choices(), transform=lambda x: x)
 
         is_active = [i.is_active for i in obj]
         self.assertFalse(is_active[0])

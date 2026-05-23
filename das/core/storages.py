@@ -1,4 +1,6 @@
 import datetime
+import logging
+import mimetypes
 import re
 import unicodedata
 from pathlib import Path
@@ -10,8 +12,57 @@ from google.auth import impersonated_credentials
 from google.auth.transport import requests
 from google.cloud.exceptions import NotFound
 from storages.backends.gcloud import GoogleCloudStorage
+from whitenoise.storage import CompressedManifestStaticFilesStorage
+
+from django.conf import settings
 
 from utils.tenant.thread import get_tenant_settings
+
+logger = logging.getLogger(__name__)
+
+
+class TolerantManifestStaticFilesStorage(CompressedManifestStaticFilesStorage):
+    """Hashed-filename static storage that tolerates missing url() targets.
+
+    Vendored assets (e.g. core/static/css/bootstrap-colorpicker.css) ship
+    with a `sourceMappingURL=...map` comment whose .map file isn't included.
+    The default manifest post-processor raises MissingFileError on those,
+    breaking `collectstatic`. We leave such references unrewritten instead
+    of failing the whole collect step.
+    """
+
+    def stored_name(self, name: str) -> str:
+        # Catches both "missing manifest entry" (Django's strict-mode KeyError
+        # turned ValueError) and "file could not be found" (WhiteNoise's
+        # dynamic-hash fallback in hashed_name when the file is absent from
+        # STATICFILES_DIRS, e.g. uncollected third-party assets like tagulous).
+        try:
+            return super().stored_name(name)
+        except ValueError:
+            return self.clean_name(name)
+
+    def url_converter(self, name, hashed_files, template=None):
+        original = super().url_converter(name, hashed_files, template)
+
+        def converter(matchobj):
+            try:
+                return original(matchobj)
+            except ValueError as exc:
+                # Django's hashed_name() raises a plain ValueError ("The file
+                # '...' could not be found with ...") at django/contrib/staticfiles
+                # /storage.py:143 when a referenced asset is missing. WhiteNoise
+                # only wraps that into MissingFileError later, in post_process's
+                # exception-collection loop -- AFTER this converter has returned --
+                # so catching MissingFileError here would never match. We match
+                # the message prefix instead to avoid swallowing the other
+                # ValueErrors hashed_name() can raise (e.g. "could not be hashed
+                # with ..." after max recursion passes).
+                if not str(exc).startswith("The file '"):
+                    raise
+                logger.warning("static post-process: leaving broken ref in %s unchanged (%s)", name, exc)
+                return matchobj["matched"]
+
+        return converter
 
 
 class TenantGoogleCloudStorage(GoogleCloudStorage):
@@ -133,6 +184,28 @@ class TenantGoogleCloudStorage(GoogleCloudStorage):
             return filename
         # Otherwise, add tenant prefix
         return str(tenant_path / filename_path)
+
+    def _force_download_mimetypes(self) -> set[str]:
+        return set(getattr(settings, "USERCONTENT_SETTINGS", {}).get("force_download_mimetypes", ()))
+
+    def _save(self, name, content):
+        """Stamp safe Content-Type and Content-Disposition on uploads whose mime type is in
+        USERCONTENT_SETTINGS["force_download_mimetypes"] (e.g. image/svg+xml, text/html,
+        text/javascript). This prevents browsers from rendering active content inline when
+        the object is fetched directly from GCS via a signed URL.
+        """
+        mt, _ = mimetypes.guess_type(name)
+        if mt and mt in self._force_download_mimetypes():
+            content.content_type = "application/octet-stream"
+            saved_name = super()._save(name, content)
+            try:
+                blob = self.bucket.blob(self._encode_name(self._normalize_name(saved_name)))
+                blob.content_disposition = "attachment"
+                blob.patch()
+            except Exception:
+                logger.exception("Failed to set Content-Disposition=attachment on force-download blob %s", saved_name)
+            return saved_name
+        return super()._save(name, content)
 
     def _open(self, name, mode="rb"):
         # Use the new Unicode-aware search paths

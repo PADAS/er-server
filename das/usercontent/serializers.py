@@ -16,6 +16,7 @@ DEFAULT_FILE_ICON = "/static/icon-txt.png"
 # Load UserContent settings once from settings.
 USERCONTENT_SETTINGS = getattr(settings, "USERCONTENT_SETTINGS", {})
 IMAGEFILE_EXTENSIONS = USERCONTENT_SETTINGS.get("imagefile_extensions", set())
+ALLOWED_EXTENSIONS = set(USERCONTENT_SETTINGS.get("allowed_extensions", ()))
 
 
 def resolve_file_icon(filecontent):
@@ -102,15 +103,14 @@ class UserContentSerializer(rest_framework.serializers.Serializer):
         return rep
 
     def create(self, validated_data):
-
-        if validated_data["file"].name.split(".")[-1].lower() in IMAGEFILE_EXTENSIONS:
+        ext = validated_data["file"].name.rsplit(".", 1)[-1].lower() if "." in validated_data["file"].name else ""
+        if ALLOWED_EXTENSIONS and ext not in ALLOWED_EXTENSIONS and not self.context.get("skip_extension_check"):
+            raise rest_framework.serializers.ValidationError({"file": f"File type '.{ext}' is not permitted."})
+        if ext in IMAGEFILE_EXTENSIONS:
             ser = ImageFileContentSerializer()
         else:
             ser = FileContentSerializer()
-
-        instance = ser.create(validated_data)
-
-        return instance
+        return ser.create(validated_data)
 
 
 def get_available_renditions(sizes=None):

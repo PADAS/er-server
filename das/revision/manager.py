@@ -18,6 +18,7 @@ from django.contrib.auth import get_user_model
 from django.contrib.contenttypes.models import ContentType
 from django.contrib.gis.db import models
 from django.core import serializers
+from django.core.exceptions import FieldDoesNotExist
 from django.db.models import Max
 
 from activity.constants import PRIORITY_CHOICES
@@ -166,15 +167,17 @@ class Revision(object):
         manager = getattr(instance, self.manager_name)
         adapter = self.revision_adapter(type(instance))
 
-        instance.revision_sequence = 0
-        if instance.id:
-            sequences = manager.all()
-            sequences = sequences.order_by("-sequence")
-            for sequence in sequences.values_list("sequence", flat=True):
-                instance.revision_sequence = sequence
-                break
+        # Always compute next sequence from existing revisions: callers can
+        # legitimately reuse an object_id whose prior incarnation was deleted
+        # (revisions are retained as a tombstone history so a delete can be
+        # restored), so an ACTION_ADDED on that id needs sequence = max + 1,
+        # not 1.
+        max_sequence = (
+            manager.filter(object_id=instance.id).aggregate(max_sequence=Max("sequence")).get("max_sequence") or 0
+        )
+        instance.revision_sequence = max_sequence
 
-        if instance.revision_sequence == 0:
+        if action == ACTION_ADDED or max_sequence == 0:
             data = adapter.get_serialized_data(instance)
         elif action == ACTION_DELETED:
             data = {}
@@ -182,7 +185,6 @@ class Revision(object):
             relation = kwargs.get("relation")
             related_query_name = kwargs.get("related_query_name")
             relation_model = ".".join((relation._meta.app_label, relation._meta.object_name))
-            # relation_name = kwargs.get('related_query_name')
             data = {
                 "relation_id": str(relation.id),
                 "relation_model": relation_model,
@@ -194,9 +196,6 @@ class Revision(object):
                 return
 
         with transaction.atomic():
-            obj = manager.filter(object_id=instance.id).aggregate(max_sequence=Max("sequence"))
-            max_sequence = obj.get("max_sequence") or 0
-
             revision = manager.create(
                 object_id=instance.id,
                 sequence=max_sequence + 1,
@@ -207,6 +206,13 @@ class Revision(object):
             )
 
         instance.revision_sequence = revision.sequence
+        # Re-snapshot so a follow-up save on this same instance diffs against
+        # the just-persisted state instead of the post_init load. Without this,
+        # callers that save the same Event twice in one request (e.g. an
+        # event_details update that triggers dependent_table_updated alongside
+        # an explicit field save) record the same change in two revisions.
+        if action in (ACTION_ADDED, ACTION_UPDATED):
+            instance.revision_original = adapter.get_data_copy(instance)
 
     def post_save(self, instance, created, **kwargs):
         try:
@@ -225,7 +231,22 @@ class Revision(object):
         instance.revision_sequence = 0
         if instance.id:
             adapter = RevisionAdapter(type(instance))
-            instance.revision_original = adapter.get_data_copy(instance)
+            deferred = instance.get_deferred_fields()
+            if not deferred:
+                instance.revision_original = adapter.get_data_copy(instance)
+            else:
+                # Skip deferred fields — accessing them triggers refresh_from_db → post_init recursion.
+                model_meta = type(instance)._meta
+                loaded_fieldnames = []
+                for name in adapter.get_fieldnames():
+                    try:
+                        field = model_meta.get_field(name)
+                        if field.attname in deferred:
+                            continue
+                    except FieldDoesNotExist:
+                        pass
+                    loaded_fieldnames.append(name)
+                instance.revision_original = adapter._serialize(instance, loaded_fieldnames)
 
     def finalize(self, sender, **kwargs):
         revision_model = self.create_revision_model(sender)
@@ -250,6 +271,24 @@ class Revision(object):
             )
             return result
 
+        def get_previous(instance):
+            # Prior revision by `sequence`, which is monotonic per object_id
+            # and covered by the (object_id, sequence) index. Avoids the
+            # unindexed sort that Django's get_previous_by_revision_at forces.
+            # The revision model's default `objects` manager is not tenant-aware
+            # (only the parent model gets the tenant-scoped RevisionManager via
+            # RevisionDescriptor), so we filter by das_tenant_id explicitly.
+            return (
+                type(instance)
+                .objects.filter(
+                    das_tenant_id=instance.das_tenant_id,
+                    object_id=instance.object_id,
+                    sequence__lt=instance.sequence,
+                )
+                .order_by("-sequence")
+                .first()
+            )
+
         user_field = self.user_field_class(related_name=rel_name, editable=False, on_delete=models.SET_NULL)
 
         # check if this manager has been attached to auth user model
@@ -272,6 +311,7 @@ class Revision(object):
             ),
             "tenant_id": "das_tenant_id",
             "__str__": to_str,
+            "get_previous": get_previous,
             "__module__": model.__module__,
         }
 

@@ -3,21 +3,24 @@
 from __future__ import unicode_literals
 
 import datetime
+
 from django.db import migrations, models
-from django.utils.timezone import utc
 
 
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('activity', '0003_add_description_and_priority'),
+        ("activity", "0003_add_description_and_priority"),
     ]
 
     operations = [
         migrations.AddField(
-            model_name='event',
-            name='event_time',
-            field=models.DateTimeField(auto_now_add=True, default=datetime.datetime(2016, 2, 4, 20, 30, 19, 882155, tzinfo=utc)),
+            model_name="event",
+            name="event_time",
+            field=models.DateTimeField(
+                auto_now_add=True,
+                default=datetime.datetime(2016, 2, 4, 20, 30, 19, 882155, tzinfo=datetime.timezone.utc),
+            ),
             preserve_default=False,
         ),
     ]

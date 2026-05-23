@@ -2,8 +2,6 @@ import datetime
 import logging
 from typing import Union
 
-import pytz
-
 from django.db import transaction
 from django.db.models import Avg, Count, F
 from django.utils.dateparse import parse_duration
@@ -53,8 +51,8 @@ def calculate_lag_for_provider(
             provider_key=F("source__provider__provider_key"), provider_display_name=F("source__provider__display_name")
         )
         .annotate(avg_lag=Avg(F("created_at") - F("recorded_at")), data_points=Count("created_at"))
-        .order_by()
-        # the blank order_by above clears the default order_by for Observation model which removes unwanted group by
+        .order_by("provider_key")
+        # order_by on a values() field is required for .first() on an aggregated queryset
     )
     return provider_summary.first()
 
@@ -62,7 +60,7 @@ def calculate_lag_for_provider(
 def get_lagging_providers():
     # TODO do we want to be able to configure this value?
     configured_report_duration = "00:30:00"
-    period_end = datetime.datetime.now(pytz.utc)
+    period_end = datetime.datetime.now(datetime.timezone.utc)
     period_start = period_end - parse_duration(configured_report_duration)
 
     # only look at observations recorded in the last 30 days, to focus the db query on recent data
@@ -176,9 +174,9 @@ Average lag: {avg_lag}
 @celery.app.task(base=TenantQueueOnceTask, once={"graceful": True})
 def check_sources_threshold(*args, **kwargs):
     source_providers = SourceProvider.objects.filter(
-        source__subjectsource__assigned_range__contains=datetime.datetime.now(pytz.utc)
+        source__subjectsource__assigned_range__contains=datetime.datetime.now(datetime.timezone.utc)
     ).distinct()
-    now = datetime.datetime.now(pytz.utc)
+    now = datetime.datetime.now(datetime.timezone.utc)
 
     for source_provider in source_providers:
         sources = (

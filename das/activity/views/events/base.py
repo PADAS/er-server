@@ -1,10 +1,10 @@
 import json
 import logging
-from collections import OrderedDict
+from collections import OrderedDict, defaultdict
 from datetime import datetime
 from typing import Dict, List, Type, Union
+from zoneinfo import ZoneInfo
 
-import pytz
 from django_multitenant.utils import get_current_tenant
 from drf_spectacular.utils import OpenApiResponse, extend_schema, inline_serializer
 from psycopg2.errors import InvalidTextRepresentation
@@ -18,7 +18,7 @@ from django.db.models import Count, OuterRef, Prefetch, Q, TextField
 from django.db.models.functions import JSONObject
 from django.db.models.query import QuerySet
 from django.db.utils import DataError
-from django.utils import timezone
+from django.utils.timezone import get_current_timezone_name
 from rest_framework import status
 from rest_framework.filters import OrderingFilter
 from rest_framework.generics import (
@@ -48,10 +48,12 @@ from activity.models import (
     EventNote,
     EventProvider,
     EventRelationship,
+    PatrolSegment,
 )
 from activity.permissions import (
     EventCategoryGeographicPermission,
     EventCategoryPermissions,
+    EventsPermissions,
     IsOwner,
 )
 from activity.schemas.schema_adapter import SchemaAdapterFactory
@@ -76,6 +78,7 @@ from activity.views.helpers import (
 from activity.views.schemas import EventsViewSchema
 from core.permissions import UserCanExportDataPermission
 from observations.models import Subject
+from utils.csv_streaming import StreamingCSVResponse
 from utils.date import convert_to_timezone, get_current_time_zone, get_timezone_offset
 from utils.db.expresions import ArraySubquery
 from utils.drf import StandardResultsSetGeoJsonPagination, StandardResultsSetPagination
@@ -357,12 +360,64 @@ class EventsExportView(APIView):
             )
             return None
 
-    def _get_annotated_queryset(self):
-        """Get the queryset with all necessary annotations for export."""
-        queryset = self.get_queryset()
-        user_subjects = list(Subject.objects.by_user_subjects(self.request.user).values_list("id", flat=True))
-        queryset = queryset.filter(Q(related_subjects__isnull=True) | Q(related_subjects__in=user_subjects))
+    def _preload_file_url_cache(self, events_qs: QuerySet) -> None:
+        """Batch-fetch all file URLs for events in the queryset to avoid N+1 queries.
 
+        Groups EventFile records by content type and fetches all file objects for
+        each type in a single query, reducing attachment resolution from O(N) DB
+        queries to O(content_type_count) queries.
+        """
+        by_content_type: dict[int, list[str]] = defaultdict(list)
+
+        for usercontent_type_id, usercontent_id in (
+            EventFile.objects.filter(event__in=events_qs)
+            .values_list("usercontent_type_id", "usercontent_id")
+            .iterator()
+        ):
+            by_content_type[usercontent_type_id].append(str(usercontent_id))
+
+        if not by_content_type:
+            return
+
+        for ct_id, file_ids in by_content_type.items():
+            content_type = self._get_content_type_cached(ct_id)
+            file_model = content_type.model_class()
+            if file_model is None:
+                logger.warning("ContentType %s has no model_class; caching nulls for %d files", ct_id, len(file_ids))
+                for file_id in file_ids:
+                    self._file_model_cache[(ct_id, file_id)] = None
+                continue
+
+            try:
+                file_objs = list(file_model.objects.filter(id__in=file_ids).iterator(chunk_size=2000))
+            except Exception:
+                logger.exception("Error preloading file urls for contenttype %s", ct_id)
+                for file_id in file_ids:
+                    self._file_model_cache[(ct_id, file_id)] = None
+                continue
+
+            found_ids: set[str] = set()
+            for file_obj in file_objs:
+                cache_key = (ct_id, str(file_obj.id))
+                found_ids.add(str(file_obj.id))
+                # Storage backends may raise varied exceptions (S3, filesystem, etc.);
+                # degrade to None so the export continues instead of 500-ing.
+                try:
+                    self._file_model_cache[cache_key] = file_obj.file.url
+                except Exception:
+                    logger.exception("Error getting URL for file %s", file_obj.id)
+                    self._file_model_cache[cache_key] = None
+
+            for file_id in file_ids:
+                if file_id not in found_ids:
+                    self._file_model_cache[(ct_id, file_id)] = None
+
+    def _get_annotated_queryset(self, queryset: QuerySet) -> QuerySet:
+        """Annotate the given queryset with the fields needed for CSV export.
+
+        The caller is responsible for applying permission filters (e.g., related
+        subjects) before passing the queryset in.
+        """
         file_subquery = EventFile.objects.filter(event=OuterRef("id")).values(
             data=JSONObject(usercontent_type="usercontent_type", usercontent_id="usercontent_id", id="id")
         )
@@ -455,7 +510,11 @@ class EventsExportView(APIView):
                 "Title": self.escape_string(event.get("title", "")),
                 "Priority": Event.PRIORITY_LABELS_MAP.get(event.get("priority", ""), ""),
                 "Priority_Internal_Value": event.get("priority", ""),
-                "Report_Status": "Resolved" if event["state"] == Event.SC_RESOLVED else "Active",
+                "Report_Status": (
+                    "Resolved"
+                    if event["state"] == Event.SC_RESOLVED
+                    else "Review" if event["state"] == Event.SC_REVIEW else "Active"
+                ),
                 reported_at_label: convert_to_timezone(event["event_time"], current_tz).strftime("%Y-%m-%d %H:%M"),
                 "Latitude": event["location"].y if event["location"] is not None else "",
                 "Longitude": event["location"].x if event["location"] is not None else "",
@@ -501,7 +560,6 @@ class EventsExportView(APIView):
         return string
 
     def get(self, request, *args, **kwargs):
-        from utils.csv_streaming import StreamingCSVResponse
 
         self.value_cols = parse_bool(request.GET.get("value_cols", "false"))
         self.display_cols = parse_bool(request.GET.get("display_cols", "true"))
@@ -516,11 +574,16 @@ class EventsExportView(APIView):
         reported_by_map = generate_reported_by_lookup()
         event_type_map = generate_event_type_cache()
 
-        # Lightweight query for event type IDs (same filters, no heavy annotations).
-        event_type_ids_in_export = set(self.get_queryset().values_list("event_type_id", flat=True).distinct())
+        # Apply the related-subjects permission filter once and reuse for header
+        # generation, attachment preloading, and row annotation — so we only
+        # process events the user is allowed to see and only query user_subjects once.
+        user_subjects = list(Subject.objects.by_user_subjects(self.request.user).values_list("id", flat=True))
+        filtered_queryset = self.get_queryset().filter(
+            Q(related_subjects__isnull=True) | Q(related_subjects__in=user_subjects)
+        )
 
-        # Build annotated queryset once for row generation only.
-        queryset = self._get_annotated_queryset()
+        event_type_ids_in_export = set(filtered_queryset.values_list("event_type_id", flat=True).distinct())
+        queryset = self._get_annotated_queryset(filtered_queryset)
 
         default_headers = self._get_default_headers(f"Reported At ({tz_offset})")
         custom_headers = self._build_custom_headers(event_type_map, event_type_ids_in_export)
@@ -528,9 +591,12 @@ class EventsExportView(APIView):
         combined_headers.extend([header.replace(" ", "_") for header in custom_headers])
 
         # Generate filename
-        local_tz = pytz.timezone(timezone.get_current_timezone_name())
-        timestamp = local_tz.localize(datetime.utcnow())
+        current_tz = ZoneInfo(get_current_timezone_name())
+        timestamp = datetime.now(tz=current_tz)
         download_filename = f'Event Export {timestamp.strftime("%Y-%m-%d")}.csv'
+
+        # Pre-populate file URL cache to avoid N+1 queries during row generation.
+        self._preload_file_url_cache(filtered_queryset)
 
         # Create streaming response
         row_generator = self._generate_event_rows(
@@ -546,7 +612,7 @@ class EventsExportView(APIView):
     def get_queryset(self):
         # TODO: Update to allow passing last_days constraint.
 
-        queryset = Event.objects.all().prefetch_related("event_type")
+        queryset = Event.objects.all()
 
         permitted_event_categories = get_permitted_event_categories(self.request)
 
@@ -578,14 +644,17 @@ class EventsExportView(APIView):
         if state:
             queryset = queryset.by_state(state)
 
-        contained_event_ids = (
-            queryset.filter(event_type__is_collection=True)
-            .aggregate(child_event_ids=ArrayAgg("out_relationship__to_event"))
-            .get("child_event_ids")
-        )
-
-        if contained_event_ids:
-            child_events = Event.objects.filter(id__in=contained_event_ids)
+        # Only union in child events when collection events are actually present.
+        # The unconditional union form is simpler but adds an extra subquery to every
+        # export query — revisit if exports of large non-collection result sets ever
+        # show measurable regression here.
+        collection_qs = queryset.filter(event_type__is_collection=True)
+        if collection_qs.exists():
+            child_events = Event.objects.filter(
+                id__in=EventRelationship.objects.filter(from_event__in=collection_qs).values_list(
+                    "to_event_id", flat=True
+                )
+            )
             queryset = queryset.distinct() | child_events.distinct()
 
         return queryset.order_by("event_type_id")
@@ -609,7 +678,7 @@ class EventsView(ListCreateAPIView):
 
     page_size
     """
-    permission_classes = (EventCategoryGeographicPermission,)
+    permission_classes = (EventsPermissions,)
     filter_backends = (
         EventPermissionsFilter,
         EventListFilter,
@@ -657,6 +726,7 @@ class EventsView(ListCreateAPIView):
         try:
             if self.paginator:
                 page = self.paginate_queryset(queryset)
+                self._attach_patrol_ids(page)
                 context = self.get_serializer_context()
                 if context.get("include_updates"):
                     context["revisions_cache"] = self._build_revisions_cache(page)
@@ -664,6 +734,7 @@ class EventsView(ListCreateAPIView):
                 return self.get_paginated_response(serializer.data)
 
             events = list(queryset)
+            self._attach_patrol_ids(events)
             context = self.get_serializer_context()
             if context.get("include_updates"):
                 context["revisions_cache"] = self._build_revisions_cache(events)
@@ -697,9 +768,12 @@ class EventsView(ListCreateAPIView):
                 return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
             serializer.save()
-            data = serializer.data
-            data = data if len(new_record) > 1 else data[0]
-            return Response(data, status=status.HTTP_201_CREATED)
+
+        # Serialize the response outside the transaction so read queries don't
+        # hold the write lock and on_commit callbacks fire before serialization.
+        data = serializer.data
+        data = data if len(new_record) > 1 else data[0]
+        return Response(data, status=status.HTTP_201_CREATED)
 
     def get_serializer_class(self) -> Type[Serializer]:
         if self.kwargs.get("patrol_segment") and self.request.method == "GET":
@@ -744,7 +818,7 @@ class EventsView(ListCreateAPIView):
         prefetches = [
             Prefetch("eventsource_event_refs__eventsource__eventprovider"),
             Prefetch("reported_by"),
-            Prefetch("patrol_segments"),
+            Prefetch("patrol_segments", queryset=PatrolSegment.objects.only("id", "patrol_id")),
             Prefetch("geometries"),
             Prefetch("related_subjects", to_attr="related_subjects_set"),
             Prefetch(
@@ -776,8 +850,18 @@ class EventsView(ListCreateAPIView):
             prefetches.append(Prefetch("files", queryset=EventFile.objects.select_related("created_by")))
 
         queryset = queryset.prefetch_related(*prefetches)
-        queryset = queryset.annotate(patrol_ids=ArrayAgg("patrol_segments__patrol_id"))
         return queryset
+
+    @staticmethod
+    def _attach_patrol_ids(events) -> None:
+        # Compute patrol_ids in Python from the prefetched patrol_segments M2M
+        # instead of annotating with ArrayAgg on the queryset. ArrayAgg forces
+        # the paginator's COUNT(*) to wrap the join+aggregate as a subquery,
+        # which is dramatically more expensive than a plain row count.
+        if not events:
+            return
+        for event in events:
+            event.patrol_ids = [ps.patrol_id for ps in event.patrol_segments.all()]
 
     def add_segment_to_record(self, patrol_segment_id: Union[List[str], str], new_record: List[Dict]) -> List[Dict]:
         for record in new_record:

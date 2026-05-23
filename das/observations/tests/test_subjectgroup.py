@@ -20,6 +20,7 @@ from observations.admin import SubjectGroupChangeForm
 from observations.models import Subject, SubjectGroup, SubjectStatus
 from observations.utils import get_cyclic_subjectgroup
 from observations.views import SubjectGroupsView, SubjectsView
+from utils.user import make_random_password
 
 
 def make_perm(perm):
@@ -298,7 +299,7 @@ class SubjectGroupSubGroupsPermissionsTest(BaseAPITest):
         self.user = User.objects.create_user(
             username="active_user",
             email="active_user@test.com",
-            password=User.objects.make_random_password(),
+            password=make_random_password(),
             **self.user_const,
         )
         self.view_subject_perm = Permission.objects.get(codename=self.view_subject_group_perm_name)
@@ -548,7 +549,7 @@ class ThreeLevelSubjectGroupHierarchyPermissionsTest(BaseAPITest):
         self.user = User.objects.create_user(
             username="active_user",
             email="active_user@test.com",
-            password=User.objects.make_random_password(),
+            password=make_random_password(),
             **self.user_const,
         )
         self.view_subject_perm = Permission.objects.get(codename=self.view_subject_group_perm_name)
@@ -724,7 +725,7 @@ class TestSubjectGroupsVisibility(BaseAPITest):
         self.user = User.objects.create_user(
             username="active_user",
             email="active_user@test.com",
-            password=User.objects.make_random_password(),
+            password=make_random_password(),
             **self.user_const,
         )
         self.view_subject_perm = Permission.objects.get(codename=self.view_subject_group_perm_name)

@@ -1,7 +1,6 @@
 import datetime as dt
 import logging
 
-import pytz
 from scipy.stats import mannwhitneyu
 
 from django.contrib.gis.geos import GeometryCollection as DjangoGeoColl
@@ -78,7 +77,7 @@ class LowSpeedPercentileAnalyzer(SubjectAnalyzer):
         fixes = traj.relocs.get_fixes("DESC")
 
         # Create the analyzer result
-        title = (self.subject.name + str(_(" is moving normally")),)
+        title = self.subject.name + str(_(" is moving normally"))
         result = SubjectAnalyzerResult(
             subject_analyzer=self.config,
             level=OK,
@@ -139,7 +138,7 @@ class LowSpeedPercentileAnalyzer(SubjectAnalyzer):
 
         event_data = None
 
-        event_details = {"name": self.subject.name}
+        event_details = {"analyzer_name": self.config.name, "name": self.subject.name}
         event_details.update(this_result.values)
 
         # Create a dict() location to satisfy our EventSerializer.
@@ -247,7 +246,7 @@ class LowSpeedWilcoxAnalyzer(SubjectAnalyzer):
 
         # Previous speed distribution (use only up until 30 days prior)
         ps = self._normal_movement_distro(
-            end=pytz.utc.localize(dt.datetime.utcnow()) - dt.timedelta(hours=self.config.search_time_hours)
+            end=dt.datetime.now(tz=dt.timezone.utc) - dt.timedelta(hours=self.config.search_time_hours)
         )
 
         if ps is None:
@@ -260,7 +259,7 @@ class LowSpeedWilcoxAnalyzer(SubjectAnalyzer):
         fixes = traj.relocs.get_fixes("DESC")
 
         # Create the analyzer result
-        title = (self.subject.name + str(_(" is moving normally")),)
+        title = self.subject.name + str(_(" is moving normally"))
         result = SubjectAnalyzerResult(
             subject_analyzer=self.config,
             level=OK,
@@ -322,7 +321,7 @@ class LowSpeedWilcoxAnalyzer(SubjectAnalyzer):
 
         event_data = None
 
-        event_details = {"name": self.subject.name}
+        event_details = {"analyzer_name": self.config.name, "name": self.subject.name}
         event_details.update(this_result.values)
 
         # Create a dict() location to satisfy our EventSerializer.

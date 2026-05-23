@@ -7,7 +7,6 @@ after making changes to a model run migrations to record changes:
 To re-sync your database with changes from others
 * python manage.py migrate
 
-
 GIS
 * default geodjango spatial reference system is WGS84 (SRID 4326)
 """
@@ -26,11 +25,11 @@ from typing import List, NamedTuple, Set, Union
 from uuid import UUID
 
 import pymet
-import pytz
 from bitfield import BitField
 from dateutil.parser import parse as parse_date
 from django_multitenant.fields import TenantForeignKey, TenantOneToOneField
 from django_multitenant.mixins import TenantManagerMixin, TenantModelMixin
+from django_multitenant.utils import get_current_tenant
 from psycopg2.extras import DateTimeTZRange
 
 from django.contrib.auth import get_user_model
@@ -90,6 +89,7 @@ from utils.interfaces import SharedResourceHandler
 from utils.json import parse_bool, zeroout_microseconds
 from utils.migrations.columns import default_tenant_id
 from utils.models import CommonTenantManager, get_next_int_val
+from utils.tenant.exceptions import TenantNotFoundInLocalThreadException
 from utils.tenant.thread import get_tenant_settings
 
 User = get_user_model()
@@ -102,9 +102,12 @@ GPX_FILES_FOLDER = getattr(settings, "GPX_FILES_FOLDER", "observations/gpxfile")
 # Threshold for warning about high SubjectSource assignment counts that may cause deeply nested SQL
 HIGH_ASSIGNMENT_COUNT_THRESHOLD = 10
 
-# Default lookback window (in days) for queries that need the latest observation
-# without scanning the entire observation table.
+# Lookback windows (in days) for finding the latest observation without scanning
+# the entire observation table. The recent window is tried first; if empty, the
+# extended window is tried before giving up. Subjects silent past the extended
+# window are treated as inactive.
 RECENT_OBSERVATION_LOOKBACK_DAYS = 30
+EXTENDED_OBSERVATION_LOOKBACK_DAYS = 365
 
 SOURCE_TYPES = sorted(
     (
@@ -119,10 +122,19 @@ SOURCE_TYPES = sorted(
 
 
 def to_rgb(color):
+    """Convert a ``"R,G,B"`` CSV string to ``"#RRGGBB"``.
+
+    Returns ``None`` on malformed input (wrong component count, non-numeric values) so
+    callers can fall back to a default.  Mirrors the SQL-side ``_CsvRgbToHex`` behaviour;
+    a malformed value should not break feature rendering.
+    """
     try:
-        return "#{0:02X}{1:02X}{2:02X}".format(*[int(val) for val in color.split(",")])
-    except:
-        raise
+        parts = [int(val) for val in color.split(",")]
+        if len(parts) != 3:
+            return None
+        return "#{0:02X}{1:02X}{2:02X}".format(*parts)
+    except (ValueError, AttributeError):
+        return None
 
 
 DEFAULT_COLOR = "255,255,0"
@@ -723,6 +735,9 @@ class ObservationQuerySet(models.QuerySet, FilterMixin):
         if created_after and not (since and until):
             raise ValueError("If using created_after, since and until must be provided and set to a limited time range")
 
+        # Evaluate before entering any UNION queryset context; TenantForeignKey deferred
+        # loading fails once hints from a combinator queryset are in play.
+        is_stationary = subject.is_stationary_subject
         if since is None or until is None:
             logger.warning(
                 "get_subject_observations_partitioned called without %s for "
@@ -735,8 +750,8 @@ class ObservationQuerySet(models.QuerySet, FilterMixin):
         if avoid_unions:
             # Use a single query approach that's compatible with cursor pagination
             time_range = DateTimeTZRange(
-                lower=since or datetime.min.replace(tzinfo=pytz.UTC),
-                upper=until or datetime.max.replace(tzinfo=pytz.UTC),
+                lower=since or datetime.min.replace(tzinfo=timezone.utc),
+                upper=until or datetime.max.replace(tzinfo=timezone.utc),
             )
 
             # Get all source assignments that overlap with our time range
@@ -780,7 +795,7 @@ class ObservationQuerySet(models.QuerySet, FilterMixin):
                 queryset = queryset.filter(location__within=geometry)
 
             queryset = queryset.by_exclusion_flags(
-                filter_flag, include_empty_location=include_empty_location or subject.is_stationary_subject
+                filter_flag, include_empty_location=include_empty_location or is_stationary
             )
 
             # Apply ordering and limit
@@ -796,7 +811,8 @@ class ObservationQuerySet(models.QuerySet, FilterMixin):
 
         # Original UNION-based implementation
         time_range = DateTimeTZRange(
-            lower=since or datetime.min.replace(tzinfo=pytz.UTC), upper=until or datetime.max.replace(tzinfo=pytz.UTC)
+            lower=since or datetime.min.replace(tzinfo=timezone.utc),
+            upper=until or datetime.max.replace(tzinfo=timezone.utc),
         )
 
         batch_size = 200
@@ -847,7 +863,7 @@ class ObservationQuerySet(models.QuerySet, FilterMixin):
                     source_qs = source_qs.filter(location__within=geometry)
 
                 source_qs = source_qs.by_exclusion_flags(
-                    filter_flag, include_empty_location=include_empty_location or subject.is_stationary_subject
+                    filter_flag, include_empty_location=include_empty_location or is_stationary
                 )
 
                 # Add to batch query
@@ -902,21 +918,22 @@ class ObservationQuerySet(models.QuerySet, FilterMixin):
     def get_latest_observation_for_subject(self, subject, until=None):
         """Get the most recent observation for a subject.
 
-        Tries a recent time window first to avoid a full table scan, then falls
-        back to an unbounded query if no observation is found.
+        Tries a recent window first, then widens to an extended window. Subjects
+        with no observations within the extended window are treated as inactive
+        and return None rather than triggering an unbounded scan.
         """
         if until is None:
             until = datetime.now(tz=timezone.utc)
 
-        since = until - timedelta(days=RECENT_OBSERVATION_LOOKBACK_DAYS)
-        observation = self.get_subject_observations_partitioned(
-            subject=subject, since=since, until=until, limit=1
-        ).first()
+        for lookback_days in (RECENT_OBSERVATION_LOOKBACK_DAYS, EXTENDED_OBSERVATION_LOOKBACK_DAYS):
+            since = until - timedelta(days=lookback_days)
+            observation = self.get_subject_observations_partitioned(
+                subject=subject, since=since, until=until, limit=1
+            ).first()
+            if observation is not None:
+                return observation
 
-        if observation is None:
-            observation = self.get_subject_observations_partitioned(subject=subject, until=until, limit=1).first()
-
-        return observation
+        return None
 
 
 class ObservationManager(TenantManagerMixin, models.Manager.from_queryset(ObservationQuerySet)):
@@ -925,10 +942,44 @@ class ObservationManager(TenantManagerMixin, models.Manager.from_queryset(Observ
     def set_flag(self, id_list, flags):
         """Hide the nuances of manipulating a bitmap associated with an observation."""
         Observation.objects.filter(id__in=id_list).update(exclusion_flags=F("exclusion_flags").bitor(flags))
+        self._enqueue_segment_recompute_for_flag_change(id_list, flags)
 
     def unset_flag(self, id_list, flags):
         """Hide the nuances of zeroing bits in a bitmap."""
         Observation.objects.filter(id__in=id_list).update(exclusion_flags=F("exclusion_flags").bitand(~flags))
+        self._enqueue_segment_recompute_for_flag_change(id_list, flags)
+
+    @staticmethod
+    def _enqueue_segment_recompute_for_flag_change(id_list, flags):
+        """Bulk ``.update()`` skips post_save, so segments referencing a now-(in/un)excluded
+        observation aren't rebuilt automatically.  When system exclusion bits move, queue a
+        recompute for the affected IDs.  Third-party flags don't affect segment selection
+        (see ``ObservationQuerySet.by_exclusion_flags``), so we skip enqueue for those.
+
+        The ``apply_async`` is deferred to ``transaction.on_commit`` so a rolled-back
+        ``set_flag`` / ``unset_flag`` does not enqueue a no-op recompute task.
+        """
+        if not id_list or not (flags & Observation.SYSTEM_FLAGS_MASK):
+            return
+
+        # observations.tasks imports from observations.models — keep this one inline.
+        from observations.tasks import recompute_observation_segments_task
+
+        try:
+            tenant = get_current_tenant()
+        except TenantNotFoundInLocalThreadException:
+            tenant = None
+        domain = getattr(tenant, "domain", None) if tenant else None
+        if not domain:
+            logger.warning("set/unset_flag: no tenant context; skipping segment recompute for %d ids", len(id_list))
+            return
+
+        observation_ids = [str(i) for i in id_list]
+        transaction.on_commit(
+            lambda: recompute_observation_segments_task.apply_async(
+                kwargs={"observation_ids": observation_ids, "domain": domain},
+            )
+        )
 
     def get_subject_source_observation_values(self, subject_source, since=None, until=None, limit=None, filter_flag=0):
         values = ("recorded_at", "location")
@@ -1090,27 +1141,34 @@ class Observation(TenantModelMixin, models.Model):
         """Check if any system exclusion flags are set."""
         return bool(self.system_exclusion_flags & self.DEFAULT_EXCLUSION_MASK)
 
-    def get_neighbor_observations(self, subject):
-        """
-        Get the previous and next observations for a subject's track relative to this observation.
+    def get_neighbor_observations(self):
+        """Previous and next non-excluded observation from the SAME source.
 
-        Uses two bounded indexed queries (prev/next by recorded_at) so the cost is
-        O(1) regardless of track length and no per-subject cache is needed.
+        Scoped to ``source_id`` rather than to a subject so the query maps directly to the
+        unique-constraint B-tree on ``(das_tenant, source, recorded_at)``: a partition-pruned
+        index seek with ``LIMIT 1`` per direction.  Subject identity for segment attachment
+        is resolved separately via ``get_subject_for_observation``.
 
-        Args:
-            subject: Subject instance (defines the track via its SubjectSources)
+        Excludes:
+            - rows with ``location IS NULL``
+            - rows where ``Point(0, 0)`` snuck in untagged
+            - rows with system exclusion flags set (manual / automatic)
 
         Returns:
             tuple: (prev_observation, next_observation) - either can be None
         """
-        base_qs = Observation.objects.filter(
-            source__subjectsource__subject=subject,
-            source__subjectsource__assigned_range__contains=F("recorded_at"),
-            location__isnull=False,
-        ).exclude(id=self.id)
+        base_qs = (
+            Observation.objects.filter(
+                source_id=self.source_id,
+                das_tenant_id=self.das_tenant_id,
+                location__isnull=False,
+            )
+            .by_exclusion_flags(filter_flag=0, include_empty_location=False)
+            .exclude(id=self.id)
+        )
 
-        prev_obs = base_qs.filter(recorded_at__lte=self.recorded_at).order_by("-recorded_at").first()
-        next_obs = base_qs.filter(recorded_at__gte=self.recorded_at).order_by("recorded_at").first()
+        prev_obs = base_qs.filter(recorded_at__lt=self.recorded_at).order_by("-recorded_at").first()
+        next_obs = base_qs.filter(recorded_at__gt=self.recorded_at).order_by("recorded_at").first()
         return prev_obs, next_obs
 
     def _delete_observation_segments(self):
@@ -1129,7 +1187,7 @@ class Observation(TenantModelMixin, models.Model):
         ordering = ["-recorded_at"]
 
 
-DEFAULT_ASSIGNED_RANGE = list((pytz.utc.localize(datetime.min), pytz.utc.localize(datetime.max)))
+DEFAULT_ASSIGNED_RANGE = list((datetime.min.replace(tzinfo=timezone.utc), datetime.max.replace(tzinfo=timezone.utc)))
 
 
 class ObservationSegmentQuerySet(models.QuerySet, FilterMixin):
@@ -1236,31 +1294,32 @@ class ObservationSegmentManager(TenantManagerMixin, models.Manager.from_queryset
 
         return segment
 
-    def get_or_create_segment(self, start_obs, end_obs, subject):
+    def get_or_create_segment(self, start_obs, end_obs, subject) -> tuple["ObservationSegment", bool]:
         """
         Get or create a segment between two observations.
 
-        Idempotent: if no segment exists (e.g. backfill not run yet),
-        we create; if create raises IntegrityError (e.g. race with backfill), we
-        re-fetch and return the existing segment so callers do not see an error.
+        Uses a row lock on the two endpoint observations so concurrent workers cannot
+        both pass the existence check and insert (TOCTOU). IntegrityError remains a
+        fallback for races with code paths that do not take these locks.
+
+        The lock and the create are wrapped in a single ``atomic()`` because
+        ``select_for_update`` requires an explicit transaction (Postgres has nothing to
+        hold the row lock against in autocommit) — this keeps the method correct when
+        the caller is running outside a transaction (e.g. Celery task body).
 
         Returns:
             (ObservationSegment, created) tuple
         """
-        segment = self.filter(
-            start_observation=start_obs,
-            end_observation=end_obs,
-            das_tenant_id=subject.das_tenant_id,
-        ).first()
-        if segment is not None:
-            return segment, False
-        try:
-            with transaction.atomic():
-                segment = self.create_segment(start_obs, end_obs, subject)
-                return segment, True
-        except IntegrityError:
-            # Segment was created by another process or backfill (race / rollout).
-            # Re-fetch and return it so the operation is idempotent.
+        with transaction.atomic():
+            # Lock the two endpoint rows in a deterministic order (by pk) so concurrent
+            # workers acquiring the same pair of locks can't deadlock.
+            list(
+                Observation.objects.filter(pk__in=[start_obs.pk, end_obs.pk])
+                .select_for_update()
+                .order_by("pk")
+                .values_list("pk", flat=True)
+            )
+
             segment = self.filter(
                 start_observation=start_obs,
                 end_observation=end_obs,
@@ -1268,7 +1327,25 @@ class ObservationSegmentManager(TenantManagerMixin, models.Manager.from_queryset
             ).first()
             if segment is not None:
                 return segment, False
-            raise
+
+            # Inner atomic creates a savepoint so an IntegrityError doesn't poison the
+            # outer transaction (Postgres aborts the txn on error; subsequent queries
+            # would otherwise fail until rollback).
+            try:
+                with transaction.atomic():
+                    segment = self.create_segment(start_obs, end_obs, subject)
+                    return segment, True
+            except IntegrityError:
+                # Segment was created by another process or backfill (race / rollout).
+                # Re-fetch and return it so the operation is idempotent.
+                segment = self.filter(
+                    start_observation=start_obs,
+                    end_observation=end_obs,
+                    das_tenant_id=subject.das_tenant_id,
+                ).first()
+                if segment is not None:
+                    return segment, False
+                raise
 
 
 class ObservationSegment(TenantModelMixin, models.Model):
@@ -1373,7 +1450,7 @@ class ObservationSegment(TenantModelMixin, models.Model):
         bearing = (math.degrees(theta) + 360.0) % 360.0
         return round(bearing, 2)
 
-    def save(self, *args, **kwargs):
+    def save(self, force_insert=False, force_update=False, using=None, update_fields=None):
         """Override save to calculate accurate distance and bearing using PostGIS/geometry when missing.
         Prefer create_segment for bulk; direct save() may run per-row queries if distance/bearing not set.
         """
@@ -1410,7 +1487,16 @@ class ObservationSegment(TenantModelMixin, models.Model):
             end_loc = self.end_observation.location
             self.bearing_deg = self.compute_bearing_deg(start_loc.y, start_loc.x, end_loc.y, end_loc.x)  # lat, lon
 
-        super().save(*args, **kwargs)
+        if update_fields is not None:
+            computed = set()
+            if should_compute_distance:
+                computed |= {"distance_meters", "speed_kmh"}
+            if should_compute_bearing:
+                computed.add("bearing_deg")
+            if computed:
+                update_fields = set(update_fields) | computed
+
+        super().save(force_insert=force_insert, force_update=force_update, using=using, update_fields=update_fields)
 
 
 class SubjectSourceQuerySet(models.QuerySet, FilterMixin):
@@ -1569,7 +1655,7 @@ class SubjectSource(TenantModelMixin, models.Model):
         ]
 
     def __str__(self):
-        ind = " (expired)" if datetime.now(tz=pytz.utc) not in self.assigned_range else ""
+        ind = " (expired)" if datetime.now(tz=timezone.utc) not in self.assigned_range else ""
         return f"{self.subject.name} <-> {self.source.manufacturer_id}{ind}"
 
     @property
@@ -1599,7 +1685,9 @@ class SubjectSource(TenantModelMixin, models.Model):
         # The app should never assign 'empty' to assigned_range, but add these guards in case
         # data enters the database through other means.
         if self.assigned_range.isempty:
-            return AssignedRangeBounds(lower=pytz.utc.localize(datetime.min), upper=pytz.utc.localize(datetime.min))
+            return AssignedRangeBounds(
+                lower=datetime.min.replace(tzinfo=timezone.utc), upper=datetime.min.replace(tzinfo=timezone.utc)
+            )
         return AssignedRangeBounds(lower=self.assigned_range.lower, upper=self.assigned_range.upper)
 
     @safe_assigned_range.setter
@@ -1618,11 +1706,14 @@ class SubjectSource(TenantModelMixin, models.Model):
             lower = ensure_timezone_aware(self.assigned_range.lower)
             upper = ensure_timezone_aware(self.assigned_range.upper)
 
-        lower = lower or pytz.utc.localize(datetime.min)
-        upper = upper or pytz.utc.localize(datetime.max)
+        lower = lower or datetime.min.replace(tzinfo=timezone.utc)
+        upper = upper or datetime.max.replace(tzinfo=timezone.utc)
 
         self.assigned_range = DateTimeTZRange(lower=lower, upper=upper)
 
+        update_fields = kwargs.get("update_fields")
+        if update_fields is not None:
+            kwargs["update_fields"] = set(update_fields) | {"assigned_range"}
         super(SubjectSource, self).save(*args, **kwargs)
 
 
@@ -1741,6 +1832,9 @@ class SubjectSubType(TenantModelMixin, TimestampedModel):
     def save(self, *args, **kwargs):
         if not self.subject_type_id:
             self.subject_type_id = get_default_subject_type()
+            update_fields = kwargs.get("update_fields")
+            if update_fields is not None:
+                kwargs["update_fields"] = set(update_fields) | {"subject_type_id"}
         return super().save(*args, **kwargs)
 
     def __str__(self):
@@ -2090,7 +2184,7 @@ class SubjectQuerySet(models.QuerySet, FilterMixin):
             sources = sources.filter(recorded_at__lte=lt)
             date_range = DateTimeTZRange(upper=updated_until)
         elif last_days:
-            lt = datetime.now(tz=pytz.UTC)
+            lt = datetime.now(tz=timezone.utc)
             gt = lt - last_days
             # clock skew, server could be behind
             lt = lt + timedelta(minutes=10)
@@ -2148,7 +2242,7 @@ class SubjectQuerySet(models.QuerySet, FilterMixin):
         elif updated_until:
             queryset = queryset.filter(status_recorded_at__lte=updated_until)
         elif last_days:
-            now = datetime.now(tz=pytz.UTC)
+            now = datetime.now(tz=timezone.utc)
             since = now - last_days
             until = now + timedelta(minutes=10)
             queryset = queryset.filter(status_recorded_at__range=(since, until))
@@ -2243,7 +2337,10 @@ class SubjectManager(TenantManagerMixin, models.Manager.from_queryset(SubjectQue
                     group, created = SubjectGroup.objects.get_or_create(name=group)
                 subject.groups.add(group)
         else:
-            subject.groups.set((SubjectGroup.objects.get_default(),))
+            try:
+                subject.groups.set((SubjectGroup.objects.get_default(),))
+            except SubjectGroup.DoesNotExist:
+                pass
 
         return subject
 
@@ -2271,7 +2368,7 @@ class SubjectManager(TenantManagerMixin, models.Manager.from_queryset(SubjectQue
         :return: a queryset (or values) for assigned Subjects.
         """
 
-        dt = dt or datetime.now(tz=pytz.utc)
+        dt = dt or datetime.now(tz=timezone.utc)
 
         subjects = Subject.objects.filter(
             subjectsource__source__id=source_id,
@@ -2417,7 +2514,7 @@ class Subject(TenantModelMixin, TimestampedModel, PermissionSetGroupMixin):
 
         if last_hours:
             if not until:
-                until = datetime.now(tz=pytz.UTC)
+                until = datetime.now(tz=timezone.utc)
             since = until - timedelta(hours=last_hours)
 
         return Observation.objects.get_subject_observations_partitioned(self, since=since, until=until)
@@ -2484,6 +2581,8 @@ class Subject(TenantModelMixin, TimestampedModel, PermissionSetGroupMixin):
         """return the preferred key first"""
         key = self.subject_subtype.value.lower()
         sex = self.additional.get("sex", SEX_MALE)
+        if not sex or (isinstance(sex, str) and not sex.strip()) or sex not in (SEX_MALE, "female"):
+            sex = SEX_MALE
         for sex in (sex, SEX_MALE):
             yield "-".join((key, "black", sex.lower()))
             yield "-".join((key, sex.lower()))
@@ -2530,6 +2629,9 @@ class Subject(TenantModelMixin, TimestampedModel, PermissionSetGroupMixin):
     def save(self, *args, **kwargs):
         if not self.subject_subtype_id:
             self.subject_subtype_id = get_default_subject_subtype()
+            update_fields = kwargs.get("update_fields")
+            if update_fields is not None:
+                kwargs["update_fields"] = set(update_fields) | {"subject_subtype_id"}
         return super().save(*args, **kwargs)
 
     def __str__(self):
@@ -2683,6 +2785,15 @@ class SubjectPositionSummary(Observation):
         verbose_name_plural = _("Subject Positions")
 
 
+class CSVObservationImport(Observation):
+    """Proxy model used solely to surface the CSV import page in the admin index."""
+
+    class Meta:
+        proxy = True
+        verbose_name = _("Import Observations")
+        verbose_name_plural = _("Import Observations")
+
+
 class SubjectStatusQuerySet(models.QuerySet):
     def get_last(self):
         for row in self:
@@ -2707,7 +2818,7 @@ class SubjectStatusQuerySet(models.QuerySet):
         return range_start, range_end
 
 
-DEFAULT_STATUS_VALUE_DATE = datetime(1970, 1, 1, tzinfo=pytz.utc)
+DEFAULT_STATUS_VALUE_DATE = datetime(1970, 1, 1, tzinfo=timezone.utc)
 DEFAULT_STATUS_VALUE_LOCATION = EMPTY_POINT
 
 
@@ -2787,7 +2898,7 @@ class SubjectStatusManager(TenantManagerMixin, models.Manager.from_queryset(Subj
                 return
 
             delay_hours = delay_days * 24
-            until = datetime.now(tz=pytz.utc) - timedelta(hours=delay_hours)
+            until = datetime.now(tz=timezone.utc) - timedelta(hours=delay_hours)
 
             if observation.recorded_at <= until:
                 # Update using the current observation until it's no longer
@@ -3127,6 +3238,9 @@ class CommonName(TenantModelMixin, TimestampedModel):
     def save(self, *args, **kwargs):
         if not self.subject_subtype:
             self.subject_subtype = get_default_subject_subtype()
+            update_fields = kwargs.get("update_fields")
+            if update_fields is not None:
+                kwargs["update_fields"] = set(update_fields) | {"subject_subtype_id"}
         super().save(*args, **kwargs)
 
 
@@ -3232,6 +3346,9 @@ class Region(TenantModelMixin, models.Model):
 
     def save(self, *args, **kwargs):
         self.slug = slugify(self.region + " " + self.country)
+        update_fields = kwargs.get("update_fields")
+        if update_fields is not None:
+            kwargs["update_fields"] = set(update_fields) | {"slug"}
         super(Region, self).save(*args, **kwargs)
 
 
@@ -3384,7 +3501,7 @@ class GPXManager(TenantManagerMixin, models.Manager):
 
 def upload_to(instance, filename):
     filename = filename.split("/")[-1]
-    timestamp = "{:%Y%m%d%H%M}".format(datetime.now(tz=pytz.utc))
+    timestamp = "{:%Y%m%d%H%M}".format(datetime.now(tz=timezone.utc))
     tenant = get_tenant_settings()
     file_path = f"{tenant.slug_name}/{GPX_FILES_FOLDER}/{timestamp}-{filename}"
     return file_path
@@ -3487,10 +3604,8 @@ class Message(TenantModelMixin, TimestampedModel):
         indexes = [
             Index(fields=["das_tenant", "-message_time"]),
             Index(fields=["das_tenant", "read"]),
-        ]
-        index_together = [
-            ("das_tenant", "sender_id", "message_time"),
-            ("das_tenant", "receiver_id", "message_time"),
+            models.Index(fields=["das_tenant", "sender_id", "message_time"]),
+            models.Index(fields=["das_tenant", "receiver_id", "message_time"]),
         ]
         ordering = ("-message_time",)
 

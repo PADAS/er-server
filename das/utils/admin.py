@@ -2,6 +2,7 @@ import csv
 import io
 import logging
 import re
+from datetime import datetime, timezone
 from typing import List
 from urllib.parse import urlencode
 
@@ -12,7 +13,6 @@ from django.db.models import QuerySet
 from django.http import HttpResponse, HttpResponseRedirect
 from django.shortcuts import redirect, render
 from django.urls import path, reverse
-from django.utils import timezone
 from django.utils.html import escape
 from django.utils.safestring import mark_safe
 
@@ -58,7 +58,7 @@ class ExportDataActionMixin:
     def export_data_as_csv(self, request, queryset) -> HttpResponse:
         """Enable admin page to export current data as CSV file."""
         model = queryset.model
-        now = timezone.now()
+        now = datetime.now(tz=timezone.utc)
         download_filename = f'{model._meta.model_name}_data_{now.strftime("%Y-%m-%d")}.csv'
 
         response = HttpResponse(

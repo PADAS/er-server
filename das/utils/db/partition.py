@@ -4,8 +4,6 @@ from dataclasses import dataclass
 from enum import Enum
 from typing import List, Optional, Protocol
 
-import pytz
-
 from django.db import ProgrammingError, connection
 
 from .postgresql import (
@@ -104,10 +102,12 @@ class PartitionTableTool(PartitionTableToolProtocol):
             getattr(self, steps_commands[index])()
 
         self.logger.warning(f"Partitioning for {self.original_table_name} table is completed.")
-        self.logger.warning(f"Process takes {(datetime.datetime.now(pytz.utc)) - self.log_data['start_time']}")
+        self.logger.warning(
+            f"Process takes {(datetime.datetime.now(datetime.timezone.utc)) - self.log_data['start_time']}"
+        )
 
     def rollback(self) -> None:
-        start_time = datetime.datetime.now(pytz.utc)
+        start_time = datetime.datetime.now(datetime.timezone.utc)
         temp_table_name = f"{self.original_table_name}_temp"
 
         self.logger.warning(f"Rollback process is started at {start_time}")
@@ -142,7 +142,9 @@ class PartitionTableTool(PartitionTableToolProtocol):
             self.logger.exception("Failed at rollback process")
             exit(1)
 
-        self.logger.warning(f"Rollback process is completed in {(datetime.datetime.now(pytz.utc)) - start_time}")
+        self.logger.warning(
+            f"Rollback process is completed in {(datetime.datetime.now(datetime.timezone.utc)) - start_time}"
+        )
 
     def _make_template_table(self) -> None:
         self._duplicate_original_table(
@@ -577,8 +579,8 @@ class PartitionTableTool(PartitionTableToolProtocol):
         result = self._execute_sql_command(command=sql, fetch=True)
         min_value = result[0]
         if not min_value:
-            timezone = pytz.UTC
-            min_value = timezone.localize(self.partition_start)
+            timezone = datetime.timezone.utc
+            min_value = self.partition_start.replace(tzinfo=timezone)
         max_value = result[1] or self.log_data["start_time"]
         return min_value, max_value
 

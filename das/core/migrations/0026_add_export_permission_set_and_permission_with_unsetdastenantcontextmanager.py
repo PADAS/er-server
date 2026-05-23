@@ -55,7 +55,9 @@ def create_export_permission_set_and_permission(migration_apps, schema_editor):
                     export_permission_set.permissions.add(event_permission)
                     export_permission_set.permissions.add(observation_permission)
 
-                    users_ids = User.objects.filter(is_active=True, das_tenant_id=tenant.id)
+                    users_ids = list(
+                        User.objects.filter(is_active=True, das_tenant_id=tenant.id).values_list("id", flat=True)
+                    )
                     export_permission_set.user_set.add(*users_ids)
             except (DASTenant.DoesNotExist, TenantNotFoundException):
                 logger.warning(

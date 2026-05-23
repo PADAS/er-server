@@ -1,6 +1,4 @@
-from datetime import datetime, timedelta
-
-import pytz
+from datetime import datetime, timedelta, timezone
 
 from django.core.management.base import BaseCommand
 from django.db.models import F
@@ -14,7 +12,7 @@ class Command(TenantCommandMixin, BaseCommand):
     help = "Run analyzers for all Subjects having observations within the last n minutes."
 
     def handle(self, *args, **options):
-        end = pytz.utc.localize(datetime.utcnow())
+        end = datetime.now(tz=timezone.utc)
         start = end - timedelta(minutes=options["n"])
 
         print("Analyzer, selecting for range start: %s, end: %s" % (start, end))

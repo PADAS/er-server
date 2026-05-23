@@ -2,6 +2,8 @@ import logging
 import uuid
 from typing import Optional
 
+from psycopg2.extras import DateTimeTZRange
+
 from django.core.management.base import BaseCommand, CommandError
 from django.db import transaction
 from django.db.models import F, QuerySet
@@ -9,6 +11,7 @@ from django.utils import timezone
 from django.utils.dateparse import parse_datetime
 
 from observations import models
+from observations.tasks import maintain_subjectstatus_for_subject
 from utils.tenant.commands import TenantCommandMixin
 
 
@@ -77,22 +80,21 @@ class Command(TenantCommandMixin, BaseCommand):
         subject_id = self._parse_uuid_optional(options.get("subject_id"))
         source_manufacturer_id = options.get("source_manufacturer_id")
 
-        qs = self._build_queryset(
-            before=before,
-            source_id=source_id,
-            source_manufacturer_id=source_manufacturer_id,
-            subject_id=subject_id,
-        )
+        # Resolve --source-manufacturer-id to a source_id up-front so the queryset
+        # builder and the post-delete enqueue logic both work off a single resolved
+        # source.
+        if source_manufacturer_id:
+            sources = models.Source.objects.filter(manufacturer_id=source_manufacturer_id)
+            if not sources.exists():
+                self.logger.info(f"No Source found with manufacturer_id={source_manufacturer_id!r}. Nothing to do.")
+                return
+            if sources.count() > 1:
+                raise CommandError(f"Source manufacturer_id={source_manufacturer_id!r} is not unique for this tenant.")
+            source_id = sources.first().id
 
-        scope = (
-            f"source_id={source_id}"
-            if source_id
-            else (
-                f"source_manufacturer_id={source_manufacturer_id!r}"
-                if source_manufacturer_id
-                else f"subject_id={subject_id}"
-            )
-        )
+        qs = self._build_queryset(before=before, source_id=source_id, subject_id=subject_id)
+
+        scope = f"source_id={source_id}" if source_id else f"subject_id={subject_id}"
         self.logger.info(
             f"Trimming observations where recorded_at < {before.isoformat()} for {scope} (dry_run={dry_run})"
         )
@@ -100,14 +102,32 @@ class Command(TenantCommandMixin, BaseCommand):
         deleted = self._delete_in_batches(qs, batch_size=batch_size, dry_run=dry_run)
         self.logger.info(f"Done. {'Would delete' if dry_run else 'Deleted'} {deleted} observation(s).")
 
-        if subject_id and not dry_run:
-            # Keep SubjectStatus consistent after trimming a subject's observations.
-            # Import lazily so running this command doesn't require Celery to be loaded
-            # until we actually need to enqueue.
-            from observations.tasks import maintain_subjectstatus_for_subject
+        if dry_run:
+            return
 
-            maintain_subjectstatus_for_subject.apply_async(args=(str(subject_id),))
-            self.logger.info(f"Queued maintain_subjectstatus_for_subject for subject_id={subject_id}")
+        # Reconcile SubjectStatus only for subjects whose observations were
+        # actually trimmed. Two modes:
+        #   --subject-id  -> exactly that subject.
+        #   --source-id / --source-manufacturer-id -> subjects assigned to that
+        #     source during the trimmed window (assigned_range overlaps
+        #     (-inf, before)). Avoids fanning out to every subject ever
+        #     assigned to the source.
+        if subject_id:
+            affected_subject_ids = [subject_id]
+        else:
+            affected_subject_ids = list(
+                models.SubjectSource.objects.filter(
+                    source_id=source_id,
+                    assigned_range__overlap=DateTimeTZRange(None, before),
+                )
+                .values_list("subject_id", flat=True)
+                .distinct()
+            )
+
+        if affected_subject_ids:
+            for sid in affected_subject_ids:
+                maintain_subjectstatus_for_subject.apply_async(args=(str(sid),))
+            self.logger.info(f"Queued maintain_subjectstatus_for_subject for {len(affected_subject_ids)} subject(s).")
 
     def _parse_before(self, value: str):
         dt = parse_datetime(value)
@@ -132,22 +152,12 @@ class Command(TenantCommandMixin, BaseCommand):
         *,
         before,
         source_id: Optional[uuid.UUID],
-        source_manufacturer_id: Optional[str],
         subject_id: Optional[uuid.UUID],
     ) -> QuerySet:
         qs = models.Observation.objects.filter(recorded_at__lt=before)
 
         if source_id:
             return qs.filter(source_id=source_id)
-
-        if source_manufacturer_id:
-            sources = models.Source.objects.filter(manufacturer_id=source_manufacturer_id)
-            if not sources.exists():
-                self.logger.info(f"No Source found with manufacturer_id={source_manufacturer_id!r}. Nothing to do.")
-                return qs.none()
-            if sources.count() > 1:
-                raise CommandError(f"Source manufacturer_id={source_manufacturer_id!r} is not unique for this tenant.")
-            return qs.filter(source_id=sources.first().id)
 
         if subject_id:
             # Only include observations that belong to the subject at the observation time.
@@ -160,10 +170,18 @@ class Command(TenantCommandMixin, BaseCommand):
         raise CommandError("Must provide exactly one of --source-id, --source-manufacturer-id, or --subject-id.")
 
     def _delete_in_batches(self, qs: QuerySet, *, batch_size: int, dry_run: bool) -> int:
-        total = 0
+        if dry_run:
+            # Count distinct observation IDs to avoid double-counting duplicates that arise
+            # from the SubjectSource JOIN in the subject-filtered queryset.
+            total = qs.values("id").distinct().count()
+            for start in range(0, total, batch_size):
+                chunk = min(batch_size, total - start)
+                self.logger.info(f"Dry run: would delete {chunk} observation(s) in this batch.")
+            return total
 
-        # Note: We purposely operate on primary keys per batch. This avoids issues with JOIN
+        # Real delete path: operate on primary keys per batch. This avoids issues with JOIN
         # duplication (e.g. subject filter) and keeps delete statements small.
+        total = 0
         while True:
             with transaction.atomic(using=qs.db):
                 ids = list(qs.order_by("recorded_at").values_list("id", flat=True)[:batch_size])
@@ -172,13 +190,6 @@ class Command(TenantCommandMixin, BaseCommand):
 
                 # Deduplicate in case the queryset join produces duplicates.
                 unique_ids = list(dict.fromkeys(ids))
-
-                if dry_run:
-                    total += len(unique_ids)
-                    self.logger.info(f"Dry run: would delete {len(unique_ids)} observation(s) in this batch.")
-                    # Remove the already-counted IDs from consideration for next loop.
-                    qs = qs.exclude(id__in=unique_ids)
-                    continue
 
                 models.Observation.objects.filter(id__in=unique_ids)._raw_delete(qs.db)
                 total += len(unique_ids)

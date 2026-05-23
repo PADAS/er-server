@@ -1,5 +1,6 @@
 import datetime
 import logging
+import uuid
 from abc import ABC
 from enum import Enum
 
@@ -23,6 +24,7 @@ from django.utils.translation import gettext as _
 import activity.models as models
 from activity.forms import (
     AlertRuleForm,
+    CommunityInputForm,
     EventForm,
     EventGeometryForm,
     EventProviderForm,
@@ -248,6 +250,8 @@ class EventAdmin(OSMGeoExtendedAdmin):
                     "event_type",
                     "event_time",
                     "end_time",
+                    "state",
+                    "priority",
                 )
             },
         ),
@@ -259,8 +263,6 @@ class EventAdmin(OSMGeoExtendedAdmin):
                     "collapse",
                 ),
                 "fields": (
-                    "state",
-                    "priority",
                     "location",
                     "id",
                     "created_at",
@@ -1099,3 +1101,52 @@ class FormBuilderProxy(models.EventType):
 @admin.register(FormBuilderProxy)
 class FormBuilderProxyAdmin(FormBuilderAdmin):
     pass
+
+
+@admin.register(models.CommunityInput)
+class CommunityInputAdmin(ModelAdminDisplayingManyToManyFieldMixin):
+    checks_class = CustomM2MChecks
+    form = CommunityInputForm
+
+    class Media:
+        js = (
+            "js/qrcode.min.js",
+            "activity/js/community_input_admin.js",
+        )
+
+    list_display = ("name", "value", "is_active")
+
+    def save_related(self, request, form, formsets, change):
+        super().save_related(request, form, formsets, change)
+        # SelectFilter2 submits all chosen options as event_types in DOM order.
+        ordered_pks = request.POST.getlist("event_types")
+        for idx, pk in enumerate(ordered_pks):
+            try:
+                uuid.UUID(pk)
+            except (ValueError, AttributeError):
+                continue
+            models.CommunityInputEventType.objects.filter(
+                community_input=form.instance,
+                event_type_id=pk,
+            ).update(order=idx)
+
+    list_editable = ("is_active",)
+    ordering = ("name",)
+    search_fields = ("name", "value")
+    list_filter = ("is_active",)
+    readonly_fields = ("id",)
+    fieldsets = (
+        (
+            None,
+            {
+                "fields": ("id", "name", "value", "is_active"),
+            },
+        ),
+        (
+            "Event Types",
+            {
+                "classes": ("wide",),
+                "fields": ("event_types",),
+            },
+        ),
+    )

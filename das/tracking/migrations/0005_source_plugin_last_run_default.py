@@ -3,21 +3,23 @@
 from __future__ import unicode_literals
 
 import datetime
+
 from django.db import migrations, models
-from django.utils.timezone import utc
 
 
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('tracking', '0004_source_provider'),
+        ("tracking", "0004_source_provider"),
     ]
 
     operations = [
         migrations.AlterField(
-            model_name='sourceplugin',
-            name='last_run',
-            field=models.DateTimeField(default=datetime.datetime(2000, 1, 1, 0, 0, tzinfo=utc),
-                                       verbose_name='Timestamp for when this plugin last executed.'),
+            model_name="sourceplugin",
+            name="last_run",
+            field=models.DateTimeField(
+                default=datetime.datetime(2000, 1, 1, 0, 0, tzinfo=datetime.timezone.utc),
+                verbose_name="Timestamp for when this plugin last executed.",
+            ),
         ),
     ]

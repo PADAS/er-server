@@ -1,3 +1,4 @@
+from datetime import datetime, timezone
 from unittest import mock
 from unittest.mock import patch
 
@@ -82,7 +83,7 @@ class TestImmobilityAnalyzer(BaseAPITest):
         sg.subjects.add(sub)
         sg.save()
 
-        ImmobilityAnalyzerConfig.objects.create(subject_group=sg)
+        config = ImmobilityAnalyzerConfig.objects.create(name="Ishango Immobility Analyzer", subject_group=sg)
 
         # Create observations in database, so the Analyzer will find them.
         test_observations = [parse_recorded_at(x) for x in test_observations]
@@ -94,6 +95,8 @@ class TestImmobilityAnalyzer(BaseAPITest):
 
         for e in Event.objects.all():
             self.assertTrue(e.event_details.all().exists())
+            ed = e.event_details.all().first().data["event_details"]
+            assert ed["analyzer_name"] == config.name
 
         for e in Event.objects.all():
             for ed in e.event_details.all():
@@ -146,7 +149,7 @@ class TestImmobilityAnalyzer(BaseAPITest):
 
         event_data = dict(
             title="Woody is immobile",
-            time=pytz.utc.localize(datetime.utcnow()),
+            time=datetime.now(tz=timezone.utc),
             provenance=Event.PC_ANALYZER,
             event_type="immobility",
             priority=Event.PRI_URGENT,

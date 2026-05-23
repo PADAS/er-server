@@ -1,9 +1,9 @@
 import json
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 import pytest
-import pytz
 
+from django.contrib.gis.geos import GEOSGeometry, Polygon
 from django.test import TestCase
 
 from tracking.models.firms import FirmsClient, FirmsPlugin
@@ -12,7 +12,7 @@ from tracking.models.firms import FirmsClient, FirmsPlugin
 @pytest.mark.usefixtures("tenant_settings", "das_tenant_monkeypatch")
 class TestFirmsPluginHelpers(TestCase):
     def setUp(self):
-        today = datetime.now(tz=pytz.utc).timetuple()
+        today = datetime.now(tz=timezone.utc).timetuple()
         today_dateindex = today.tm_year * 1000 + today.tm_yday
         self.CACHED_HEADERS_FOR_TODAY = f"""
         {{"date": "Sun, 14 Jan 2019 23:23:23 GMT", "etag": "\\\"01ba7a21effd51afe306afd6c2636ed4\\\"",
@@ -24,7 +24,7 @@ class TestFirmsPluginHelpers(TestCase):
           "access-control-allow-credentials": "true"}}
         """
 
-        yesterday = (datetime.now(tz=pytz.utc) - timedelta(days=1)).timetuple()
+        yesterday = (datetime.now(tz=timezone.utc) - timedelta(days=1)).timetuple()
         yesterday_dateindex = yesterday.tm_year * 1000 + yesterday.tm_yday
         self.CACHED_HEADERS_FOR_YESTERDAY = f"""
         {{"date": "Sun, 14 Jan 2019 23:23:23 GMT", "etag": "\\\"01ba7a21effd51afe306afd6c2636ed4\\\"",
@@ -39,7 +39,7 @@ class TestFirmsPluginHelpers(TestCase):
     def test_calculate_date_indexes(self):
         f = FirmsClient()
 
-        today = datetime.now(tz=pytz.utc)
+        today = datetime.now(tz=timezone.utc)
         yesterday = (today - timedelta(days=1)).timetuple()
         today = today.timetuple()
         expected = [
@@ -54,7 +54,7 @@ class TestFirmsPluginHelpers(TestCase):
 
         cached_headers = json.loads(self.CACHED_HEADERS_FOR_TODAY)
 
-        todays_date = datetime.now(tz=pytz.utc)
+        todays_date = datetime.now(tz=timezone.utc)
         yesterdays_date = todays_date - timedelta(days=1)
 
         todays_date = todays_date.timetuple()
@@ -72,7 +72,7 @@ class TestFirmsPluginHelpers(TestCase):
 
         cached_headers = json.loads(self.CACHED_HEADERS_FOR_YESTERDAY)
 
-        todays_date = datetime.now(tz=pytz.utc)
+        todays_date = datetime.now(tz=timezone.utc)
         yesterdays_date = todays_date - timedelta(days=1)
 
         todays_date = todays_date.timetuple()
@@ -87,5 +87,25 @@ class TestFirmsPluginHelpers(TestCase):
         self.assertEqual(actual, expected)
 
 
-def test_polyunion(firms_polygons):
-    assert FirmsPlugin.union_geofilterfeatures(firms_polygons) is not None
+class TestUnionGeofilterFeatures:
+    def test_multiple_valid_geometries_returns_union(self, firms_polygons):
+        result = FirmsPlugin.union_geofilterfeatures(firms_polygons)
+        assert result is not None
+        assert result.valid
+
+    def test_single_geometry_returns_that_geometry(self):
+        poly = Polygon(((0, 0), (0, 1), (1, 1), (1, 0), (0, 0)))
+        result = FirmsPlugin.union_geofilterfeatures([(poly, "Sector A")])
+        assert result.equals(poly)
+
+    def test_invalid_geometry_is_repaired_with_buffer(self):
+        # Self-intersecting (bowtie) polygon — .valid is False
+        bowtie = GEOSGeometry("POLYGON((0 0, 2 2, 2 0, 0 2, 0 0))")
+        assert not bowtie.valid
+        result = FirmsPlugin.union_geofilterfeatures([(bowtie, "Bad Sector")])
+        assert result is not None
+        assert result.valid
+
+    def test_empty_input_raises_stop_iteration(self):
+        with pytest.raises(StopIteration):
+            FirmsPlugin.union_geofilterfeatures([])

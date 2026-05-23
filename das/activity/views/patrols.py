@@ -116,19 +116,20 @@ class PatrolFilesView(ListCreateAPIView):
     def create(self, request, *args, **kwargs):
         patrol = self.get_patrol()
 
-        # TODO: This conditional is to handle the case where a file is uploaded
-        # via XHR. Figure out why.
-        if "filecontent.file" not in request.data:
-            try:
-                # Ajax request.
-                request.data["filecontent.file"] = request.stream.FILES["filecontent.file"]
-            except KeyError:
-                return Response("filecontent.file not found", status=status.HTTP_400_BAD_REQUEST)
-
         this_data = copy.copy(request.data)
         this_data["patrol"] = patrol
 
-        this_data["usercontent.file"] = this_data["filecontent.file"]
+        if "usercontent_id" not in request.data:
+            # Legacy path: inline file upload (direct POST or XHR multipart).
+            # TODO: This conditional is to handle the case where a file is uploaded
+            # via XHR. Figure out why.
+            if "filecontent.file" not in request.data:
+                try:
+                    # Ajax request.
+                    request.data["filecontent.file"] = request.stream.FILES["filecontent.file"]
+                except KeyError:
+                    return Response("filecontent.file not found", status=status.HTTP_400_BAD_REQUEST)
+            this_data["usercontent.file"] = this_data["filecontent.file"]
 
         serializer = self.get_serializer(data=this_data)
         serializer.is_valid(raise_exception=True)
@@ -303,6 +304,6 @@ class PatrolSegmentsView(ListCreateAPIView):
     permission_classes = (PatrolObjectPermissions,)
 
     def get_queryset(self):
-        queryset = PatrolSegment.objects.select_related("patrol_type", "patrol").all()
-        queryset.prefetch_related(Prefetch("events"), Prefetch("eventrelatedsegments_set"))
+        queryset = PatrolSegment.objects.select_related("patrol_type", "patrol").all().order_by("time_range")
+        queryset = queryset.prefetch_related(Prefetch("events"), Prefetch("eventrelatedsegments_set"))
         return get_segments(self.kwargs, queryset)

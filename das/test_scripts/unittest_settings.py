@@ -13,7 +13,14 @@ TIME_ZONE = "America/Los_Angeles"
 PATROL_ENABLED = True
 
 MEDIA_ROOT = "/tmp/"
-DEFAULT_FILE_STORAGE = "django.core.files.storage.FileSystemStorage"
+STORAGES = {
+    "default": {
+        "BACKEND": "django.core.files.storage.FileSystemStorage",
+    },
+    "staticfiles": {
+        "BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage",
+    },
+}
 
 # django testrunner already uses this backend
 EMAIL_BACKEND = "django.core.mail.backends.locmem.EmailBackend"
@@ -28,7 +35,7 @@ TMS_API = {
 
 TENANT_DOCUMENT_CACHE = {
     "CLIENT": "utils.persistent.RedisStorage",
-    "HOST": "redis",
+    "HOST": REDIS_HOST,
     "PORT": "6379",
     "DATABASE": "10",
     "API_KEY": "",

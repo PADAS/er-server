@@ -4,11 +4,11 @@ import logging
 import os
 import uuid
 from typing import List
+from zoneinfo import ZoneInfo
 
 import tagulous.settings
 from django_multitenant.fields import TenantForeignKey
 from django_multitenant.mixins import TenantManagerMixin, TenantModelMixin
-from pytz import timezone
 from tagulous.models import TagField as TagulousTagField
 from tagulous.models import TagModel
 
@@ -822,8 +822,9 @@ class SpatialFeatureType(TenantModelMixin, TimestampedModel):
     # presentation fields
     # Boundaries, Water, Security etc.
     display_category = TenantForeignKey(to="DisplayCategory", on_delete=models.PROTECT, blank=True, null=True)
-    # JSON Field for defining the basic presentation of the feature
+    # JSON Field for storing presentation properties (stroke, fill, image, etc.)
     presentation = models.JSONField(default=dict, blank=True)
+
     provenance = models.JSONField(default=dict, blank=True)
     external_id = models.CharField(max_length=255, unique=True, blank=True, null=True)
     external_source = models.CharField(max_length=100, blank=True)
@@ -854,9 +855,7 @@ class SpatialFeatureType(TenantModelMixin, TimestampedModel):
 
     @property
     def default_presentation(self):
-        if self.presentation:
-            return self.presentation
-        return {}
+        return self.presentation or {}
 
     def __str__(self):
         return self.name
@@ -870,13 +869,15 @@ class SpatialFeatureType(TenantModelMixin, TimestampedModel):
 
     def save(self, *args, **kwargs):
         try:
-            if self.presentation.get("fill-opacity"):
-                self.presentation["fill-opacity"] = float(self.presentation.get("fill-opacity"))
-            if self.presentation.get("stroke-opacity"):
-                self.presentation["stroke-opacity"] = float(self.presentation.get("stroke-opacity"))
+            for key in ["stroke-opacity", "fill-opacity", "opacity"]:
+                if self.presentation and key in self.presentation:
+                    self.presentation[key] = float(self.presentation[key])
         except ValueError as exc:
             logger.warning(exc)
 
+        update_fields = kwargs.get("update_fields")
+        if update_fields is not None:
+            kwargs["update_fields"] = set(update_fields) | {"presentation"}
         super(SpatialFeatureType, self).save(*args, **kwargs)
         self._bump_cache_version()
 
@@ -1047,6 +1048,9 @@ class SpatialFeature(TenantModelMixin, RevisionMixin, TimestampedModel):
         # Generate optimized Web Mercator geometry on save
         self.feature_geometry_webmercator = self._generate_webmercator_geometry()
 
+        update_fields = kwargs.get("update_fields")
+        if update_fields is not None:
+            kwargs["update_fields"] = set(update_fields) | {"feature_geometry_webmercator"}
         result = super().save(*args, **kwargs)
         self._bump_cache_version()
         return result
@@ -1174,7 +1178,7 @@ class ArcgisConfiguration(TenantModelMixin, TimestampedModel, UUIDModel):
 
     @property
     def last_download_time(self):
-        t_zone = timezone(settings.TIME_ZONE)
+        t_zone = ZoneInfo(settings.TIME_ZONE)
         fmt = "%d %b %Y, %H:%M %p (%Z)"
         return self.last_download.astimezone(t_zone).strftime(fmt)
 

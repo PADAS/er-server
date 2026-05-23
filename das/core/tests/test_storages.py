@@ -1,9 +1,22 @@
 import os.path
 import unicodedata
+from unittest.mock import patch
 
 import pytest
 
-from core.storages import TenantGoogleCloudStorage
+from core.storages import TenantGoogleCloudStorage, TolerantManifestStaticFilesStorage
+
+
+class TestTolerantManifestStaticFilesStorage:
+    def test_stored_name_returns_clean_name_when_super_raises_value_error(self):
+        storage = TolerantManifestStaticFilesStorage.__new__(TolerantManifestStaticFilesStorage)
+        name = "tagulous/lib/select2-4/css/select2.min.css"
+        with patch(
+            "whitenoise.storage.CompressedManifestStaticFilesStorage.stored_name",
+            side_effect=ValueError(f"The file '{name}' could not be found with ..."),
+        ):
+            result = storage.stored_name(name)
+        assert result == name
 
 
 @pytest.mark.django_db

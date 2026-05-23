@@ -114,20 +114,32 @@ def which_field_search_for(application):
 
 
 def auto_add_report_to_patrols(application, event):
+    """Auto-link a cybertracker-collected event to an open patrol led by the reporter.
+
+    When a report is posted by the cybertracker integration, look up open patrols
+    led by the event's `reported_by` subject and, if the event time falls inside
+    a segment's time range, attach the event to that segment. Only the
+    cybertracker client triggers this; for any other application the function is
+    a no-op.
+
+    The cheap in-memory `client_id` check runs first so non-cybertracker event
+    POSTs skip the patrol_segments existence SELECT entirely.
+    """
+    field_to_search = which_field_search_for(application)
+    if not field_to_search:
+        return
+
     if event.patrol_segments.exists():
         return
 
-    field_to_search = which_field_search_for(application)
+    subject = getattr(event, field_to_search)
 
-    if field_to_search:
-        subject = getattr(event, field_to_search)
-
-        if subject:
-            segments = PatrolSegment.objects.filter(leader_id=subject.id, patrol__state=PC_OPEN)
-            event_time = event.event_time
-            for segment in segments:
-                if segment.time_range and not segment.time_range.isempty and event_time in segment.time_range:
-                    segment.events.add(event)
+    if subject:
+        segments = PatrolSegment.objects.filter(leader_id=subject.id, patrol__state=PC_OPEN)
+        event_time = event.event_time
+        for segment in segments:
+            if segment.time_range and not segment.time_range.isempty and event_time in segment.time_range:
+                segment.events.add(event)
 
 
 class SimplifiedEventTypeSerializer(ModelSerializer):
@@ -471,7 +483,7 @@ class EventSerializerMixin:
             if parent:
                 EventRelationship.objects.add_relationship(from_event=parent, to_event=new_event, type="contains")
 
-        return Event.objects.get(id=new_event.id)
+        return new_event
 
     def update(self, instance: Event, validated_data: dict) -> Event:
         logger.debug("Inside update: %s", validated_data)

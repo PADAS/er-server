@@ -21,7 +21,8 @@ def reverse(apps, schema_editor):
 
 class Migration(migrations.Migration):
     dependencies = [
-        ("accounts", "0014_reported_by_permission_set"),
+        # Must run after PermissionSet has das_tenant (used in create_report_permissionset)
+        ("accounts", "0037_alter_permissionset_das_tenant"),
     ]
 
     operations = [

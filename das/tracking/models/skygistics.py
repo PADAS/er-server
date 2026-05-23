@@ -1,48 +1,52 @@
-from datetime import datetime, timedelta, time
-import pickle
-import copy
-import urllib.parse
-import io
-import zipfile
 import base64
-from typing import NamedTuple, Iterator, Type
-
-import xml.etree.ElementTree as etree
-from dateutil.parser import parse as parse_date
-import pytz
-import requests
-from django.utils import timezone
-from django.contrib.gis.db import models
-from django.contrib.contenttypes.models import ContentType
-from django.core.cache import cache
-from django.contrib.contenttypes.fields import GenericRelation
-
-from tracking.models.plugin_base import Obs, TrackingPlugin, DasPluginFetchError, SourcePlugin
-from tracking.models import SourcePlugin
-from observations.models import Source, Subject, SubjectSource
-
-from tracking.models.utils import dictify
+import copy
+import io
 import logging
+import pickle
+import urllib.parse
+import xml.etree.ElementTree as etree
+import zipfile
+from datetime import datetime, timedelta
+from datetime import timezone as stdlib_tz
+from typing import NamedTuple
+from zoneinfo import ZoneInfo
+
+import requests
+from dateutil.parser import parse as parse_date
+
+from django.contrib.contenttypes.fields import GenericRelation
+from django.contrib.contenttypes.models import ContentType
+from django.contrib.gis.db import models
+from django.core.cache import cache
+from django.utils import timezone
+
+from observations.models import Source, Subject, SubjectSource
+from tracking.models import SourcePlugin
+from tracking.models.plugin_base import (
+    DasPluginFetchError,
+    Obs,
+    SourcePlugin,
+    TrackingPlugin,
+)
+from tracking.models.utils import dictify
+
 from .utils import to_float
 
+SKYGISTICS_DATETIME_FORMAT = "%Y-%m-%d %H:%M:%S"
+SKYGISTICS_PLUGIN_DATETIME_FORMAT = "%Y-%m-%dT%H:%M:%S.%fZ"
 
-SKYGISTICS_DATETIME_FORMAT = '%Y-%m-%d %H:%M:%S'
-SKYGISTICS_PLUGIN_DATETIME_FORMAT = '%Y-%m-%dT%H:%M:%S.%fZ'
+SKYGISTICS_API_XMLNS = "{http://www.skygistics.com/SkygisticsAPI}"
+SKYGISTICS_API_ENDPOINT = "/SkygisticsAPI/SkygisticsAPI.asmx"
 
-
-SKYGISTICS_API_XMLNS = '{http://www.skygistics.com/SkygisticsAPI}'
-SKYGISTICS_API_ENDPOINT = '/SkygisticsAPI/SkygisticsAPI.asmx'
-
-SKYGISTICS_DEFAULT_UNIT_DATETIME = datetime(
-    year=1970, month=1, day=1, tzinfo=pytz.UTC)
+SKYGISTICS_DEFAULT_UNIT_DATETIME = datetime(year=1970, month=1, day=1, tzinfo=stdlib_tz.utc)
 
 
 def _qualify(s):
-    return '{}{}'.format(SKYGISTICS_API_XMLNS, s)
+    return "{}{}".format(SKYGISTICS_API_XMLNS, s)
 
 
 def _unqualify(s):
-    return s.replace(SKYGISTICS_API_XMLNS, '')
+    return s.replace(SKYGISTICS_API_XMLNS, "")
 
 
 class SkygisticsLoginError(Exception):
@@ -50,7 +54,7 @@ class SkygisticsLoginError(Exception):
 
 
 class SkygisticsClient:
-    def __init__(self, username=None, password=None, service_url='http://skyq1.skygistics.com'):
+    def __init__(self, username=None, password=None, service_url="http://skyq1.skygistics.com"):
         self.username = username
         self.password = password
         self.service_url = service_url
@@ -58,11 +62,11 @@ class SkygisticsClient:
         # this is mildly ugly:  skygistics returns '0' for a failed login
         #   but a session_id for success and session_ids may contain hyphens so the session_id must
         #   be a "string"
-        self.session_id = '0'
+        self.session_id = "0"
         self.fetch_params = {
-            'imei_list': [],
-            'start_date': None,
-            'end_date': None,
+            "imei_list": [],
+            "start_date": None,
+            "end_date": None,
         }
         self.logger = logging.getLogger(self.__class__.__name__)
 
@@ -76,8 +80,8 @@ class SkygisticsClient:
         raise NotImplementedError()
 
 
-def str2date(d, default_tzinfo=pytz.UTC):
-    '''Parse a date and if it's naive, replace tzinfo with default_tzinfo.'''
+def str2date(d, default_tzinfo=stdlib_tz.utc):
+    """Parse a date and if it's naive, replace tzinfo with default_tzinfo."""
     dt = parse_date(d)
     if not dt.tzinfo:
         dt = dt.replace(tzinfo=default_tzinfo)
@@ -86,15 +90,14 @@ def str2date(d, default_tzinfo=pytz.UTC):
 
 # This is a fudge factor for querying Skygistic's API. Dates used for querying will be interpreted as
 # Africa/Johannesburg timezone.
-SKYGISTICS_SERVICE_TIMEZONE = pytz.timezone('Africa/Johannesburg')
+SKYGISTICS_SERVICE_TIMEZONE = ZoneInfo("Africa/Johannesburg")
 
 
 def get_client(username=None, password=None, service_url=None):
     sq_class = SkygisticsQ1Client
-    if service_url and 'skyq3' in service_url:
+    if service_url and "skyq3" in service_url:
         sq_class = SkygisticsQ3Client
-    return sq_class(username=username, password=password,
-                    service_url=service_url)
+    return sq_class(username=username, password=password, service_url=service_url)
 
 
 class Company(NamedTuple):
@@ -180,9 +183,10 @@ class SkygisticsQ3Client(SkygisticsClient):
     with offsets as seen in the Q1 api
 
     """
-    default_url = 'http://skyq3.skygistics.com'
-    server_path = '/TrackingAPI.asmx'
-    xml_envelope = '''<?xml version="1.0" encoding="utf-8"?>
+
+    default_url = "http://skyq3.skygistics.com"
+    server_path = "/TrackingAPI.asmx"
+    xml_envelope = """<?xml version="1.0" encoding="utf-8"?>
 <soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema">
   <soap:Body>
     <{action_tag} xmlns="http://tempuri.org/">
@@ -190,13 +194,12 @@ class SkygisticsQ3Client(SkygisticsClient):
     </{action_tag}>
   </soap:Body>
 </soap:Envelope>
-'''
-    namespaces = {'soap': 'http://schemas.xmlsoap.org/soap/envelope/',
-                  'b': 'http://tempuri.org/'}
-    encode_filename = 'ZippedFile'
-    time_zone = '0'  # GMT
+"""
+    namespaces = {"soap": "http://schemas.xmlsoap.org/soap/envelope/", "b": "http://tempuri.org/"}
+    encode_filename = "ZippedFile"
+    time_zone = "0"  # GMT
     company = None
-    user_agent = 'Mozilla/4.0 (compatible; MSIE 6.0; MS Web Services Client Protocol 4.0.30319.42000)'
+    user_agent = "Mozilla/4.0 (compatible; MSIE 6.0; MS Web Services Client Protocol 4.0.30319.42000)"
     replay_page_limit = 100
 
     def __init__(self, username=None, password=None, service_url=None):
@@ -210,28 +213,28 @@ class SkygisticsQ3Client(SkygisticsClient):
             return True
 
     def _parse_company_from_result(self, result):
-        result_array = result.split('[')
-        details = result_array[0].split(',')
+        result_array = result.split("[")
+        details = result_array[0].split(",")
 
-        #found in login.cs-showmainwindow
+        # found in login.cs-showmainwindow
         if len(details) != 7:
-            raise ValueError('Invalid company result from login')
+            raise ValueError("Invalid company result from login")
 
         company = Company(
             rights=result_array[1],
             company_type=int(details[0]),
             admin_pwd=details[1],
             user_name=details[3],
-            company_id=int(details[5])
+            company_id=int(details[5]),
         )
 
         return company
 
     def _parse_unitlist_from_result(self, result):
         # MobileListViewModel
-        strArray1 = result.split('~')
+        strArray1 = result.split("~")
         for index1 in range(0, len(strArray1)):
-            strArray2 = strArray1[index1].split('`')
+            strArray2 = strArray1[index1].split("`")
 
             try:
                 imei = strArray2[18]
@@ -239,8 +242,7 @@ class SkygisticsQ3Client(SkygisticsClient):
                 time = str2date(strArray2[1]) if strArray2[1] else None
                 status = strArray2[2]
                 mobid = strArray2[11]
-                status_code = int(strArray2[24]) if len(
-                    strArray2[24]) > 0 else 0
+                status_code = int(strArray2[24]) if len(strArray2[24]) > 0 else 0
                 if time is not None:
                     unit = Unit(
                         name=name,
@@ -253,24 +255,30 @@ class SkygisticsQ3Client(SkygisticsClient):
                         user=strArray2[7],
                         longitude=strArray2[12],
                         latitude=strArray2[13],
-                        lmtime=datetime.utcfromtimestamp(int(strArray2[15])),
+                        lmtime=datetime.fromtimestamp(int(strArray2[15]), tz=stdlib_tz.utc),
                         imei=imei,
                         regno=strArray2[26],
-                        status_code=status_code
+                        status_code=status_code,
                     )
                 else:
-                    unit = Unit(name=name, time=time, status=status, imei=imei,
-                                mobid=mobid, longitude=None, latitude=None, lmtime=None,
-                                regno=None,
-                                speed=None, voltage=0, temperature=0,
-                                user=None,
-                                status_code=status_code)
-            except ValueError:
-                self.logger.info(
-                    'Invalid unit info for {imei}, data={data}'.format(
+                    unit = Unit(
+                        name=name,
+                        time=time,
+                        status=status,
                         imei=imei,
-                        data=strArray2
-                    ))
+                        mobid=mobid,
+                        longitude=None,
+                        latitude=None,
+                        lmtime=None,
+                        regno=None,
+                        speed=None,
+                        voltage=0,
+                        temperature=0,
+                        user=None,
+                        status_code=status_code,
+                    )
+            except ValueError:
+                self.logger.info("Invalid unit info for {imei}, data={data}".format(imei=imei, data=strArray2))
                 continue
 
             yield unit
@@ -281,33 +289,33 @@ class SkygisticsQ3Client(SkygisticsClient):
         if not str1:
             return
 
-        strArray1 = str1.split('$')
-        if len(strArray1) < 3 or strArray1 == 'REPLAYEND':
+        strArray1 = str1.split("$")
+        if len(strArray1) < 3 or strArray1 == "REPLAYEND":
             return
 
         str2 = strArray1[2]
-        if 'REPLAYDATA' not in str2:
+        if "REPLAYDATA" not in str2:
             return
 
         total_records = int(strArray1[0])
         yield ReplayResult(count=total_records)
 
         fetched_record_count = 0
-        strArray2 = str2.split(',')
+        strArray2 = str2.split(",")
         for index1 in range(1, len(strArray2)):
             fetched_record_count += 1
-            strArray3 = strArray2[index1].split('^')
-            strArray4 = strArray3[15].split(';')
-            location = ' '
+            strArray3 = strArray2[index1].split("^")
+            strArray4 = strArray3[15].split(";")
+            location = " "
             place = None
             if len(strArray4) > 1:
                 place = strArray4[0]
-                location = ' '
+                location = " "
                 for index2 in range(1, len(strArray4)):
-                    location = location + strArray4[index2] + ';'
+                    location = location + strArray4[index2] + ";"
             elif len(strArray4) == 1:
                 place = strArray4[0]
-                location = ' '
+                location = " "
             else:
                 place = strArray3[15]
                 location = strArray3[15]
@@ -329,11 +337,11 @@ class SkygisticsQ3Client(SkygisticsClient):
                 green=strArray3[11],
                 blue=strArray3[12],
                 is_event=strArray3[13],
-                lmtime=datetime.utcfromtimestamp(int(strArray3[14])),
+                lmtime=datetime.fromtimestamp(int(strArray3[14]), tz=stdlib_tz.utc),
                 commodity=strArray3[16],
                 description=strArray3[17],
                 odometer=strArray3[20],
-                cum_hours=strArray3[21]
+                cum_hours=strArray3[21],
             )
 
             minx = 180.0
@@ -362,70 +370,64 @@ class SkygisticsQ3Client(SkygisticsClient):
             return None
         memory_zip = zipfile.ZipFile(io.BytesIO(base64.b64decode(field)))
         decoded_data = memory_zip.read(self.encode_filename)
-        decoded_data = decoded_data.decode('utf-8')
+        decoded_data = decoded_data.decode("utf-8")
         return decoded_data
 
     def encode_field(self, field):
         memory_file = io.BytesIO()
-        memory_zip = zipfile.ZipFile(
-            memory_file, "w", zipfile.ZIP_DEFLATED, False)
+        memory_zip = zipfile.ZipFile(memory_file, "w", zipfile.ZIP_DEFLATED, False)
         memory_zip.writestr(self.encode_filename, field)
         memory_zip.close()
         memory_file.seek(0)
         encoded_data = base64.b64encode(memory_file.read())
-        encoded_data = encoded_data.decode('utf-8')
+        encoded_data = encoded_data.decode("utf-8")
         return encoded_data
 
     def get_action_result_from_response_body(self, result_tag, response_body):
         root = etree.fromstring(response_body)
 
-        action_element = root.find('.//b:{result_tag}'.format(result_tag=result_tag),
-                                   namespaces=self.namespaces)
+        action_element = root.find(".//b:{result_tag}".format(result_tag=result_tag), namespaces=self.namespaces)
         if action_element is None:
-            action_element = root.find('.//{result_tag}'.format(result_tag=result_tag),
-                                       namespaces=self.namespaces)
+            action_element = root.find(".//{result_tag}".format(result_tag=result_tag), namespaces=self.namespaces)
         return action_element.text
 
     def _get_fault(self, response_body):
-        fault_code_tag = 'faultcode'
-        fault_tag = 'faultstring'
-        detail_tag = 'detail'
-        fault_code = self.decode_field(
-            self.get_action_result_from_response_body(fault_code_tag, response_body))
-        fault = self.decode_field(
-            self.get_action_result_from_response_body(fault_tag, response_body))
-        detail = ''
+        fault_code_tag = "faultcode"
+        fault_tag = "faultstring"
+        detail_tag = "detail"
+        fault_code = self.decode_field(self.get_action_result_from_response_body(fault_code_tag, response_body))
+        fault = self.decode_field(self.get_action_result_from_response_body(fault_tag, response_body))
+        detail = ""
         if detail_tag in response_body:
-            detail = self.decode_field(
-                self.get_action_result_from_response_body(detail_tag, response_body))
+            detail = self.decode_field(self.get_action_result_from_response_body(detail_tag, response_body))
         return Fault(fault_code, fault, detail)
 
     def make_soap_call(self, action, action_tag, body):
-        headers = {'content-type': 'text/xml',
-                   'soapaction': '"{0}"'.format(action),
-                   'user-agent': self.user_agent,
-                   }
-        envelope = self.xml_envelope.format(body=body, action=action,
-                                            action_tag=action_tag)
+        headers = {
+            "content-type": "text/xml",
+            "soapaction": '"{0}"'.format(action),
+            "user-agent": self.user_agent,
+        }
+        envelope = self.xml_envelope.format(body=body, action=action, action_tag=action_tag)
         url = urllib.parse.urljoin(self.service_url, self.server_path)
 
         try:
-            response = requests.post(
-                url, data=envelope, headers=headers, timeout=(30, 60))
+            response = requests.post(url, data=envelope, headers=headers, timeout=(30, 60))
             if response.status_code != 200:
                 fault = self._get_fault(response.text)
-                raise DasPluginFetchError('{code} response for url {url}, {fault}'.format(
-                    code=response.status_code, url=url, fault=fault))
+                raise DasPluginFetchError(
+                    "{code} response for url {url}, {fault}".format(code=response.status_code, url=url, fault=fault)
+                )
 
             return response.text
 
         except requests.ConnectionError as e:
             # todo:  handle connection error, etc.
-            self.logger.exception('Failed connecting to skygistics API.')
+            self.logger.exception("Failed connecting to skygistics API.")
             raise
         except requests.Timeout as e:
             # todo:  handle timeout
-            self.logger.exception('Time-out connecting to skygistics API.')
+            self.logger.exception("Time-out connecting to skygistics API.")
             raise
         return
 
@@ -436,9 +438,7 @@ class SkygisticsQ3Client(SkygisticsClient):
 
         result =
         """
-        action = 'http://tempuri.org/GetCompanyNumbers'
-        action_tag = 'GetCompanyNumbers'
-        result_tag = 'GetCompanyNumbersResult'
+        action = "http://tempuri.org/GetCompanyNumbers"
         raise NotImplementedError()
 
     def login(self):
@@ -448,27 +448,26 @@ class SkygisticsQ3Client(SkygisticsClient):
         tz = utcoffset.TotalSeconds
         set companyid from here.
         """
-        action = 'http://tempuri.org/login'
-        action_tag = 'login'
-        result_tag = 'loginResult'
+        action = "http://tempuri.org/login"
+        action_tag = "login"
+        result_tag = "loginResult"
 
-        body_template = '''<user>{user}</user>
+        body_template = """<user>{user}</user>
                   <pwd>{pwd}</pwd>
-                  <tz>{tz}</tz>'''
+                  <tz>{tz}</tz>"""
 
         body = body_template.format(
             user=self.encode_field(self.username),
             pwd=self.encode_field(self.password),
-            tz=self.encode_field(self.time_zone)
+            tz=self.encode_field(self.time_zone),
         )
 
         response_body = self.make_soap_call(action, action_tag, body)
 
-        result = self.decode_field(
-            self.get_action_result_from_response_body(result_tag, response_body))
+        result = self.decode_field(self.get_action_result_from_response_body(result_tag, response_body))
 
-        if result_tag == 'KO':
-            raise SkygisticsLoginError('Invalid username or password')
+        if result_tag == "KO":
+            raise SkygisticsLoginError("Invalid username or password")
 
         self.company = self._parse_company_from_result(result)
         return self.company
@@ -484,37 +483,36 @@ class SkygisticsQ3Client(SkygisticsClient):
         proc string, for example 'trips'
         :return:
         """
-        action = 'http://tempuri.org/getReplayData'
-        action_tag = 'getReplayData'
-        result_tag = 'getReplayDataResult'
+        action = "http://tempuri.org/getReplayData"
+        action_tag = "getReplayData"
+        result_tag = "getReplayDataResult"
 
-        body_template = '''<mobid>{mobid}</mobid>
+        body_template = """<mobid>{mobid}</mobid>
                   <from>{start}</from>
                   <to>{end}</to>
                   <timez>{tz}</timez>
                   <company>{company}</company>
                   <offset>{skip}</offset>
                   <limit>{limit}</limit>
-                  <proc>{proc}</proc>'''
+                  <proc>{proc}</proc>"""
 
-        company = '-' + str(self.company.company_id)
+        company = "-" + str(self.company.company_id)
         skip = 0
         limit = 100
 
-        params = dict(mobid=self.encode_field(unit.mobid),
-                      start=self.encode_field(start_date.isoformat()),
-                      end=self.encode_field(end_date.isoformat()),
-                      tz=self.encode_field(self.time_zone),
-                      company=self.encode_field(company),
-                      skip=self.encode_field(str(skip)),
-                      limit=self.encode_field(str(limit)),
-                      proc=self.encode_field('')
-                      )
+        params = dict(
+            mobid=self.encode_field(unit.mobid),
+            start=self.encode_field(start_date.isoformat()),
+            end=self.encode_field(end_date.isoformat()),
+            tz=self.encode_field(self.time_zone),
+            company=self.encode_field(company),
+            skip=self.encode_field(str(skip)),
+            limit=self.encode_field(str(limit)),
+            proc=self.encode_field(""),
+        )
         body = body_template.format(**params)
         response_body = self.make_soap_call(action, action_tag, body)
-        result = self.decode_field(
-            self.get_action_result_from_response_body(result_tag,
-                                                      response_body))
+        result = self.decode_field(self.get_action_result_from_response_body(result_tag, response_body))
         return result
 
     def _transform_to_observation(self, imei, replay):
@@ -535,9 +533,7 @@ class SkygisticsQ3Client(SkygisticsClient):
         fetched_records = 0
 
         while True:
-            result = self._get_replay_data(
-                mobid, start_date, end_date,
-                offset, self.replay_page_limit)
+            result = self._get_replay_data(mobid, start_date, end_date, offset, self.replay_page_limit)
 
             for replay in self._parse_replay_data_from_result(result):
                 if isinstance(replay, ReplayResult):
@@ -550,21 +546,21 @@ class SkygisticsQ3Client(SkygisticsClient):
             offset += self.replay_page_limit
 
     def get_replay_data_count(self, mobid, start_date, end_date):
-        result = self._get_replay_data(
-            mobid, start_date, end_date,
-            0, 1)
+        result = self._get_replay_data(mobid, start_date, end_date, 0, 1)
 
         replay_result = next(self._parse_replay_data_from_result(result))
 
         return replay_result.count
 
-    def get_unit_list(self, lmtime='0'):
+    def get_unit_list(self, lmtime="0"):
         timeout = 600  # seconds
         version = 1
-        key = '{classname}-get_unit_list-{lmtime}-{company}-{username}'.format(
+        key = "{classname}-get_unit_list-{lmtime}-{company}-{username}".format(
             classname=self.__class__.__name__,
-            lmtime=str(lmtime), company=str(self.company.company_id),
-            username=self.username)
+            lmtime=str(lmtime),
+            company=str(self.company.company_id),
+            username=self.username,
+        )
 
         unit_list = None
         unit_list_raw = cache.get(key, version=version)
@@ -581,20 +577,20 @@ class SkygisticsQ3Client(SkygisticsClient):
         timezone
         lmtime ? '1523232586', use '0' to get all
         """
-        action = 'http://tempuri.org/getUnitList'
-        action_tag = 'getUnitList'
-        result_tag = 'getUnitListResult'
-        body_template = '''<company>{company}</company>
+        action = "http://tempuri.org/getUnitList"
+        action_tag = "getUnitList"
+        result_tag = "getUnitListResult"
+        body_template = """<company>{company}</company>
                 <tz>{tz}</tz>
                 <lmtime>{lmtime}</lmtime>
-               '''
-        body = body_template.format(tz=self.encode_field(self.time_zone),
-                                    company=self.encode_field(
-                                        str(self.company.company_id)),
-                                    lmtime=self.encode_field(lmtime))
+               """
+        body = body_template.format(
+            tz=self.encode_field(self.time_zone),
+            company=self.encode_field(str(self.company.company_id)),
+            lmtime=self.encode_field(lmtime),
+        )
         response_body = self.make_soap_call(action, action_tag, body)
-        result = self.get_action_result_from_response_body(
-            result_tag, response_body)
+        result = self.get_action_result_from_response_body(result_tag, response_body)
         result = self.decode_field(result)
         units = list(self._parse_unitlist_from_result(result))
         return units
@@ -609,18 +605,19 @@ class SkygisticsQ3Client(SkygisticsClient):
         for unit in self.get_unit_list():
             if unit.imei == imei:
                 if not self.is_unit_active(unit):
-                    self.logger('Unit {imei} is not active, status_code {status_code}'.format(
-                        imei=unit.imei, status_code=unit.status_code))
+                    self.logger(
+                        "Unit {imei} is not active, status_code {status_code}".format(
+                            imei=unit.imei, status_code=unit.status_code
+                        )
+                    )
                     return
 
-                for replay in self.get_replay_data(unit,
-                                                   start_date=start_date,
-                                                   end_date=end_date):
+                for replay in self.get_replay_data(unit, start_date=start_date, end_date=end_date):
                     yield self._transform_to_observation(imei, replay)
 
                 return
 
-        raise KeyError('IMEI {imei} not found'.format(imei=imei))
+        raise KeyError("IMEI {imei} not found".format(imei=imei))
 
 
 class SkygisticsQ1Client(SkygisticsClient):
@@ -631,14 +628,14 @@ class SkygisticsQ1Client(SkygisticsClient):
             # todo:  sad API, it returns a 500 if any param is bad or missing.
             #   check status code and do better
             if response.status_code != 200:
-                raise DasPluginFetchError('Non 200 response.')
+                raise DasPluginFetchError("Non 200 response.")
             response_text = response.text
         except requests.ConnectionError as e:
             # todo:  handle connection error, etc.
-            self.logger.exception('Failed connecting to skygistics API.')
+            self.logger.exception("Failed connecting to skygistics API.")
         except requests.Timeout as e:
             # todo:  handle timeout
-            self.logger.exception('Time-out connecting to skygistics API.')
+            self.logger.exception("Time-out connecting to skygistics API.")
         return response_text
 
     def _login(self):
@@ -654,21 +651,18 @@ class SkygisticsQ1Client(SkygisticsClient):
             # todo:  the username and password are in the clear here ... !!
             # parse response content for session_id
             response = self._get_text(
-                '{0}{1}/Login'.format(self.service_url,
-                                      SKYGISTICS_API_ENDPOINT),
+                "{0}{1}/Login".format(self.service_url, SKYGISTICS_API_ENDPOINT),
                 {
-                    'username': self.username,
-                    'password': self.password,
-                })
+                    "username": self.username,
+                    "password": self.password,
+                },
+            )
             self.session_id = etree.fromstring(response).text
         except requests.ConnectionError as e:
-            self.logger.exception(
-                'Failed connecting, logging in to skygistics API.')
-            pass
+            self.logger.exception("Failed connecting, logging in to skygistics API.")
         except requests.Timeout as e:
-            self.logger.exception('Timed-out logging in to skygistics API.')
-            pass
-        return self.session_id != '0'
+            self.logger.exception("Timed-out logging in to skygistics API.")
+        return self.session_id != "0"
 
     def _get_replay_data_count(self, imei, start_date, end_date):
         """
@@ -680,19 +674,18 @@ class SkygisticsQ1Client(SkygisticsClient):
         :param end_date:
         :return:
         """
-        if not self.session_id or self.session_id == '0':
-            raise SkygisticsLoginError(
-                'Client does not have a valid session_id.')
+        if not self.session_id or self.session_id == "0":
+            raise SkygisticsLoginError("Client does not have a valid session_id.")
         # todo:  the username and password are in the clear here ...
         response_text = self._get_text(
-            '{0}{1}/GetReplayDataCount'.format(self.service_url,
-                                               SKYGISTICS_API_ENDPOINT),
+            "{0}{1}/GetReplayDataCount".format(self.service_url, SKYGISTICS_API_ENDPOINT),
             {
-                'imei': imei,
-                'startdate': start_date.strftime(SKYGISTICS_DATETIME_FORMAT),
-                'enddate': end_date.strftime(SKYGISTICS_DATETIME_FORMAT),
-                'sessionid': self.session_id,
-            })
+                "imei": imei,
+                "startdate": start_date.strftime(SKYGISTICS_DATETIME_FORMAT),
+                "enddate": end_date.strftime(SKYGISTICS_DATETIME_FORMAT),
+                "sessionid": self.session_id,
+            },
+        )
         try:
             replay_data_count = int(etree.fromstring(response_text).text)
         except TypeError:
@@ -711,20 +704,19 @@ class SkygisticsQ1Client(SkygisticsClient):
         :param limit:  default=100
         :return: replay_data
         """
-        if not self.session_id or self.session_id == '0':
-            raise SkygisticsLoginError(
-                'Client does not have a valid session_id.')
+        if not self.session_id or self.session_id == "0":
+            raise SkygisticsLoginError("Client does not have a valid session_id.")
         response_text = self._get_text(
-            '{0}{1}/GetReplayData'.format(self.service_url,
-                                          SKYGISTICS_API_ENDPOINT),
+            "{0}{1}/GetReplayData".format(self.service_url, SKYGISTICS_API_ENDPOINT),
             {
-                'imei': imei,
-                'startdate': start_date.strftime(SKYGISTICS_DATETIME_FORMAT),
-                'enddate': end_date.strftime(SKYGISTICS_DATETIME_FORMAT),
-                'sessionid': self.session_id,
-                'skip': skip,
-                'limit': limit,
-            })
+                "imei": imei,
+                "startdate": start_date.strftime(SKYGISTICS_DATETIME_FORMAT),
+                "enddate": end_date.strftime(SKYGISTICS_DATETIME_FORMAT),
+                "sessionid": self.session_id,
+                "skip": skip,
+                "limit": limit,
+            },
+        )
         return etree.fromstring(response_text)
 
     def get_unit_list(self):
@@ -732,15 +724,14 @@ class SkygisticsQ1Client(SkygisticsClient):
         GET /SkygisticsAPI/SkygisticsAPI.asmx/GetUnitList?sessionid=string
         :return:
         """
-        if not self.session_id or self.session_id == '0':
-            raise SkygisticsLoginError(
-                'Client does not have a valid session_id.')
+        if not self.session_id or self.session_id == "0":
+            raise SkygisticsLoginError("Client does not have a valid session_id.")
         response_text = self._get_text(
-            '{0}{1}/GetUnitList'.format(self.service_url,
-                                        SKYGISTICS_API_ENDPOINT),
+            "{0}{1}/GetUnitList".format(self.service_url, SKYGISTICS_API_ENDPOINT),
             {
-                'sessionid': self.session_id,
-            })
+                "sessionid": self.session_id,
+            },
+        )
 
         root = etree.fromstring(response_text)
 
@@ -750,29 +741,28 @@ class SkygisticsQ1Client(SkygisticsClient):
                 result[_unqualify(child.tag)] = child.text
             return result
 
-        if root.tag == _qualify('ArrayOfUnitInfo'):
+        if root.tag == _qualify("ArrayOfUnitInfo"):
             for child in root:
                 unit = _dictify(child)
                 yield Unit(
-                    imei=unit['IMEI'],
-                    name=unit['Name'],
-                    longitude=float(unit['Longitude']),
-                    latitude=float(unit['Latitude']),
-                    status=unit['Status'],
-                    time=str2date(unit['Time']) if unit['Time'] else None,
-                    speed=float(unit['Speed']),
+                    imei=unit["IMEI"],
+                    name=unit["Name"],
+                    longitude=float(unit["Longitude"]),
+                    latitude=float(unit["Latitude"]),
+                    status=unit["Status"],
+                    time=str2date(unit["Time"]) if unit["Time"] else None,
+                    speed=float(unit["Speed"]),
                     regno=None,
                     mobid=None,
                     lmtime=None,
-                    temperature=unit['Temperature'],
-                    voltage=int(unit['Voltage']),
-                    user=None
-
+                    temperature=unit["Temperature"],
+                    voltage=int(unit["Voltage"]),
+                    user=None,
                 )
 
     def begin_session(self):
         if not self._login():
-            raise DasPluginFetchError('Failed to login')
+            raise DasPluginFetchError("Failed to login")
 
     def _transform_to_observation(self, unit_info):
         """
@@ -782,21 +772,24 @@ class SkygisticsQ1Client(SkygisticsClient):
         """
         try:
             observation = Observation(
-                imei=unit_info[_qualify('IMEI')][0]['_text'],
-                latitude=float(unit_info[_qualify('Latitude')][0]['_text']),
-                longitude=float(unit_info[_qualify('Longitude')][0]['_text']),
-                voltage=to_float(unit_info[_qualify('Voltage')][0].get('_text')),
-                location=unit_info[_qualify('Location')][0].get('_text'),
-                temperature=to_float(unit_info[_qualify('Temperature')][0].get('_text')),
-                recorded_at=timezone.make_aware(datetime.strptime(unit_info[_qualify('Time')][0]['_text'],
-                                                                  SKYGISTICS_DATETIME_FORMAT), timezone.utc),
+                imei=unit_info[_qualify("IMEI")][0]["_text"],
+                latitude=float(unit_info[_qualify("Latitude")][0]["_text"]),
+                longitude=float(unit_info[_qualify("Longitude")][0]["_text"]),
+                voltage=to_float(unit_info[_qualify("Voltage")][0].get("_text")),
+                location=unit_info[_qualify("Location")][0].get("_text"),
+                temperature=to_float(unit_info[_qualify("Temperature")][0].get("_text")),
+                recorded_at=timezone.make_aware(
+                    datetime.strptime(unit_info[_qualify("Time")][0]["_text"], SKYGISTICS_DATETIME_FORMAT),
+                    stdlib_tz.utc,
+                ),
                 # add T and Z to string timestamp so UTC is obvious.
-                received_time=timezone.make_aware(datetime.strptime(unit_info[_qualify('ReceivedTime')][0]['_text'],
-                                                                    SKYGISTICS_DATETIME_FORMAT),
-                                                  timezone.utc).strftime(SKYGISTICS_PLUGIN_DATETIME_FORMAT),
+                received_time=timezone.make_aware(
+                    datetime.strptime(unit_info[_qualify("ReceivedTime")][0]["_text"], SKYGISTICS_DATETIME_FORMAT),
+                    stdlib_tz.utc,
+                ).strftime(SKYGISTICS_PLUGIN_DATETIME_FORMAT),
             )
-        except Exception as e:
-            self.logger.exception('Error transforming skygistics unit_info')
+        except Exception:
+            self.logger.exception("Error transforming skygistics unit_info")
             raise
         return observation
 
@@ -823,26 +816,24 @@ class SkygisticsQ1Client(SkygisticsClient):
             end_date=end_date,
         )
 
-        replay_data_dict = dictify(self._get_replay_data(
-            imei,
-            start_date,
-            end_date=end_date,
-            skip=skip,
-            limit=limit
-        ))
+        replay_data_dict = dictify(self._get_replay_data(imei, start_date, end_date=end_date, skip=skip, limit=limit))
 
         # if the array is empty (e.g., bad imei) then '{http://www.skygistics.com/SkygisticsAPI}ArrayOfUnitInfo'
         # will be a dict with a key-value pair
         # '{http://www.w3.org/2001/XMLSchema-instance}nil': 'true'
-        if ('{http://www.w3.org/2001/XMLSchema-instance}nil' in replay_data_dict[
-            ('{0}ArrayOfUnitInfo'.format(SKYGISTICS_API_XMLNS))]
-            and replay_data_dict[('{0}ArrayOfUnitInfo'.format(SKYGISTICS_API_XMLNS))][
-                '{http://www.w3.org/2001/XMLSchema-instance}nil'] == 'true'):
+        if (
+            "{http://www.w3.org/2001/XMLSchema-instance}nil"
+            in replay_data_dict[("{0}ArrayOfUnitInfo".format(SKYGISTICS_API_XMLNS))]
+            and replay_data_dict[("{0}ArrayOfUnitInfo".format(SKYGISTICS_API_XMLNS))][
+                "{http://www.w3.org/2001/XMLSchema-instance}nil"
+            ]
+            == "true"
+        ):
             pass  # todo:  no results!
         else:
-            for unit_info in \
-                    replay_data_dict[('{0}ArrayOfUnitInfo'.format(SKYGISTICS_API_XMLNS))][
-                        ('{0}UnitInfo'.format(SKYGISTICS_API_XMLNS))]:
+            for unit_info in replay_data_dict[("{0}ArrayOfUnitInfo".format(SKYGISTICS_API_XMLNS))][
+                ("{0}UnitInfo".format(SKYGISTICS_API_XMLNS))
+            ]:
                 yield self._transform_to_observation(unit_info)
 
 
@@ -851,19 +842,20 @@ class SkygisticsSatellitePlugin(TrackingPlugin):
     DEFAULT_START_OFFSET = timedelta(days=14)
     DEFAULT_REPORT_INTERVAL = timedelta(minutes=7)
 
-    service_username = models.CharField(max_length=50,
-                                        help_text='The username for Skygistics API.')
-    service_password = models.CharField(max_length=50,
-                                        help_text='The password for Skygistics API.')
-    service_api_url = models.CharField(max_length=50,
-                                       help_text='API endpoint for Skygistics service.',
-                                       default='http://skyq1.skygistics.com')
+    service_username = models.CharField(max_length=50, help_text="The username for Skygistics API.")
+    service_password = models.CharField(max_length=50, help_text="The password for Skygistics API.")
+    service_api_url = models.CharField(
+        max_length=50, help_text="API endpoint for Skygistics service.", default="http://skyq1.skygistics.com"
+    )
 
-    source_plugin_reverse_relation = 'skygisticsplugin'
+    source_plugin_reverse_relation = "skygisticsplugin"
     source_plugins = GenericRelation(
-        SourcePlugin, content_type_field='plugin_type', object_id_field='plugin_id',
-        related_query_name=source_plugin_reverse_relation, related_name='+')
-
+        SourcePlugin,
+        content_type_field="plugin_type",
+        object_id_field="plugin_id",
+        related_query_name=source_plugin_reverse_relation,
+        related_name="+",
+    )
 
     def fetch(self, source, cursor_data=None):
 
@@ -879,22 +871,17 @@ class SkygisticsSatellitePlugin(TrackingPlugin):
         try:
             # Given a latest-timestamp, reach back another 12-hours to fill in
             # any gaps.
-            st = parse_date(
-                self.cursor_data['latest_timestamp']) - timedelta(hours=12)
-        except Exception as e:
-            st = datetime.now(tz=pytz.UTC) - self.DEFAULT_START_OFFSET
+            st = parse_date(self.cursor_data["latest_timestamp"]) - timedelta(hours=12)
+        except Exception:
+            st = datetime.now(tz=stdlib_tz.utc) - self.DEFAULT_START_OFFSET
 
-        end_time = datetime.now(tz=pytz.utc)
+        end_time = datetime.now(tz=stdlib_tz.utc)
 
         latest_observation = None
         params = dict(imei=source.manufacturer_id, start=st, stop=end_time)
-        self.logger.info('Fetching observations for {imei} {start} - {stop}'.format(
-            **params
-        ), extra=params)
+        self.logger.info("Fetching observations for {imei} {start} - {stop}".format(**params), extra=params)
 
-        for unit_info in client.fetch_observations(imei=source.manufacturer_id,
-                                                   start_date=st,
-                                                   end_date=end_time):
+        for unit_info in client.fetch_observations(imei=source.manufacturer_id, start_date=st, end_date=end_time):
 
             try:
                 observation = self._transform(source, unit_info)
@@ -902,19 +889,22 @@ class SkygisticsSatellitePlugin(TrackingPlugin):
                     if not latest_observation or latest_observation.recorded_at < observation.recorded_at:
                         latest_observation = observation
                     yield observation
-            except Exception as e:
-                self.logger.exception('processing unit_info.')
+            except Exception:
+                self.logger.exception("processing unit_info.")
 
         if latest_observation:
-            self.cursor_data['latest_timestamp'] = latest_observation.recorded_at.isoformat(
-            )
+            self.cursor_data["latest_timestamp"] = latest_observation.recorded_at.isoformat()
 
     def _transform(self, source, observation):
-        return Obs(source=source,
-                   recorded_at=observation.recorded_at,
-                   longitude=observation.longitude,
-                   latitude=observation.latitude,
-                   additional=dict((k, observation._asdict().get(k)) for k in ('imei', 'voltage', 'received_at', 'temperature', 'location')))
+        return Obs(
+            source=source,
+            recorded_at=observation.recorded_at,
+            longitude=observation.longitude,
+            latitude=observation.latitude,
+            additional=dict(
+                (k, observation._asdict().get(k)) for k in ("imei", "voltage", "received_at", "temperature", "location")
+            ),
+        )
 
     def _maintenance(self):
         self._sync_unit_info()
@@ -933,9 +923,9 @@ class SkygisticsSatellitePlugin(TrackingPlugin):
         return client.fetch_observations(imei, start_date, end_date)
 
     def _get_client(self):
-        return get_client(username=self.service_username,
-                          password=self.service_password,
-                          service_url=self.service_api_url)
+        return get_client(
+            username=self.service_username, password=self.service_password, service_url=self.service_api_url
+        )
 
     def _sync_unit_info(self):
         self.logger = logging.getLogger(self.__class__.__name__)
@@ -947,24 +937,24 @@ class SkygisticsSatellitePlugin(TrackingPlugin):
         unitlist = client.get_unit_list()
         for unit in unitlist:
             try:
-                src = ensure_source('tracking-device', unit.imei)
+                src = ensure_source("tracking-device", unit.imei)
                 ensure_source_plugin(src, self)
                 ts = unit.time
                 if not ts:
                     ts = SKYGISTICS_DEFAULT_UNIT_DATETIME
                 ensure_subject_source(src, ts, unit.name)
-            except Exception as e:
-                self.logger.exception(
-                    'Error in syncing unit info {unit}'.format(unit=unit))
+            except Exception:
+                self.logger.exception("Error in syncing unit info {unit}".format(unit=unit))
                 raise
 
 
 # Helper functions for hydrating Source and Subject for the given message.
 def ensure_source(source_type, manufacturer_id):
-    src, created = Source.objects.get_or_create(source_type=source_type,
-                                                manufacturer_id=manufacturer_id,
-                                                defaults={'model_name': 'skygistics',
-                                                          'additional': {'note': 'Created automatically during feed sync.'}})
+    src, created = Source.objects.get_or_create(
+        source_type=source_type,
+        manufacturer_id=manufacturer_id,
+        defaults={"model_name": "skygistics", "additional": {"note": "Created automatically during feed sync."}},
+    )
 
     return src
 
@@ -972,43 +962,49 @@ def ensure_source(source_type, manufacturer_id):
 def ensure_source_plugin(source, tracking_plugin):
 
     defaults = dict(
-        status='enabled',
+        status="enabled",
         # cursor_data={}
     )
 
     plugin_type = ContentType.objects.get_for_model(tracking_plugin)
-    v, created = SourcePlugin.objects.get_or_create(defaults=defaults,
-                                                    source=source,
-                                                    plugin_id=tracking_plugin.id,
-                                                    plugin_type=plugin_type)
+    v, created = SourcePlugin.objects.get_or_create(
+        defaults=defaults, source=source, plugin_id=tracking_plugin.id, plugin_type=plugin_type
+    )
 
     return v
 
 
 def ensure_subject_source(source, event_time, subject_name=None):
     # get the most recent Subject for this Source
-    subject_source = SubjectSource \
-        .objects \
-        .filter(source=source, assigned_range__contains=event_time)\
-        .order_by('assigned_range')\
-        .reverse()\
+    subject_source = (
+        SubjectSource.objects.filter(source=source, assigned_range__contains=event_time)
+        .order_by("assigned_range")
+        .reverse()
         .first()
+    )
 
     if not subject_source:
 
-        subject_name = subject_name or 'sky-{}'.format(source.manufacturer_id)
+        subject_name = subject_name or "sky-{}".format(source.manufacturer_id)
 
         sub, created = Subject.objects.get_or_create(
-            subject_subtype_id='elephant',
+            subject_subtype_id="elephant",
             name=subject_name,
-            defaults=dict(additional=dict(region='', country='', ))
+            defaults=dict(
+                additional=dict(
+                    region="",
+                    country="",
+                )
+            ),
         )
 
         d1 = event_time - timedelta(days=30)
         d2 = d1 + timedelta(days=5 * 365)
         if sub:
-            subject_source, created = SubjectSource.objects.get_or_create(source=source, subject=sub,
-                                                                          defaults=dict(assigned_range=(d1, d2), additional={
-                                                                              'note': 'Created automatically during feed sync.'}))
+            subject_source, created = SubjectSource.objects.get_or_create(
+                source=source,
+                subject=sub,
+                defaults=dict(assigned_range=(d1, d2), additional={"note": "Created automatically during feed sync."}),
+            )
 
     return subject_source

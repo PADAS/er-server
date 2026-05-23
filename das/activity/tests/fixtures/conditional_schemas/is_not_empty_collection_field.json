@@ -6,7 +6,7 @@
                 "deprecated": false,
                 "description": "",
                 "items": {
-                    "additionalProperties": false,
+                    "unevaluatedProperties": false,
                     "properties": {
                         "name": {
                             "default": "",

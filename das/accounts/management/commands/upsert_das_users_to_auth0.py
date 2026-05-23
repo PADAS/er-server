@@ -1,5 +1,9 @@
+from __future__ import annotations
+
 from typing import Callable, List, NamedTuple, Protocol, Union
 from urllib.parse import urlparse
+
+from auth0.management import ManagementClient
 
 from django.core.management import CommandError
 from django.core.management.base import BaseCommand
@@ -8,7 +12,6 @@ from django.db import transaction
 from accounts.models import User
 from accounts.system_users import SYSTEM_USERNAMES
 from utils.auth0.client import AuthZeroUserProvisioner, AuthZeroUserProvisioningResult
-from utils.auth0.helpers import get_auth0_management_api_access_token
 from utils.tenant import get_tenant_settings
 from utils.tenant.commands import TenantCommandMixin
 
@@ -34,8 +37,7 @@ class ProvisionerFactory(Protocol):
         das_user_email: str | None,
         das_site_name: str,
         auth0_organization_id: str,
-        token_factory: Callable[[], str],
-        auth0_factory: Callable[[str, str], object] = ...,
+        client_factory: Callable[[], ManagementClient] = ...,
     ) -> AuthZeroUserProvisioner: ...
 
 
@@ -48,14 +50,11 @@ class Command(TenantCommandMixin, BaseCommand):
     def __init__(
         self,
         provisioner_factory: ProvisionerFactory = AuthZeroUserProvisioner,
-        token_factory: Callable[[], str] = get_auth0_management_api_access_token,
         *args,
         **kwargs,
     ):
         super().__init__(*args, **kwargs)
-
         self.provisioner_factory = provisioner_factory
-        self.token = token_factory()
 
     def handle(self, *args, **options) -> None:
         tenant_settings = get_tenant_settings()
@@ -86,7 +85,7 @@ class Command(TenantCommandMixin, BaseCommand):
 
     @transaction.atomic
     def _handle(self, auth0_org_id: str, site_name: str) -> List[_DasUserToAuth0ProvisioningResult]:
-        users = User.objects.filter(is_active=True).exclude(username__in=self.DISALLOWED_USERNAMES)
+        users = User.objects.filter(is_active=True).exclude(username__in=self.DISALLOWED_USERNAMES).order_by("username")
 
         results: List[_DasUserToAuth0ProvisioningResult] = []
         for user in users:
@@ -133,7 +132,6 @@ class Command(TenantCommandMixin, BaseCommand):
             das_user_email=das_user_email,
             das_site_name=site_name,
             auth0_organization_id=auth0_org_id,
-            token_factory=lambda: self.token,
         )
         return provisioner.provision_user()
 

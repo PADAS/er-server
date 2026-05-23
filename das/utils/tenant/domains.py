@@ -41,4 +41,4 @@ def add_new_tenant_domains_to_settings(hostname: str | None = None) -> None:
     settings.CORS_ALLOWED_ORIGINS.extend(new_cors_origins)
     if settings.CORS_ORIGIN_WHITELIST is not settings.CORS_ALLOWED_ORIGINS:
         settings.CORS_ORIGIN_WHITELIST.extend(new_cors_origins)
-    settings.CSRF_TRUSTED_ORIGINS.extend(new_tenant_domains)
+    settings.CSRF_TRUSTED_ORIGINS.extend([f"https://{d}" for d in new_tenant_domains])

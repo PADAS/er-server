@@ -3,13 +3,24 @@ from typing import Any, Dict, List, Optional, Type
 
 from django.db.models import QuerySet
 from django.http import QueryDict
+from rest_framework.exceptions import ValidationError
 from rest_framework.request import Request
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from schemas.format_serializers import (
+    ENUM_EXTRA_KEY,
+    OUTPUT_FORMAT_ENUM,
+    OUTPUT_FORMATS,
+    apply_output_format,
+    get_output_format_override,
+)
 from utils.dict_utils import get_nested_value
 from utils.drf import sorted_query_parameters_to_string
 from utils.json import DirectBrowsableAPIRenderer, DirectJSONRenderer
+
+# Re-export for existing importers (e.g. ``spectacular_extensions``, tests).
+__all__ = ["ENUM_EXTRA_KEY", "DynamicSchemaDataMixin", "DynamicSchemaFromSourceView"]
 
 
 class DynamicSchemaDataMixin:
@@ -61,16 +72,11 @@ class DynamicSchemaFromSourceView(APIView):
         "title": "FeatureCategories",
         "description": "A list of all feature categories available to the client",
         "type": "string",
-        "oneOf": [
-            {
-                "const": "uuid1",
-                "title": "Feature category 1"
-            },
-            {
-                "const": "uuid2",
-                "title": "Feature category 2"
-            }
-        ]
+        "enum": ["uuid1", "uuid2"],
+        "x-enumExtra": {
+            "uuid1": {"display": "Feature category 1"},
+            "uuid2": {"display": "Feature category 2"}
+        }
     }
     ```
 
@@ -81,31 +87,26 @@ class DynamicSchemaFromSourceView(APIView):
 
     The fields to describe/build in the schema can be customized by setting the following attributes:
 
-    - `default_const_field`: The default field to use as `const` in the schema.
-    - `default_title_field`: The default field to use as `title` in the schema.
+    - `default_value_field`: The default field to use as `value` / `const` in the schema.
+    - `default_label_field`: The default field to use as `display` / `title` in the schema.
     - `default_description_field`: The default field to use as `description` in the schema.
-    - `default_x_fields`: The default fields to use as `x-` in the schema, the expected value is a dictionary.
+    - `default_extra_fields`: The default fields to use as `x-` extras, the expected value is a dictionary.
 
     And those attributes can be overridden by query parameters in the request:
 
-    - `s_const`: The field to use as `const` in the schema.
-    - `s_title`: The field to use as `title` in the schema.
+    - `s_value`: The field to use as `value` / `const` in the schema.
+    - `s_label`: The field to use as `display` / `title` in the schema.
     - `s_description`: The field to use as `description` in the schema.
-    - `s_x`: The fields to use as `x-` in the schema, the expected value is a JSON string. (not sure about this one)
+    - `x_<name>`: Per-option extra metadata, e.g. `x_icon=icon_url` maps source `icon_url` to key `icon`.
 
-    Additionally, the mode and type of the schema can be customized by setting the following attributes:
+    Additionally, the format and type of the schema can be customized by setting the following attributes:
 
-    - `default_mode`: The schema can be generated in `oneOf`, `anyOf`, `array` or `object` mode.
-        - `oneOf`: The field can only have one of the specified values.
-        - `anyOf`: The field can have any of the specified values.
-        - `array`: The field can have an array of values, where each value must be one of the specified values.
-        - `object`: The field can have an object with the specified fields, where each field must be one of the
-        specified values.
+    - `default_format`: Output shape, `enum` (with `x-enumExtra`, default) or `oneOf`.
     - `default_type`: The default type of value to use in the schema, `string` by default.
 
     Those attributes can be overridden by query parameters in the request:
 
-    - `s_mode`: The mode to use in the schema.
+    - `s_format`: The output format to use in the schema (`enum` or `oneOf`).
     - `s_type`: The type of value to use in the schema.
     """
 
@@ -131,14 +132,14 @@ class DynamicSchemaFromSourceView(APIView):
     schema_description: Optional[str] = None
 
     # Default fields to build the list of items
-    default_const_field: str = "id"  # Default value for the `const` field
-    default_title_field: str  # Default value for the `title` field
-    default_description_field: Optional[str] = None  # Default value for the `description` field
+    default_value_field: str = "id"  # Default source field for `value` / `const`
+    default_label_field: str = "name"  # Default source field for `display` / `title`
+    default_description_field: Optional[str] = None  # Default source field for `description`
     # To define x- attributes, use a dictionary with the key as the x- attribute and the value as the field name.
-    # For example: {"icon": "item_icon_field"} will add {"x-icon": "item_icon_field"}
-    default_x_fields: Optional[Dict[str, str]] = None
+    # For example: {"icon": "item_icon_field"} maps source `item_icon_field` to key `icon`.
+    default_extra_fields: Optional[Dict[str, str]] = None
 
-    default_mode = "oneOf"
+    default_format: str = OUTPUT_FORMAT_ENUM
     default_type = "string"
 
     def get_source_view(self, request: Request) -> Type[APIView]:
@@ -176,25 +177,33 @@ class DynamicSchemaFromSourceView(APIView):
         Builds a map of the fields to render in the schema, based on default fields and query parameters.
         """
         query_params = self.get_query_params(request)
-        fields_map = {
-            "const": query_params.get("s_const", self.default_const_field),
-            "title": query_params.get("s_title", self.default_title_field),
-        }
-        if description_field := query_params.get("s_description", self.default_description_field):
+        fields_map: Dict[str, str] = {}
+        if self.default_extra_fields:
+            fields_map.update(self.default_extra_fields)
+        for key in query_params:
+            if key.startswith("x_") and len(key) > 2 and (path := query_params.get(key)) is not None:
+                fields_map[key[2:]] = path
+        fields_map["value"] = query_params.get("s_value") or self.default_value_field
+        fields_map["label"] = query_params.get("s_label") or self.default_label_field
+        if description_field := query_params.get("s_description") or self.default_description_field:
             fields_map["description"] = description_field
-
-        if x_fields := query_params.get("s_x", self.default_x_fields):
-            if isinstance(x_fields, str):
-                try:
-                    x_fields = json.loads(x_fields)
-                except json.JSONDecodeError:
-                    raise ValueError(f"Unable to parse x-fields: {x_fields}")
-            if not isinstance(x_fields, dict):
-                raise ValueError(f"Invalid x-fields: {x_fields}")
-            for key, value in x_fields.items():
-                fields_map[f"x-{key}"] = value
-
         return fields_map
+
+    def get_output_format(self, request: Request) -> str:
+        """
+        Resolves the output shape: an active ``output_format_override`` wins; otherwise ``s_format`` /
+        ``default_format``. Internal callers (e.g. alerting) use ``output_format_override`` to pin a
+        single shape regardless of the request.
+        """
+        if override := get_output_format_override():
+            return override
+        query_params = self.get_query_params(request)
+        output_format = query_params.get("s_format") or self.default_format
+        if output_format not in OUTPUT_FORMATS:
+            raise ValidationError(
+                {"s_format": f"Unsupported value: {output_format!r}. Allowed: {', '.join(sorted(OUTPUT_FORMATS))}."}
+            )
+        return output_format
 
     def get_data_from_source_view(self, request: Request) -> List[Dict[str, Any]]:
         """
@@ -259,6 +268,10 @@ class DynamicSchemaFromSourceView(APIView):
                     value = get_nested_value(item, attr_name)
                 schema_item[key] = value
 
+            # Omit description when unresolved so clients do not see JSON null in oneOf entries.
+            if schema_item.get("description") is None:
+                schema_item.pop("description", None)
+
             schema_items.append(schema_item)
 
         return schema_items
@@ -268,13 +281,13 @@ class DynamicSchemaFromSourceView(APIView):
         Returns the schema id, based on the url and the query parameters of the request, in order to help the
         caching of the schema, we will sort the query parameters and append them to the url.
         """
-        base_url = request.build_absolute_uri()
         query_params = self.get_query_params(request)
         query_string = sorted_query_parameters_to_string(query_params)
 
         if not query_params:
-            return base_url
+            return request.build_absolute_uri()
 
+        base_url = request.build_absolute_uri(request.path)
         return f"{base_url}?{query_string}"
 
     def generate_dynamic_schema(self, request: Request) -> Dict[str, Any]:
@@ -282,7 +295,6 @@ class DynamicSchemaFromSourceView(APIView):
         Generates a dict with a JSON schema format, using the specified source view.
         """
         query_params = self.get_query_params(request)
-        schema_mode = query_params.get("s_mode", self.default_mode)
         schema_type = query_params.get("s_type", self.default_type)
         schema = {
             "$id": self.get_schema_id(request),
@@ -297,12 +309,7 @@ class DynamicSchemaFromSourceView(APIView):
             data = [data]
 
         schema_items = self.get_schema_items(request, data)
-
-        if schema_mode == "anyOf":
-            schema["anyOf"] = schema_items
-        elif schema_mode in ["oneOf", "array", "object"]:
-            # NOTE: "array" and "object" are types, not sure yet of the implementation
-            schema["oneOf"] = schema_items
+        apply_output_format(schema, schema_items, self.get_output_format(request))
 
         return schema
 

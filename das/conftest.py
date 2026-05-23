@@ -1,10 +1,18 @@
 import copy
 import json
 import uuid
-from datetime import timedelta
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Optional, Type
 from unittest.mock import MagicMock
+
+# Set GDAL/OSR exception mode before any osgeo use (silences FutureWarning in GDAL 3.7+)
+try:
+    from osgeo import osr
+
+    osr.UseExceptions()
+except ImportError:
+    pass
 
 import django_multitenant
 import pytest
@@ -20,7 +28,6 @@ from django.contrib.contenttypes.models import ContentType
 from django.contrib.gis.geos import Point
 from django.core.management import call_command
 from django.urls import include, path
-from django.utils import timezone
 from django.views import View
 from rest_framework.test import APIClient
 
@@ -48,7 +55,6 @@ from factories import (
     PatrolSegmentSubjectFactory,
     PatrolSegmentUserFactory,
     PatrolTypeFactory,
-    PermissionFactory,
     PermissionSetFactory,
     ProviderFactory,
     SourceFactory,
@@ -211,7 +217,7 @@ def two_subject_groups(view_subject_permissions):
 @pytest.fixture
 def patrol_configuration(two_subject_groups):
     PatrolConfiguration = apps.get_model(app_label="activity", model_name="PatrolConfiguration")
-    configuration = PatrolConfiguration.objects.first()
+    configuration = PatrolConfiguration.get_instance()
 
     for subject_group in two_subject_groups:
         configuration.subject_groups.add(subject_group)
@@ -244,7 +250,10 @@ def permission_set_with_permissions(request):
     for permission in request.param:
         name, app_label, model, code_name = permission
         content_type = ContentType.objects.get(app_label=app_label, model=model)
-        permission = PermissionFactory.create(name=name, content_type=content_type, codename=code_name)
+        # Use (content_type, codename) for lookup; Permission is unique on that, not name
+        permission, _ = Permission.objects.get_or_create(
+            content_type=content_type, codename=code_name, defaults={"name": name}
+        )
         permission_set.permissions.add(permission)
     return permission_set
 
@@ -309,7 +318,7 @@ def gear_subjectsource_with_observations():
     source = gear_subjectsource.source
     provider = gear_subjectsource.source.provider
     provider.save()
-    now = timezone.now()
+    now = datetime.now(tz=timezone.utc)
     additional = generate_devices(2)
     additional["event_type"] = "gear_deployed"
     location_dict = json.loads(additional["devices"][0])["location"]
@@ -471,6 +480,12 @@ def dummy_cache(settings):
             "BACKEND": "django.core.cache.backends.locmem.LocMemCache",
             "LOCATION": "vector-tiles-test",
         },
+        settings.UPLOAD_SESSION_CACHE_ALIAS: {
+            "BACKEND": "django.core.cache.backends.locmem.LocMemCache",
+            "LOCATION": "upload-sessions-test",
+            "KEY_PREFIX": "upload_session",
+            "KEY_FUNCTION": "utils.tenant.cache.make_cache_key",
+        },
     }
 
 
@@ -629,7 +644,7 @@ def tenant(tenant_response):
 
 
 @pytest.fixture
-def das_tenant(tenant):
+def das_tenant(db, tenant):
     return TenantFactory.create(id=tenant.id, domain=tenant.domain)
 
 
@@ -712,11 +727,16 @@ def tenant_settings(request, monkeypatch, tenant):
     return tenant
 
 
-def _monkeypatch_current_tenant(request, monkeypatch, das_tenant):
-    """Set das_tenant as the current tenant for the request scope (thread_locals)."""
+def _monkeypatch_current_tenant(request, db, monkeypatch, das_tenant):
+    """This fixture is used to monkeypatch the get/set of das_tenant on the current thread.
+    Secondly if used as a class fixture, it injects the das_tenant into that class
+    so that individual tests can access the das_tenant object.
+    For example self.das_tenant.id
+    Requires the Django DB (db) so tests using this fixture get database access."""
     thread_locals = MagicMock()
     thread_locals.tenant = das_tenant
     monkeypatch.setattr(django_multitenant.utils, "_thread_locals", thread_locals)
+    monkeypatch.setattr(django_multitenant.utils, "_context", thread_locals)
     monkeypatch.setattr("django_multitenant.utils.set_current_tenant", MagicMock(return_value=None))
     monkeypatch.setattr("django_multitenant.utils.unset_current_tenant", MagicMock(return_value=None))
     if getattr(request, "cls", None):
@@ -725,21 +745,17 @@ def _monkeypatch_current_tenant(request, monkeypatch, das_tenant):
 
 
 @pytest.fixture
-def das_tenant_monkeypatch(request, monkeypatch, das_tenant):
-    """This fixture is used to monkeypatch the get/set of das_tenant on the current thread.
-    Secondly if used as a class fixture, it injects the das_tenant into that class
-    so that individual tests can access the das_tenant object.
-    For example self.das_tenant.id"""
-    return _monkeypatch_current_tenant(request, monkeypatch, das_tenant)
+def das_tenant_monkeypatch(request, db, monkeypatch, das_tenant):
+    return _monkeypatch_current_tenant(request, db, monkeypatch, das_tenant)
 
 
 @pytest.fixture
-def scoped_das_tenant(request, monkeypatch, one_tenant):
+def scoped_das_tenant(request, db, monkeypatch, one_tenant):
     """DASTenant unique to a single test, with current tenant set so ORM only sees this test's data.
     Use when the test relies on tenant-scoped managers and
     *must not see data from other tests* (e.g. with --reuse-db). Uses the same monkeypatch
     as `das_tenant_monkeypatch`, but with a tenant from `one_tenant`."""
-    return _monkeypatch_current_tenant(request, monkeypatch, one_tenant[0])
+    return _monkeypatch_current_tenant(request, db, monkeypatch, one_tenant[0])
 
 
 @pytest.fixture(autouse=True, scope="session")
@@ -805,7 +821,7 @@ def subject_source_with_observations():
 @pytest.fixture
 def subject_source_with_older_observation_past_show_track_days_since():
     subject_source = SubjectSourceFactory()
-    recorded_at = timezone.now() - timedelta(days=settings.SHOW_TRACK_DAYS + 1)
+    recorded_at = datetime.now(tz=timezone.utc) - timedelta(days=settings.SHOW_TRACK_DAYS + 1)
     observation = ObservationFactory(recorded_at=recorded_at, source=subject_source.source)
     return subject_source, observation
 

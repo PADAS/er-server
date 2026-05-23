@@ -6,7 +6,6 @@ from typing import NamedTuple
 
 import pytest
 from psycopg2.extras import DateTimeTZRange
-from pytz import UTC
 
 from django.contrib.auth import get_user_model
 from django.contrib.gis.geos import Point
@@ -40,6 +39,7 @@ User = get_user_model()
 FIXTURE_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), "fixtures")
 
 FIXTURE_FOR_SUBJECT_STATUS_TESTS = "test/radio-subject-fixtures.json"
+RADIO_FIXTURE_SUBJECT_ID = "d35cb4fe-c15f-404f-bc86-b479f01b6a01"  # the ID is defined in the radio-subject-fixture
 
 
 class ObservationTestCase(BaseAPITest):
@@ -51,13 +51,34 @@ class ObservationTestCase(BaseAPITest):
         call_command("loaddata_with_tenant", "test/observations_subject_source.json")
         call_command("loaddata_with_tenant", "test/observations_observation.json")
         call_command("loaddata_with_tenant", FIXTURE_FOR_SUBJECT_STATUS_TESTS)
+        self._shift_radio_fixture_observations_to_recent()
         user_const = dict(last_name="last", first_name="first")
         self.user = User.objects.create_user(
             "user", "user@test.com", "all_perms_user", is_superuser=True, is_staff=True, **user_const
         )
 
+    @staticmethod
+    def _shift_radio_fixture_observations_to_recent():
+        # Fixture timestamps are from 2020; shift them so the latest lands near
+        # "now" and stays inside get_latest_observation_for_subject's lookback.
+        source_ids = list(
+            SubjectSource.objects.filter(subject_id=RADIO_FIXTURE_SUBJECT_ID).values_list("source_id", flat=True)
+        )
+        latest = (
+            Observation.objects.filter(source_id__in=source_ids)
+            .order_by("-recorded_at")
+            .values_list("recorded_at", flat=True)
+            .first()
+        )
+        if latest is None:
+            return
+        delta = datetime.now(tz=timezone.utc) - latest
+        Observation.objects.filter(source_id__in=source_ids).update(
+            recorded_at=F("recorded_at") + delta,
+        )
+
     def test_observation_get_source_range_observations_in_range(self):
-        until = datetime(2015, 11, 10, tzinfo=UTC)
+        until = datetime(2015, 11, 10, tzinfo=timezone.utc)
         since = until - timedelta(days=2)
 
         subject_source = SubjectSource.objects.get(source="2e47839d-0277-4398-904d-91da8b0698f4")
@@ -69,7 +90,7 @@ class ObservationTestCase(BaseAPITest):
 
     def test_observation_get_source_range_observations_outside_range(self):
         subject_sources = SubjectSource.objects.all()
-        until = datetime(3030, 11, 10, tzinfo=UTC)
+        until = datetime(3030, 11, 10, tzinfo=timezone.utc)
         since = until - timedelta(days=2)
 
         observations = Observation.objects.get_subject_observations(
@@ -85,7 +106,7 @@ class ObservationTestCase(BaseAPITest):
         source_id = "56b1cf14-ef97-4054-8fbd-1342f265b2a9"
 
         # Generate some random data for the observation.
-        observation_time = UTC.localize(datetime.now())
+        observation_time = datetime.now(tz=timezone.utc)
         fixed_latitude = float(random.randint(3000, 3000)) / 100
         fixed_longitude = float(random.randint(2800, 4000)) / 100
 
@@ -110,7 +131,7 @@ class ObservationTestCase(BaseAPITest):
         source_id = "56b1cf14-ef97-4054-8fbd-1342f265b2a9"
 
         # Generate some random data for the observation.
-        observation_time = UTC.localize(datetime.now())
+        observation_time = datetime.now(tz=timezone.utc)
         fixed_latitude = float(random.randint(3000, 3000)) / 100
         fixed_longitude = float(random.randint(2800, 4000)) / 100
 
@@ -133,7 +154,7 @@ class ObservationTestCase(BaseAPITest):
         source_id = "56b1cf14-ef97-4054-8fbd-1342f265b2a9"
 
         # Generate some random data for the observation.
-        observation_time = UTC.localize(datetime.now())
+        observation_time = datetime.now(tz=timezone.utc)
         fixed_latitude = float(random.randint(3000, 3000)) / 100
         fixed_longitude = float(random.randint(2800, 4000)) / 100
 
@@ -206,7 +227,7 @@ class ObservationTestCase(BaseAPITest):
         source_id = "56b1cf14-ef97-4054-8fbd-1342f265b2a9"
 
         # Generate some random data for the observation.
-        observation_time = UTC.localize(datetime.now())
+        observation_time = datetime.now(tz=timezone.utc)
         fixed_latitude = float(random.randint(3000, 3000)) / 100
         fixed_longitude = float(random.randint(2800, 4000)) / 100
 
@@ -232,7 +253,7 @@ class ObservationTestCase(BaseAPITest):
         subject_status = subject_statuses.first()
         self.assertEqual(subject_status.recorded_at, observation_time)
         self.assertEqual((subject_status.location.x, subject_status.location.y), (fixed_longitude, fixed_latitude))
-        observation_time2 = UTC.localize(datetime.now())
+        observation_time2 = datetime.now(tz=timezone.utc)
         observation = {
             "location": fixed_location,
             "recorded_at": observation_time2,
@@ -399,19 +420,22 @@ class ObservationTestCase(BaseAPITest):
         # Delete the subjectsource
         SubjectSource.objects.filter(subject_id=subject_id).delete()
 
-        # Create a subjectsource that is expired
+        # Create a subjectsource whose assigned_range has already closed (its upper
+        # bound is in the past) but still falls inside the latest-observation
+        # lookback window.
+        now = datetime.now(tz=timezone.utc)
+        range_lower = now - timedelta(days=100)
+        range_upper = now - timedelta(days=99)
         subjectsource = SubjectSource.objects.create(
             subject_id=subject_id,
             source_id=source_id,
-            assigned_range=DateTimeTZRange(
-                lower=datetime(2019, 1, 1, tzinfo=timezone.utc), upper=datetime(2019, 1, 2, tzinfo=timezone.utc)
-            ),
+            assigned_range=DateTimeTZRange(lower=range_lower, upper=range_upper),
         )
 
         # Create an observation for the expired subjectsource
         observation = Observation.objects.create(
             source_id=source_id,
-            recorded_at=datetime(2019, 1, 1, 12, 0, 0, tzinfo=timezone.utc),
+            recorded_at=range_lower + timedelta(hours=12),
             location=Point(x=float(random.randint(2800, 4000)) / 100, y=float(random.randint(3000, 3000)) / 100),
             additional={"radio_state": "online"},
         )
@@ -438,7 +462,7 @@ class ObservationTestCase(BaseAPITest):
         )
 
         # Generate some random data for the observation.
-        observation_time = UTC.localize(datetime.now())
+        observation_time = datetime.now(tz=timezone.utc)
         fixed_latitude = float(random.randint(3000, 3000)) / 100
         fixed_longitude = float(random.randint(2800, 4000)) / 100
 
@@ -584,7 +608,6 @@ class TwoSubjectsOneSource(NamedTuple):
 
 
 @pytest.fixture
-@pytest.mark.usefixtures("tenant_settings", "das_tenant_monkeypatch")
 def two_subjects_one_source(db):
     bobo = Subject.objects.create_subject(name="Bobo", subject_subtype_id="elephant")
     ivy = Subject.objects.create_subject(name="Ivy", subject_subtype_id="elephant")

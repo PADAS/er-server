@@ -1,14 +1,13 @@
-import datetime
 import json
 import logging
 import re
 import uuid
+from datetime import datetime, time, timedelta, timezone
 from enum import Enum
 from itertools import chain
 from operator import attrgetter, itemgetter
 
 import phonenumbers
-import pytz
 from django_multitenant.fields import TenantForeignKey, TenantOneToOneField
 from django_multitenant.mixins import TenantManagerMixin, TenantModelMixin
 from versatileimagefield.fields import VersatileImageField
@@ -44,7 +43,7 @@ from django.db.models import (
     When,
 )
 from django.db.models.functions import Cast, Lower
-from django.utils import dateparse, timezone
+from django.utils import dateparse
 from django.utils.encoding import force_str
 from django.utils.translation import gettext_lazy as _
 
@@ -64,13 +63,14 @@ from revision.manager import (
     relation_deleted,
 )
 from utils.gis import convert_to_point, get_circle_polygon_from_point
-from utils.html import clean_user_text
+from utils.html import clean_user_data, clean_user_text
 from utils.json import parse_bool
 from utils.migrations.columns import default_tenant_id
 from utils.models import CommonTenantManager
 from utils.rank import RankModelMixin
 from utils.tenant import get_tenant_settings
 from utils.tenant.models import TenantThroughModel
+from utils.user import make_random_password
 
 from .constants import (
     PRI_BLACK,
@@ -82,11 +82,11 @@ from .constants import (
     SC_ACTIVE,
     SC_NEW,
     SC_RESOLVED,
+    SC_REVIEW,
     STATE_CHOICES,
 )
 
 logger = logging.getLogger(__name__)
-
 
 DEFAULT_EVENT_PATROL_ICON_ID = "generic_rep"
 
@@ -103,8 +103,8 @@ def get_sentinel_user():
             last_name="account",
             first_name="deleted",
             is_active=False,
+            password=make_random_password(),
             is_system=True,
-            password=User.objects.make_random_password(),
         ),
     )
     return user
@@ -412,6 +412,9 @@ class EventType(TenantModelMixin, RankModelMixin, TimestampedModel, RevisionMixi
     def save(self, *args, **kwargs):
         self.full_clean()
         self.value = self.value.lower()
+        update_fields = kwargs.get("update_fields")
+        if update_fields is not None:
+            kwargs["update_fields"] = set(update_fields) | {"value"}
         return super().save(*args, **kwargs)
 
     def set_to_inactive(self):
@@ -449,19 +452,23 @@ class RefreshRecreateEventDetailViewQuery(models.QuerySet):
     def recreate(self, activity, task_mode):
         return self.create(
             task_mode=task_mode,
-            started_at=datetime.datetime.now(tz=pytz.utc),
+            started_at=datetime.now(tz=timezone.utc),
             performed_by=activity,
             maintenance_status="running",
         )
 
     def refresh(self, activity, task_mode):
-        return self.create(task_mode=task_mode, started_at=datetime.datetime.now(tz=pytz.utc), performed_by=activity)
+        return self.create(task_mode=task_mode, started_at=datetime.now(tz=timezone.utc), performed_by=activity)
 
     def update_status(self, status):
         self.update(maintenance_status=status)
 
     def update_status_and_ended_at(self, status, error_details):
-        self.update(maintenance_status=status, ended_at=datetime.datetime.now(tz=pytz.utc), error_details=error_details)
+        self.update(
+            maintenance_status=status,
+            ended_at=datetime.now(tz=timezone.utc),
+            error_details=error_details,
+        )
 
 
 class RefreshRecreateEventDetailViewManager(
@@ -507,7 +514,7 @@ class EventFilteringQuerySet(models.QuerySet, FilterFieldMixin):
             "-created_at"
         )
         if last_days:
-            lt = timezone.now()
+            lt = datetime.now(tz=timezone.utc)
             gt = lt - last_days
             events = events.filter(created_at__range=(gt, lt))
 
@@ -612,7 +619,7 @@ class EventFilteringQuerySet(models.QuerySet, FilterFieldMixin):
 
     def by_duration(self, duration):
         if duration:
-            return self.filter(event_time__gt=(timezone.now() - duration))
+            return self.filter(event_time__gt=(datetime.now(tz=timezone.utc) - duration))
         return self
 
     def by_date_range(self, lower=None, upper=None):
@@ -639,12 +646,15 @@ class EventFilteringQuerySet(models.QuerySet, FilterFieldMixin):
             return self
         ts_query = ":* & ".join(words) + ":*"
         search_query = SearchQuery(ts_query, search_type="raw")
-        filter_query = (
-            Q(tsvectormodel__tsvector_event=search_query)
-            | Q(tsvectormodel__tsvector_event_note=search_query)
-            | Q(serial_number__istartswith=search_text)
-        )
-        return self.filter(filter_query)
+        # Wrap tsvector matches in Exists subqueries so the OR with serial_number
+        # doesn't force a LEFT OUTER JOIN to activity_tsvectormodel — the join
+        # made the paginator's COUNT(*) wrapper prohibitively expensive.
+        ts_event_match = TSVectorModel.objects.filter(event_id=OuterRef("pk"), tsvector_event=search_query)
+        ts_note_match = TSVectorModel.objects.filter(event_id=OuterRef("pk"), tsvector_event_note=search_query)
+        return self.alias(
+            _ts_event_match=Exists(ts_event_match),
+            _ts_note_match=Exists(ts_note_match),
+        ).filter(Q(_ts_event_match=True) | Q(_ts_note_match=True) | Q(serial_number__istartswith=search_text))
 
     def by_created_date(self, lower=None, upper=None):
         if lower and upper:
@@ -944,6 +954,7 @@ class Event(TenantModelMixin, SerialNumberModelMixin, RevisionMixin, Timestamped
     SC_NEW = SC_NEW
     SC_ACTIVE = SC_ACTIVE
     SC_RESOLVED = SC_RESOLVED
+    SC_REVIEW = SC_REVIEW
 
     STATE_CHOICES = STATE_CHOICES
 
@@ -988,7 +999,7 @@ class Event(TenantModelMixin, SerialNumberModelMixin, RevisionMixin, Timestamped
     message = models.TextField(blank=True)
     comment = models.TextField(blank=True, null=True, verbose_name="Additional message text")
 
-    title = models.TextField(blank=True, null=True, verbose_name="Event Title.")
+    title = models.TextField(blank=True, null=True, verbose_name="Event Title")
 
     created_by_user = TenantForeignKey(
         settings.AUTH_USER_MODEL,
@@ -1109,8 +1120,8 @@ class Event(TenantModelMixin, SerialNumberModelMixin, RevisionMixin, Timestamped
 
     def dependent_table_updated(self):
         # if difference is less than 1, probably means the event and other object were created together
-        if abs((self.created_at - timezone.now()).total_seconds()) > 1:
-            self.updated_at = timezone.now()
+        if abs((self.created_at - datetime.now(tz=timezone.utc)).total_seconds()) > 1:
+            self.updated_at = datetime.now(tz=timezone.utc)
             self.state = "active" if self.state == "new" else self.state
             self.sort_at = self.updated_at
             self.save()
@@ -1161,7 +1172,7 @@ class Event(TenantModelMixin, SerialNumberModelMixin, RevisionMixin, Timestamped
         ):
             pass
         else:
-            self.sort_at = timezone.now()
+            self.sort_at = datetime.now(tz=timezone.utc)
             save_fields.add("sort_at")
 
         # move the state to Active if we are stuck on New.
@@ -1180,9 +1191,13 @@ class Event(TenantModelMixin, SerialNumberModelMixin, RevisionMixin, Timestamped
             update_fields.update(save_fields)
             kwargs["update_fields"] = list(update_fields)
 
+        # Capture before super().save() flips _state.adding to False.
+        is_insert = self._state.adding
         result = super().save(*args, **kwargs)
 
-        if notify_parent_events:
+        # On insert, no parent collection can contain this event yet — parent
+        # "contains" relationships are wired up after create_event returns.
+        if notify_parent_events and not is_insert:
             self.update_parent_events(updated_at=self.updated_at, sort_at=self.sort_at)
 
         return result
@@ -1334,7 +1349,7 @@ class EventNoteManager(TenantManagerMixin, models.Manager):
 class EventNote(TenantModelMixin, RevisionMixin, TimestampedModel):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
     text = models.TextField()
-    created_by_user = TenantForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, null=True)
+    created_by_user = TenantForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, null=True, blank=True)
     event = TenantForeignKey(Event, on_delete=models.CASCADE, related_name="notes", related_query_name="note")
     revision = Revision()
     das_tenant = models.ForeignKey(DASTenant, on_delete=models.CASCADE, default=default_tenant_id)
@@ -1392,6 +1407,8 @@ class EventDetails(TenantModelMixin, RevisionMixin, TimestampedModel):
         default_manager_name = "objects"
 
     def save(self, *args, update_parent_event=True, **kwargs):
+        if self.data is not None:
+            self.data = clean_user_data(self.data, "EventDetails.data")
         result = super().save(*args, **kwargs)
         if update_parent_event:
             self.event.dependent_table_updated()
@@ -1406,7 +1423,7 @@ def upload_to(instance, filename):
     :return: relative path for storing uploaded image
     """
     name, extension = filename.rsplit(".", 1) if "." in filename else (filename, "")
-    d = datetime.datetime.now().replace(tzinfo=pytz.UTC)
+    d = datetime.now(tz=timezone.utc)
     tenant = get_tenant_settings()
     file_path = f"{tenant.slug_name}/eventphotos/{d.year}/{d.month}/{d.day}/{instance.id}/{name}.{extension}"
 
@@ -1989,8 +2006,8 @@ class PatrolFilteringQuerySet(models.QuerySet, FilterFieldMixin):
         queryset = self
         lower, upper = parse_date_range(filter_param)
 
-        lower = lower or pytz.utc.localize(datetime.datetime.min)
-        upper = upper or pytz.utc.localize(datetime.datetime.max)
+        lower = lower or datetime.min.replace(tzinfo=timezone.utc)
+        upper = upper or datetime.max.replace(tzinfo=timezone.utc)
 
         if patrols_overlap_daterange:
             # Patrols whose start to end date range overlaps with date range
@@ -2018,8 +2035,8 @@ class PatrolFilteringQuerySet(models.QuerySet, FilterFieldMixin):
         else:
             # Patrols starting within date range
             upper = (
-                (upper - datetime.timedelta(minutes=1)).replace(second=59, microsecond=999999)
-                if upper.time() == datetime.time(0, 0)
+                (upper - timedelta(minutes=1)).replace(second=59, microsecond=999999)
+                if upper.time() == time(0, 0)
                 else upper
             )
             start_filter = Q(patrol_segment__time_range__startswith__range=(lower, upper)) | Q(
@@ -2037,7 +2054,7 @@ class PatrolFilteringQuerySet(models.QuerySet, FilterFieldMixin):
         return self.filter_field("patrol_segment__patrol_type__value", patrol_type)
 
     def by_state(self, states):
-        now = datetime.datetime.now(tz=pytz.utc)
+        now = datetime.now(tz=timezone.utc)
         q1 = q2 = q3 = q4 = q5 = self.none()
 
         for state in states:
@@ -2054,7 +2071,7 @@ class PatrolFilteringQuerySet(models.QuerySet, FilterFieldMixin):
                 q3 = self.filter(state=PC_DONE)
 
             if state == StateFilters.overdue.value:
-                supposed_start = now - datetime.timedelta(minutes=30)
+                supposed_start = now - timedelta(minutes=30)
                 st_filter = Q(patrol_segment__time_range__startswith__isnull=True) & Q(
                     patrol_segment__scheduled_start__lte=supposed_start
                 )
@@ -2069,7 +2086,7 @@ class PatrolFilteringQuerySet(models.QuerySet, FilterFieldMixin):
         return self.filter_field("patrol_segment__leader_id", subject)
 
     def sort_patrols(self):
-        set_time = datetime.datetime.now(tz=pytz.utc) - datetime.timedelta(minutes=30)
+        set_time = datetime.now(tz=timezone.utc) - timedelta(minutes=30)
         subject = Subject.objects.filter(id=OuterRef("patrol_segment__leader_id"))
 
         overdue_q = (
@@ -2179,10 +2196,12 @@ class Patrol(TenantModelMixin, SerialNumberModelMixin, TimestampedModel, Revisio
 
     def save(self, force_insert=False, force_update=False, using=None, update_fields=None):
         self._update_patrol_state()
+        if update_fields is not None:
+            update_fields = set(update_fields) | {"state"}
         super().save(force_insert, force_update, using, update_fields)
 
     def _update_patrol_state(self):
-        now = datetime.datetime.now(tz=pytz.utc)
+        now = datetime.now(tz=timezone.utc)
         for segment in self.patrol_segments.all():
             if (
                 segment.time_range
@@ -2352,7 +2371,7 @@ class PatrolSegmentManager(TenantManagerMixin, models.Manager):
             .all()
             .by_is_active()
         )
-        subject_groups = PatrolConfiguration.objects.first().effective_subject_groups
+        subject_groups = PatrolConfiguration.get_instance().effective_subject_groups
         subjects_available = active_subjects.by_subjectgroups(subject_groups, user=user)
 
         return subjects_available
@@ -2490,3 +2509,88 @@ class EventGeometry(TenantModelMixin, RevisionMixin, TimestampedModel):
         result = super().save(*args, **kwargs)
         self.event.dependent_table_updated()
         return result
+
+
+class CommunityInput(TenantModelMixin, TimestampedModel):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4)
+    name = models.CharField(max_length=255)
+    value = models.CharField(
+        max_length=255,
+        validators=[
+            RegexValidator(
+                regex=r"^[A-Za-z0-9_]+$",
+                message="Value must contain only alphanumeric characters or underscores.",
+            )
+        ],
+    )
+    is_active = models.BooleanField(default=True)
+    event_types = models.ManyToManyField(
+        EventType,
+        related_name="community_inputs",
+        through="CommunityInputEventType",
+        blank=True,
+    )
+    das_tenant = models.ForeignKey(DASTenant, on_delete=models.CASCADE, default=default_tenant_id)
+    objects = CommonTenantManager()
+    tenant_id = "das_tenant_id"
+
+    class Meta:
+        verbose_name = _("Community Input")
+        verbose_name_plural = _("Community Inputs")
+        base_manager_name = "objects"
+        default_manager_name = "objects"
+        constraints = [
+            UniqueConstraint(
+                fields=["value", "das_tenant"],
+                name="unique_community_input_value_per_tenant",
+            )
+        ]
+
+    def __str__(self):
+        return self.name
+
+
+class CommunityInputEventType(TenantThroughModel):
+    community_input = TenantForeignKey(CommunityInput, on_delete=models.CASCADE, db_constraint=False)
+    event_type = TenantForeignKey(EventType, on_delete=models.CASCADE, db_constraint=False)
+    order = models.PositiveIntegerField(default=0)
+
+    class Meta(TenantThroughModel.Meta):
+        ordering = ["order"]
+        constraints = [
+            UniqueConstraint(
+                fields=["community_input", "event_type", "das_tenant"],
+                name="unique_community_input_event_type_per_tenant",
+            )
+        ]
+
+
+class CommunityInputEvent(TenantThroughModel):
+    """Associates an event created via a community input survey with that survey.
+
+    Deleting or disabling the CommunityInput sets community_input to NULL here,
+    leaving the Event untouched.
+    """
+
+    community_input = TenantForeignKey(
+        CommunityInput,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        db_constraint=False,
+        related_name="submitted_events",
+    )
+    event = TenantForeignKey(
+        Event,
+        on_delete=models.CASCADE,
+        db_constraint=False,
+        related_name="community_input_submission",
+    )
+
+    class Meta(TenantThroughModel.Meta):
+        constraints = [
+            UniqueConstraint(
+                fields=["event", "das_tenant"],
+                name="unique_community_input_event_per_tenant",
+            )
+        ]

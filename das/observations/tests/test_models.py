@@ -1,15 +1,12 @@
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 import pytest
-import pytz
-from pytz import UTC
 
 from django.contrib.auth import get_permission_codename
 from django.contrib.auth.models import Permission
 from django.contrib.gis.geos import Point
 from django.db.models import F
 from django.test import TestCase, override_settings
-from django.utils import timezone
 
 from accounts.models import PermissionSet, User
 from observations.models import (
@@ -23,6 +20,7 @@ from observations.models import (
     SubjectStatus,
     escape_provider_name,
 )
+from utils.user import make_random_password
 
 
 def make_perm(perm):
@@ -70,7 +68,7 @@ class SubjectPermissionsTestCase(TestCase):
         user = User.objects.create_user(
             username="active_user",
             email="active_user@test.com",
-            password=User.objects.make_random_password(),
+            password=make_random_password(),
             **self.user_const,
         )
 
@@ -114,7 +112,7 @@ class SubjectAlertTestCase(TestCase):
         user = User.objects.create_user(
             username="active_user",
             email="active_user@test.com",
-            password=User.objects.make_random_password(),
+            password=make_random_password(),
             **self.user_const,
         )
         user.permission_sets.add(self.some_set)
@@ -124,7 +122,7 @@ class SubjectAlertTestCase(TestCase):
         user2 = User.objects.create_user(
             username="no_alert",
             email="active@test.com",
-            password=User.objects.make_random_password(),
+            password=make_random_password(),
             **self.user_const,
         )
 
@@ -169,7 +167,7 @@ class TestObservationManager:
     @pytest.mark.parametrize("include_empty_location", [False, True])
     def test_get_latest_observation_source_with_bunch_of_observations(self, subject_source, include_empty_location):
         source = subject_source.source
-        now = datetime.now(tz=pytz.utc)
+        now = datetime.now(tz=timezone.utc)
         latest_observation_id = None
         for count, point in enumerate(self.OBSERVATION_POINTS, 1):
             observation = Observation.objects.create(
@@ -192,7 +190,7 @@ class TestObservationManager:
 
     def test_get_latest_observation_source_with_all_empty_observations_include_empty_observations(self, subject_source):
         source = subject_source.source
-        now = datetime.now(tz=pytz.utc)
+        now = datetime.now(tz=timezone.utc)
         latest_observation_id = None
         for count, point in enumerate(self.EMPTY_OBSERVATION_POINTS, 1):
             observation = Observation.objects.create(
@@ -213,7 +211,7 @@ class TestObservationManager:
         self, subject_source
     ):
         source = subject_source.source
-        now = datetime.now(tz=pytz.utc)
+        now = datetime.now(tz=timezone.utc)
         for count, point in enumerate(self.EMPTY_OBSERVATION_POINTS, 1):
             Observation.objects.create(
                 recorded_at=now - timedelta(minutes=count * 5),
@@ -226,7 +224,7 @@ class TestObservationManager:
 
     def test_get_latest_observation_source_with_latest_flagged_as_excluded(self, subject_source):
         source = subject_source.source
-        now = datetime.now(tz=pytz.utc)
+        now = datetime.now(tz=timezone.utc)
         latest_observation = Observation.objects.create(
             recorded_at=now - timedelta(minutes=5), location=Point(self.OBSERVATION_POINTS[0]), source=source
         )
@@ -272,7 +270,7 @@ class TestObservationTriggers:
         observation = Observation.objects.create(
             source=source,
             location=Point(0, 0),
-            recorded_at=datetime.now(tz=UTC),
+            recorded_at=datetime.now(tz=timezone.utc),
         )
         sources = (
             Source.objects.filter(id__in=[source.id])
@@ -285,7 +283,7 @@ class TestObservationTriggers:
 
     def test_insert_a_observation_with_previous_observations_in_source(self, subject_source):
         source = subject_source.source
-        now = datetime.now(tz=UTC)
+        now = datetime.now(tz=timezone.utc)
         for item in range(1, 4):
             Observation.objects.create(
                 source=source,
@@ -310,7 +308,7 @@ class TestObservationTriggers:
 
     def test_edit_not_the_latest_observation_and_do_it_the_latest(self, subject_source):
         source = subject_source.source
-        now = datetime.now(tz=UTC)
+        now = datetime.now(tz=timezone.utc)
         middle_observation_id = None
         for item in range(1, 5):
             tmp_observation = Observation.objects.create(
@@ -336,7 +334,7 @@ class TestObservationTriggers:
 
     def test_edit_latest_observation_and_keep_it_the_latest(self, subject_source):
         source = subject_source.source
-        now = datetime.now(tz=UTC)
+        now = datetime.now(tz=timezone.utc)
         for item in range(1, 5):
             Observation.objects.create(
                 source=source,
@@ -359,7 +357,7 @@ class TestObservationTriggers:
 
     def test_exclude_latest_observation_for_source(self, subject_source):
         source = subject_source.source
-        now = datetime.now(tz=UTC)
+        now = datetime.now(tz=timezone.utc)
         for item in range(1, 5):
             Observation.objects.create(
                 source=source,
@@ -378,7 +376,7 @@ class TestObservationTriggers:
     def test_delete_not_latest_observation(self, subject_source):
         source = subject_source.source
 
-        now = datetime.now(tz=UTC)
+        now = datetime.now(tz=timezone.utc)
         middle_observation_id = None
         for item in range(1, 5):
             tmp_observation = Observation.objects.create(
@@ -402,7 +400,7 @@ class TestObservationTriggers:
 
     def test_delete_the_latest_observation(self, subject_source):
         source = subject_source.source
-        now = datetime.now(tz=UTC)
+        now = datetime.now(tz=timezone.utc)
         for item in range(1, 5):
             Observation.objects.create(
                 source=source,
@@ -427,7 +425,7 @@ class TestObservationTriggers:
         observation = Observation.objects.create(
             source=source,
             location=Point(0, 0),
-            recorded_at=datetime.now(tz=UTC),
+            recorded_at=datetime.now(tz=timezone.utc),
         )
         observation.delete()
         sources = (
@@ -452,7 +450,7 @@ class TestExclusionFlagsFiltering:
 
         subject_source = SubjectSourceFactory.create()
         source = subject_source.source
-        now = datetime.now(tz=pytz.utc)
+        now = datetime.now(tz=timezone.utc)
 
         # Create observations with different exclusion flag combinations
         obs_no_flags = Observation.objects.create(
@@ -671,7 +669,7 @@ class TestExclusionFlagsFiltering:
     def test_include_empty_location_parameter(self, exclusion_flags_test_data):
         """Test that include_empty_location parameter works with all filtering modes."""
         source = exclusion_flags_test_data["source"]
-        now = datetime.now(tz=pytz.utc)
+        now = datetime.now(tz=timezone.utc)
 
         # Create observation at (0,0)
         empty_obs = Observation.objects.create(
@@ -695,7 +693,7 @@ class TestExclusionFlagsFiltering:
         """With include_empty_location=True, observations at (0,0) that have EXCLUDED_AUTOMATICALLY
         (as applied on ingest) are included when filter_flag=0. ERA-12387."""
         source = exclusion_flags_test_data["source"]
-        now = datetime.now(tz=pytz.utc)
+        now = datetime.now(tz=timezone.utc)
 
         # Simulate ingest: 0,0 observations get EXCLUDED_AUTOMATICALLY set upstream
         auto_excluded_empty = Observation.objects.create(
@@ -754,7 +752,7 @@ class TestObservationQuerySet(TestCase):
         source = Source.objects.create(provider_id=1)
 
         # Create subject-source assignment
-        now = timezone.now()
+        now = datetime.now(tz=timezone.utc)
         SubjectSource.objects.create(
             subject=subject, source=source, assigned_range=(now - timedelta(days=1), now + timedelta(days=1))
         )
@@ -782,7 +780,7 @@ class TestObservationQuerySet(TestCase):
 
     def test_get_subject_observations_partitioned_no_source_assignments(self):
         """Test that method returns empty QuerySet when no source assignments exist."""
-        present_time = timezone.now()
+        present_time = datetime.now(tz=timezone.utc)
 
         # Create an expired source assignment
         subject_1 = Subject.objects.create(name="Test Subject 1")
@@ -824,7 +822,7 @@ class TestObservationQuerySet(TestCase):
 
     def test_get_latest_observation_for_subject_recent(self):
         """Test that get_latest_observation_for_subject returns the most recent observation within the lookback window."""
-        now = timezone.now()
+        now = datetime.now(tz=timezone.utc)
         subject = Subject.objects.create(name="Test Subject Recent")
         source = Source.objects.create(provider_id=1)
         SubjectSource.objects.create(
@@ -840,7 +838,7 @@ class TestObservationQuerySet(TestCase):
         """Test that get_latest_observation_for_subject falls back to older observations outside the lookback window."""
         from observations.models import RECENT_OBSERVATION_LOOKBACK_DAYS
 
-        now = timezone.now()
+        now = datetime.now(tz=timezone.utc)
         subject = Subject.objects.create(name="Test Subject Old")
         source = Source.objects.create(provider_id=1)
         SubjectSource.objects.create(
@@ -858,11 +856,35 @@ class TestObservationQuerySet(TestCase):
 
     def test_get_latest_observation_for_subject_none(self):
         """Test that get_latest_observation_for_subject returns None when no observations exist."""
-        now = timezone.now()
+        now = datetime.now(tz=timezone.utc)
         subject = Subject.objects.create(name="Test Subject None")
         source = Source.objects.create(provider_id=1)
         SubjectSource.objects.create(
             subject=subject, source=source, assigned_range=(now - timedelta(days=1), now + timedelta(days=1))
+        )
+
+        result = Observation.objects.get_latest_observation_for_subject(subject)
+        self.assertIsNone(result)
+
+    def test_get_latest_observation_for_subject_beyond_extended_window(self):
+        """Subjects with observations only outside the extended window are treated as inactive."""
+        from datetime import timezone as dt_timezone
+
+        from observations.models import EXTENDED_OBSERVATION_LOOKBACK_DAYS
+
+        now = datetime.now(dt_timezone.utc)
+        subject = Subject.objects.create(name="Test Subject Beyond Extended")
+        source = Source.objects.create(provider_id=1)
+        SubjectSource.objects.create(
+            subject=subject,
+            source=source,
+            assigned_range=(now - timedelta(days=EXTENDED_OBSERVATION_LOOKBACK_DAYS + 30), now + timedelta(days=1)),
+        )
+
+        Observation.objects.create(
+            source=source,
+            recorded_at=now - timedelta(days=EXTENDED_OBSERVATION_LOOKBACK_DAYS + 1),
+            location="POINT(1.0 1.0)",
         )
 
         result = Observation.objects.get_latest_observation_for_subject(subject)
@@ -884,7 +906,7 @@ class TestObservationExclusionProcessing:
         # observation with invalid location, and was automatically excluded
         Observation.objects.create(
             source=subject_source.source,
-            recorded_at=timezone.now(),
+            recorded_at=datetime.now(tz=timezone.utc),
             location=Point(0, 0),
             exclusion_flags=Observation.EXCLUDED_AUTOMATICALLY,
         )

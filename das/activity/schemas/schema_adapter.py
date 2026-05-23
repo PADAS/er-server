@@ -15,6 +15,7 @@ from rest_framework.request import Request as DRFRequest
 import utils.schema_utils as schema_utils
 from activity.models import EventType
 from activity.schemas.eventtype_service import EventTypeSchemaService
+from schemas.format_serializers import OUTPUT_FORMAT_ONE_OF, output_format_override
 
 logger = logging.getLogger(__name__)
 
@@ -92,10 +93,16 @@ class V2SchemaAdapter:
         self._property_order = None
 
     def _ensure_rendered(self):
-        """Ensure the schema is rendered and cached."""
+        """Ensure the schema is rendered and cached.
+
+        Pins nested dynamic-schema renders to ``oneOf`` so ``_find_choice_display`` (which walks
+        ``oneOf`` branches) keeps resolving labels regardless of each source view's
+        ``default_format`` or what the public API would return for ``s_format``.
+        """
         if self._rendered_schema is None:
             if self.request:
-                result = self._service.get_rendered_schema(EventType(schema=json.dumps(self.schema)), self.request)
+                with output_format_override(OUTPUT_FORMAT_ONE_OF):
+                    result = self._service.get_rendered_schema(EventType(schema=json.dumps(self.schema)), self.request)
                 self._rendered_schema = result.schema
             else:
                 # Fallback to raw schema if no request available

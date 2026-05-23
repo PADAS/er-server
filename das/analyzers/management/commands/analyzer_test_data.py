@@ -1,7 +1,5 @@
 import json
-from datetime import datetime, timedelta
-
-import pytz
+from datetime import datetime, timedelta, timezone
 
 from django.core.management.base import BaseCommand
 from django.db.models import F
@@ -13,7 +11,7 @@ from utils.tenant.commands import TenantCommandMixin
 def print_immobility_test_set():
     # This is a hand-curated list with a subject name, and end-time and a window size in hours.
     IMMOBILITY_TEST_SUBJECTS = [  # (name, window-end-time, window hours)
-        ("Jolie", pytz.utc.localize(datetime(2017, 11, 2, 15, 00)), 36)
+        ("Jolie", datetime(2017, 11, 2, 15, 0, tzinfo=timezone.utc), 36)
     ]
 
     def das_observations(subject_name, start_date, end_date):

@@ -1,9 +1,13 @@
 import logging
+import mimetypes
 from uuid import UUID
 
 from rest_framework_condition import etag
 
+from django.contrib.staticfiles import finders
+from django.core.exceptions import ValidationError
 from django.db import IntegrityError
+from django.http import FileResponse
 from rest_framework import status
 from rest_framework.generics import (
     GenericAPIView,
@@ -12,9 +16,10 @@ from rest_framework.generics import (
     RetrieveUpdateDestroyAPIView,
 )
 from rest_framework.response import Response
+from rest_framework.views import APIView
 
 from activity.models import EventCategory, EventType
-from activity.permissions import EventCategoryPermissions
+from activity.permissions import EventCategoryPermissions, EventTypePermissions
 from activity.serializers import EventTypeRankSerializer, EventTypeSerializer
 from activity.serializers.events import IconSerializer
 from activity.views.response_headers import (
@@ -23,7 +28,7 @@ from activity.views.response_headers import (
 )
 from activity.views.schemas import EventTypeViewSchema
 from core.utils import DirectoryIconFinder
-from utils.drf import return_409_response
+from utils.drf import is_constraint_violation, return_409_response
 from utils.json import parse_bool
 from utils.rank import RankedTool
 
@@ -35,7 +40,7 @@ logger = logging.getLogger(__name__)
 class EventTypeView(RetrieveUpdateDestroyAPIView):
     lookup_field = "id"
     lookup_url_kwarg = "eventtype_id"
-    permission_classes = (EventCategoryPermissions,)
+    permission_classes = (EventTypePermissions,)
     serializer_class = EventTypeSerializer
 
     @etag(etag_func=build_event_type_etag_header)
@@ -43,7 +48,7 @@ class EventTypeView(RetrieveUpdateDestroyAPIView):
         return super().get(request, *args, **kwargs)
 
     def get_queryset(self):
-        return EventType.objects.all()
+        return EventType.objects.filter(version=EventType.VersionChoices.VERSION_1)
 
     def perform_destroy(self, instance):
         instance.set_to_inactive()
@@ -51,14 +56,22 @@ class EventTypeView(RetrieveUpdateDestroyAPIView):
     def put(self, request, *args, **kwargs):
         try:
             return self.update(request, *args, **kwargs)
-        except IntegrityError as integrity_error:
-            return return_409_response(message=str(integrity_error))
+        except ValidationError as e:
+            if not is_constraint_violation(e):
+                raise
+            return return_409_response(message=str(e))
+        except IntegrityError as e:
+            return return_409_response(message=str(e))
 
     def patch(self, request, *args, **kwargs):
         try:
             return self.partial_update(request, *args, **kwargs)
-        except IntegrityError as integrity_error:
-            return return_409_response(message=str(integrity_error))
+        except ValidationError as e:
+            if not is_constraint_violation(e):
+                raise
+            return return_409_response(message=str(e))
+        except IntegrityError as e:
+            return return_409_response(message=str(e))
 
     def get_serializer_context(self):
         qparams = self.request.query_params
@@ -69,7 +82,7 @@ class EventTypeView(RetrieveUpdateDestroyAPIView):
 
 
 class EventTypesView(EventTypeQuerysetMixin, ListCreateAPIView):
-    permission_classes = (EventCategoryPermissions,)
+    permission_classes = (EventTypePermissions,)
     serializer_class = EventTypeSerializer
     schema = EventTypeViewSchema()
 
@@ -107,6 +120,25 @@ class IconsListView(ListAPIView):
                 },
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
+
+
+class IconDownloadView(APIView):
+    permission_classes = (EventTypePermissions,)
+
+    def get(self, _request, icon_id: str, *args, **kwargs):
+        finder = DirectoryIconFinder()
+        stem = icon_id.rsplit(".", 1)[0] if "." in icon_id else icon_id
+        candidates = [f for f, _ in finder._file_metadata if f.rsplit(".", 1)[0] == stem]
+        if not candidates:
+            return Response(status=status.HTTP_404_NOT_FOUND)
+
+        filename = next((f for f in candidates if f.endswith(".svg")), candidates[0])
+        path = finders.find(f"{finder.dir_name}/{filename}")
+        if not path:
+            return Response(status=status.HTTP_404_NOT_FOUND)
+
+        content_type, _ = mimetypes.guess_type(filename)
+        return FileResponse(open(path, "rb"), content_type=content_type or "application/octet-stream")
 
 
 class EventTypeRankView(GenericAPIView):

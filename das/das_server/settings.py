@@ -209,6 +209,10 @@ REST_FRAMEWORK = {
     "MAX_PAGE_SIZE": 4000,
     "COUNT_TIMEOUT": 60 * 5,
     "ORDERING_PARAM": "sort_by",
+    "DEFAULT_THROTTLE_RATES": {
+        "chunked_upload_init": "60/min",
+        "chunked_upload_chunk": "200/min",
+    },
 }
 
 AUTHENTICATION_BACKENDS = (
@@ -250,7 +254,6 @@ SERVICE_NAME = env.str("SERVICE_NAME", "das-api")
 LANGUAGE_CODE = "en-us"
 
 USE_I18N = True
-USE_L10N = True
 
 USE_TZ = True
 TIME_ZONE = "UTC"
@@ -260,6 +263,20 @@ TIME_ZONE = "UTC"
 
 STATIC_URL = env.str("STATIC_URL", "/static/")
 STATIC_ROOT = env.str("STATIC_ROOT", os.path.join(BASE_DIR, "www", "static"))
+
+# Django 4.2+ requires STORAGES to include "default" and "staticfiles" (see ref/files/storage).
+STORAGES = {
+    "default": {
+        "BACKEND": "django.core.files.storage.FileSystemStorage",
+    },
+    "staticfiles": {
+        # Dev/runserver uses plain StaticFilesStorage so `{% static %}` works
+        # without first running `collectstatic`. The manifest (hashed-filename)
+        # backend is enabled only in local_settings_docker.py for production.
+        "BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage",
+    },
+}
+
 # Only include static subdirectories, not entire app directories
 STATICFILES_DIRS = (
     os.path.join(BASE_DIR, "activity", "static"),
@@ -316,6 +333,10 @@ AUTH0_CLIENT_SECRET_FOR_MANAGEMENT_API = env.str("AUTH0_CLIENT_SECRET_FOR_MANAGE
 # Auth0 settings for admin login OAuth flow
 AUTH0_CLIENT_ID_FOR_DJANGO_ADMIN = env.str("AUTH0_CLIENT_ID_FOR_DJANGO_ADMIN", "")
 AUTH0_CLIENT_SECRET_FOR_DJANGO_ADMIN = env.str("AUTH0_CLIENT_SECRET_FOR_DJANGO_ADMIN", "")
+
+# Auth0 settings for Account Linker (public PKCE client, no secret)
+AUTH0_CLIENT_ID_FOR_ACCOUNT_LINKER = env.str("AUTH0_CLIENT_ID_FOR_ACCOUNT_LINKER", "")
+ACCOUNT_LINKER_MAGIC_LINK_MAX_AGE_SECONDS = env.int("ACCOUNT_LINKER_MAGIC_LINK_MAX_AGE_SECONDS", 86400)
 
 # When require_idp=True (Auth0 enforced), allow these legacy DOT OAuth2 applications
 # (identified by OAuth2 application client_id) to continue using OAuth2 access tokens.
@@ -446,9 +467,19 @@ CELERY_BROKER_TRANSPORT_OPTIONS = {"visibility_timeout": 3600, "fanout_prefix": 
 # task:
 CELERY_TASK_TRACK_STARTED = True
 
+# Max observation UUIDs per post-save segment Celery message (create/update batches).
+OBSERVATION_SEGMENT_POST_SAVE_BATCH_SIZE = env.int("OBSERVATION_SEGMENT_POST_SAVE_BATCH_SIZE", 200)
+# Lag (seconds) at which a segment task increments observation_segment.backlog_threshold_breach.
+OBSERVATION_SEGMENT_BACKLOG_LAG_WARN_SECONDS = env.int("OBSERVATION_SEGMENT_BACKLOG_LAG_WARN_SECONDS", 300)
+# Daily reconciliation looks back this many hours per tenant to verify segment coverage.
+# Wider than 24h gives overlap when the daily run is delayed or skipped, so observations
+# don't fall between cracks.
+OBSERVATION_SEGMENT_RECONCILE_HOURS = env.int("OBSERVATION_SEGMENT_RECONCILE_HOURS", 30)
+
 DEFAULT_CACHE_ALIAS = "default"
 SHARED_CACHE_ALIAS = "shared"
 VECTOR_TILE_CACHE_ALIAS = "vector_tiles"
+UPLOAD_SESSION_CACHE_ALIAS = "upload_sessions"
 
 
 # Vector tiles cache Redis location (dedicated in deployed contexts)
@@ -472,6 +503,16 @@ CACHES = {
         "LOCATION": _vt_redis_server,
         "OPTIONS": {"CLIENT_CLASS": "django_redis.client.DefaultClient"},
         "KEY_PREFIX": "vector-tiles",
+    },
+    # Chunked upload sessions (ERA-9210): must be shared across Gunicorn/uwsgi workers and pods.
+    # LocMem here is for dev/tests only; production images override this alias to Redis in
+    # local_settings_docker.py (see UPLOAD_SESSION_CACHE_ALIAS).
+    # NOTE: Adding KEY_FUNCTION changes the stored key shape. On first deploy, any in-flight
+    # upload sessions will be invalidated (clients will receive 404 and must restart the upload).
+    UPLOAD_SESSION_CACHE_ALIAS: {
+        "BACKEND": "django.core.cache.backends.locmem.LocMemCache",
+        "LOCATION": "upload-sessions",
+        "KEY_FUNCTION": "utils.tenant.cache.make_cache_key",
     },
 }
 
@@ -560,41 +601,82 @@ VERSATILEIMAGEFIELD_SETTINGS = {
 }
 
 USERCONTENT_SETTINGS = {
-    # For a file with one of these extensions, we'll attempt to save it as an
-    # ImageFile.
-    "imagefile_extensions": ("jpg", "jpeg", "png", "gif", "tif", "tiff"),
-    # Prohibit uploading files with these extensions.
-    "prohibited_extensions": (
-        "bin",
-        "exe",
-        "dll",
-        "deb",
-        "sh",
+    # ---------------------------------------------------------------------------
+    # UPLOAD ALLOWLIST
+    # Only files whose extension appears here are accepted by the chunked upload
+    # API.  Add extensions freely; remove with care (existing stored files are
+    # unaffected, but clients will no longer be able to upload that type).
+    # Extensions must be lowercase and without the leading dot.
+    # ---------------------------------------------------------------------------
+    "allowed_extensions": (
+        # Images
+        "jpg",
+        "jpeg",
+        "png",
+        "gif",
+        "tif",
+        "tiff",
+        "webp",
+        "heic",
+        "bmp",
+        "svg",
+        # Documents
+        "pdf",
+        "doc",
+        "docx",
+        "xls",
+        "xlsx",
+        "csv",
+        "ppt",
+        "pptx",
+        "odt",
+        "ods",
+        "txt",
+        "rtf",
+        # Audio
+        "mp3",
+        "wav",
+        "aac",
+        "ogg",
+        "flac",
+        "m4a",
+        "opus",
+        # Video
+        "mp4",
+        "mov",
+        "avi",
+        "mkv",
+        "wmv",
+        "webm",
+        "m4v",
+        "3gp",
     ),
-    # Always serve files with these mime-types as application/octet-stream.
+    # ---------------------------------------------------------------------------
+    # IMAGE ROUTING
+    # Files with these extensions are stored as ImageFileContent (with thumbnail
+    # generation) rather than plain FileContent.  Must be a subset of
+    # allowed_extensions above.
+    # ---------------------------------------------------------------------------
+    "imagefile_extensions": ("jpg", "jpeg", "png", "gif", "tif", "tiff"),
+    # ---------------------------------------------------------------------------
+    # SERVE BEHAVIOUR
+    # Force these MIME types to download as application/octet-stream so browsers
+    # never render or execute them inline.
+    # ---------------------------------------------------------------------------
     "force_download_mimetypes": (
         "text/html",
         "text/javascript",
-    ),
-    # Edit these extensions by appending a .txt
-    "edit_extensions": (
-        "html",
-        "htm",
-        "js",
-        "css",
-        "exe",
-        "sh",
-        "bin",
-        "dll",
-        "deb",
-        "dmg",
-        "iso",
-        "img",
-        "msi",
-        "msp",
-        "msm",
+        "image/svg+xml",
     ),
 }
+
+# Chunked, resumable file upload (ERA-9210)
+# Default 2 MiB: each chunk PUT must stay below Django's DATA_UPLOAD_MAX_MEMORY_SIZE (2621440 bytes by default).
+# See usercontent.chunked_upload._effective_max_chunk_bytes() which also clamps env overrides to that ceiling.
+CHUNKED_UPLOAD_CHUNK_SIZE = env.int("CHUNKED_UPLOAD_CHUNK_SIZE", 2 * 1024 * 1024)  # 2 MiB
+CHUNKED_UPLOAD_MAX_FILE_SIZE = env.int("CHUNKED_UPLOAD_MAX_FILE_SIZE", 500 * 1024 * 1024)  # 500 MiB
+CHUNKED_UPLOAD_SESSION_TTL_SECONDS = env.int("CHUNKED_UPLOAD_SESSION_TTL_SECONDS", 86400)  # 24 hours
+CHUNKED_UPLOAD_GCS_TIMEOUT_SECONDS = env.int("CHUNKED_UPLOAD_GCS_TIMEOUT_SECONDS", 120)
 
 SHOW_TRACK_DAYS = 16
 DEFAULT_EVENT_FILTER_FROM_DAYS = -1

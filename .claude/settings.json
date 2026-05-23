@@ -1,0 +1,22 @@
+{
+  "permissions": {
+    "allow": [
+      "mcp__github__pull_request_read",
+      "mcp__MIRO__context_get",
+      "mcp__MIRO__board_list_items",
+      "Bash(gcloud logging read *)"
+    ]
+  },
+  "hooks": {
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "echo '{\"hookSpecificOutput\": {\"hookEventName\": \"UserPromptSubmit\", \"additionalContext\": \"REMINDER: For implementation work (writing or editing code) in the das repo, you MUST delegate to the backend-developer agent. Do not make code changes directly.\"}}'"
+          }
+        ]
+      }
+    ]
+  }
+}

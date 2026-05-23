@@ -4,13 +4,14 @@ from django.contrib.auth import get_user_model
 from django.test import TestCase
 
 from observations.kmlutils import get_kml_access_token
+from utils.user import make_random_password
 
 User = get_user_model()
 
 
 @pytest.mark.usefixtures("tenant_settings", "das_tenant_monkeypatch")
 class UserModelTest(TestCase):
-    password = User.objects.make_random_password()
+    password = make_random_password()
     user_const = dict(last_name="last", first_name="first")
 
     def test_get_kml_key(self):

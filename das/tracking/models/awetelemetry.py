@@ -3,7 +3,6 @@ import json
 import logging
 from datetime import datetime, timedelta, timezone
 
-import pytz
 import requests
 from dateutil.parser import parse as parse_date
 
@@ -176,7 +175,7 @@ class AWETelemetryPlugin(TrackingPlugin):
     def _transform(self, source, fix):
 
         # DATE and TIME are naive UTC.
-        recorded_at = pytz.utc.localize(parse_date("{DATE} {TIME}".format(**fix)))
+        recorded_at = parse_date("{DATE} {TIME}".format(**fix)).replace(tzinfo=timezone.utc)
 
         id, subject_name = self._split_id(fix["ID"])
 

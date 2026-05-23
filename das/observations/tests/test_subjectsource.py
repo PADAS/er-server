@@ -4,7 +4,6 @@ import uuid
 from urllib.parse import parse_qs, urlsplit
 
 import pytest
-import pytz
 from django_multitenant.utils import set_current_tenant, unset_current_tenant
 from drf_extra_fields.fields import DateTimeTZRange
 from faker import Faker
@@ -31,6 +30,7 @@ from observations.models import (
 from observations.serializers import ObservationSerializer
 from observations.utils import parse_comma
 from observations.views import SourcesView, SubjectSourcesAssignmentView
+from utils.user import make_random_password
 
 User = get_user_model()
 das_tenant_management = DASTenantManagement(domain="zoo.com")
@@ -38,7 +38,7 @@ das_tenant_management = DASTenantManagement(domain="zoo.com")
 
 def generate_observation_data(source_id):
     # Generate random data for observation
-    observation_time = pytz.UTC.localize(datetime.datetime.now())
+    observation_time = datetime.datetime.now(tz=datetime.timezone.utc)
     latitude = float(random.randint(3000, 3000)) / 100
     longitude = float(random.randint(2800, 4000)) / 100
 
@@ -70,7 +70,7 @@ class SubjectSourceTestCase(BaseAPITest):
         )
 
         self.non_superuser = User.objects.create_user(
-            username="user_x", email="user_x@test.com", password=User.objects.make_random_password(), **self.user_const
+            username="user_x", email="user_x@test.com", password=make_random_password(), **self.user_const
         )
 
     def test_subjectsource_with_empty_assignedrange(self):
@@ -85,7 +85,7 @@ class SubjectSourceTestCase(BaseAPITest):
         ss.refresh_from_db()
         assert not ss.assigned_range.isempty  # there is default lower & upper values
 
-        sample_date = datetime.datetime.now(tz=pytz.utc)
+        sample_date = datetime.datetime.now(tz=datetime.timezone.utc)
 
         assert sample_date in ss.assigned_range
         assert sample_date not in ss.safe_assigned_range

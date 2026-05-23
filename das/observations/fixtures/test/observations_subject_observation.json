@@ -14,13 +14,13 @@
   },
   {
     "fields": {
-      "id": "d5a4caf1-ae67-4bdd-8347-31d92ba84160",
+
       "name": "elephant subjet group",
       "subjects": ["0fa8ec9a-7e92-4575-9575-df202d5dde25"],
       "created_at": "2015-05-04T00:00:00+00:00",
       "updated_at": "2015-05-04T00:00:00+00:00"
     },
-    "pk": "d5a4caf1-ae67-4bdd-8347-31d92ba84160",
+
     "model": "observations.subjectGroup"
   },
   {
@@ -28,8 +28,8 @@
       "created_at": "2015-05-04T00:00:00+00:00",
       "updated_at": "2015-05-04T00:00:00+00:00",
       "id": "697f25e4-562c-4305-af86-1333e9081f4c",
-      "provider_key": "default", 
-      "display_name": "default", 
+      "provider_key": "default",
+      "display_name": "default",
       "additional": {}
     },
     "pk": "697f25e4-562c-4305-af86-1333e9081f4c",

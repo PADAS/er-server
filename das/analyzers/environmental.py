@@ -56,6 +56,7 @@ ENVIRONMENTAL_VALUE_SCHEMA = {
         "title": "Empty Event Schema",
         "type": "object",
         "properties": {
+            "analyzer_name": {"type": "string", "title": "Analyzer Name"},
             "name": {"type": "string", "title": "Subject Name"},
             "environmental_descriptor": {
                 "type": "string",
@@ -77,6 +78,7 @@ ENVIRONMENTAL_VALUE_SCHEMA = {
         },
     },
     "definition": [
+        "analyzer_name",
         "name",
         "environmental_descriptor",
         "mean_value",
@@ -90,9 +92,11 @@ ENVIRONMENTAL_ALL_CLEAR_SCHEMA = {
         "$schema": "http://json-schema.org/draft-04/schema#",
         "title": "Empty Event Schema",
         "type": "object",
-        "properties": {},
+        "properties": {
+            "analyzer_name": {"type": "string", "title": "Analyzer Name"},
+        },
     },
-    "definition": [],
+    "definition": ["analyzer_name"],
 }
 
 EnvironmentalValueEventType = EventTypeSpec(
@@ -228,7 +232,7 @@ class EnvironmentalAnalyzer(SubjectAnalyzer):
 
         ensure_environmental_event_types()
 
-        event_details = {"name": self.subject.name}
+        event_details = {"analyzer_name": self.config.name, "name": self.subject.name}
         event_details.update(this_result.values)
 
         # Create a dict() location to satisfy our EventSerializer.
@@ -271,7 +275,7 @@ class EnvironmentalAnalyzer(SubjectAnalyzer):
                 event_type=EnvironmentalAllClearEventType.value,  # environment_all_clear
                 priority=EVENT_PRIORITY_MAP.get(this_result.level, Event.PRI_REFERENCE),
                 location=event_location_value,
-                event_details=this_result.values,
+                event_details={"analyzer_name": self.config.name, **this_result.values},
                 related_subjects=[
                     {"id": self.subject.id},
                 ],

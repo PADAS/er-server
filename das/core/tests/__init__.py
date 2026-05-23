@@ -2,7 +2,6 @@ import datetime
 import uuid
 
 import pytest
-from django_multitenant.utils import set_current_tenant
 from kombu import Connection
 from oauth2_provider.models import get_access_token_model, get_application_model
 
@@ -37,7 +36,7 @@ class BaseAPITest(TestCase):
 
     def setUp(self):
         user_const = dict(last_name="last", first_name="first")
-        set_current_tenant(self.das_tenant)
+
         self.app_user = User.objects.create_user(
             "app-user", "app-user@test.com", "app-user", is_superuser=False, is_staff=True, **user_const
         )

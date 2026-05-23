@@ -8,7 +8,7 @@ from activity.models import Event, EventGeometry
 
 
 @pytest.mark.django_db
-@pytest.mark.usefixtures("tenant_settings")
+@pytest.mark.usefixtures("tenant_settings", "das_tenant_monkeypatch")
 class TestEventGeometry:
     def test_creating_geometry_for_an_event(self, event_with_detail):
         EventGeometry.objects.create(

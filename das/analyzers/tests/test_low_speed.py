@@ -3,7 +3,6 @@ import json
 import logging
 
 import pytest
-import pytz
 import yaml
 
 from django.contrib.gis.geos import Point
@@ -247,8 +246,11 @@ class TestLowSpeedAnalyzer(TestCase):
 
         # Create the Low-Speed Analyzer Config object with a high value of
         # speed to make sure we trigger the event
-        LowSpeedPercentileAnalyzerConfig.objects.create(
-            subject_group=sg, low_threshold_percentile=percentile, default_low_speed_value=1.0
+        percentile_config = LowSpeedPercentileAnalyzerConfig.objects.create(
+            name="Heritage Low Speed Percentile Analyzer",
+            subject_group=sg,
+            low_threshold_percentile=percentile,
+            default_low_speed_value=1.0,
         )
 
         # Store observations in the database
@@ -262,7 +264,7 @@ class TestLowSpeedAnalyzer(TestCase):
         distro = SpeedDistro.objects.create(subject_speed_profile=sp)
 
         # Update percentile value based on data when Heritage was moving Ok
-        distro.update_percentiles([percentile], end=pytz.utc.localize(dt.datetime.utcnow()) - dt.timedelta(days=30))
+        distro.update_percentiles([percentile], end=dt.datetime.now(tz=dt.timezone.utc) - dt.timedelta(days=30))
         speed_val = distro.percentiles[percentile]
         logger.info("PercentileSpeedVal: %s" % str(speed_val))
         self.assertTrue(speed_val > 0.0)
@@ -278,6 +280,8 @@ class TestLowSpeedAnalyzer(TestCase):
 
         for event in Event.objects.all():
             self.assertTrue(event.event_details.all().exists())
+            ed = event.event_details.all().first().data["event_details"]
+            assert ed["analyzer_name"] == percentile_config.name
 
         for event in Event.objects.all():
             for event_details in event.event_details.all():
@@ -311,7 +315,9 @@ class TestLowSpeedAnalyzer(TestCase):
 
         # Create the Low-Speed Analyzer Config object with a high value of
         # speed to make sure we trigger the event
-        LowSpeedWilcoxAnalyzerConfig.objects.create(subject_group=sg)
+        wilcox_config = LowSpeedWilcoxAnalyzerConfig.objects.create(
+            name="Heritage Low Speed Wilcox Analyzer", subject_group=sg
+        )
 
         # Run the analyzer
         analyze_subject_(str(sub.id))
@@ -324,6 +330,8 @@ class TestLowSpeedAnalyzer(TestCase):
 
         for event in Event.objects.all():
             self.assertTrue(event.event_details.all().exists())
+            ed = event.event_details.all().first().data["event_details"]
+            assert ed["analyzer_name"] == wilcox_config.name
 
         for event in Event.objects.all():
             for event_details in event.event_details.all():

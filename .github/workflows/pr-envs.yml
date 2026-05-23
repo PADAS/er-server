@@ -97,21 +97,64 @@ jobs:
       max-wait-for-app: 180
     secrets: inherit
 
-  unit-test1:
-    uses: ./.github/workflows/_unit-tests.yml
+  unit-test:
+    name: "unit-test (${{ matrix.suite }})"
     needs: [pipeline]
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - suite: accounts/tests
+            command: pytest --reuse-db --junitxml=/testresults/junit/result.xml --maxfail=15 accounts/tests
+          - suite: mapping/tests
+            command: pytest --reuse-db --junitxml=/testresults/junit/result.xml --maxfail=15 mapping/tests
+          - suite: reports/tests
+            command: pytest --reuse-db --junitxml=/testresults/junit/result.xml --maxfail=15 reports/tests
+          - suite: rt_api/tests
+            command: pytest --reuse-db --junitxml=/testresults/junit/result.xml --maxfail=15 rt_api/tests
+          - suite: tracking/tests
+            command: pytest --reuse-db --junitxml=/testresults/junit/result.xml --maxfail=15 tracking/tests
+          - suite: activity/tests/events+models
+            command: pytest --reuse-db --junitxml=/testresults/junit/result.xml --maxfail=15 activity/tests/events activity/tests/models
+          - suite: activity/tests/schemas_v2
+            command: pytest --reuse-db --junitxml=/testresults/junit/result.xml --maxfail=15 activity/tests/schemas_v2
+          - suite: activity/tests
+            command: pytest --reuse-db --junitxml=/testresults/junit/result.xml --maxfail=15 --ignore=activity/tests/events --ignore=activity/tests/schemas_v2 --ignore=activity/tests/models activity/tests
+          - suite: sensors/tests
+            command: pytest --reuse-db --junitxml=/testresults/junit/result.xml --maxfail=15 sensors/tests
+          - suite: revision/test
+            command: pytest --reuse-db --junitxml=/testresults/junit/result.xml --maxfail=15 revision/test
+          - suite: analyzers/tests
+            command: pytest --reuse-db --junitxml=/testresults/junit/result.xml --maxfail=15 analyzers/tests
+          - suite: utils/tests
+            command: pytest --reuse-db --junitxml=/testresults/junit/result.xml --maxfail=15 utils/tests
+          - suite: choices/tests
+            command: pytest --reuse-db --junitxml=/testresults/junit/result.xml --maxfail=15 choices/tests
+          - suite: das_server/tests
+            command: pytest --reuse-db --junitxml=/testresults/junit/result.xml --maxfail=15 das_server/tests
+          - suite: observations/tests
+            command: pytest --reuse-db --junitxml=/testresults/junit/result.xml --maxfail=15 observations/tests
+          - suite: buoy/tests
+            command: pytest --reuse-db --junitxml=/testresults/junit/result.xml --maxfail=15 buoy/tests
+          - suite: core/tests
+            command: pytest --reuse-db --junitxml=/testresults/junit/result.xml --maxfail=15 core/tests
+          - suite: schemas/tests
+            command: pytest --reuse-db --junitxml=/testresults/junit/result.xml --maxfail=15 schemas/tests
+    uses: ./.github/workflows/_unit-tests.yml
     with:
       environment: ""
       image: "europe-west3-docker.pkg.dev/serca-artifact-registry/earthranger/das-server:pr-${{ github.event.pull_request.head.sha }}"
-      command: |
-        pytest --reuse-db --junitxml=/testresults/junit/result_suite_one.xml --maxfail=15 accounts/tests mapping/tests reports/tests rt_api/tests tracking/tests
-        pytest --reuse-db --junitxml=/testresults/junit/result_suite_three.xml --maxfail=15 analyzers/tests utils/tests
-        pytest --reuse-db --junitxml=/testresults/junit/result_suite_four.xml --maxfail=15 choices/tests das_server/tests observations/tests buoy/tests core/tests schemas/tests
+      command: ${{ matrix.command }}
+      testdb-tag: testdb-develop-latest
 
-  unit-test2:
-    uses: ./.github/workflows/_unit-tests.yml
-    needs: [pipeline]
-    with:
-      environment: ""
-      image: "europe-west3-docker.pkg.dev/serca-artifact-registry/earthranger/das-server:pr-${{ github.event.pull_request.head.sha }}"
-      command: pytest --reuse-db --junitxml=/testresults/junit/result_suite_two.xml --maxfail=15 activity/tests sensors/tests revision/test
+  unit-test-gate:
+    name: "unit-test-gate"
+    needs: [unit-test]
+    runs-on: ubuntu-latest
+    if: always()
+    steps:
+      - run: |
+          if [ "${{ needs.unit-test.result }}" != "success" ]; then
+            echo "One or more unit-test matrix jobs failed"
+            exit 1
+          fi

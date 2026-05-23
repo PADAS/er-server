@@ -1,9 +1,8 @@
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 
 from django.db.models import Q
 from django.db.models.fields.json import KeyTransform
-from django.utils import timezone
 
 from observations import models
 

@@ -10,7 +10,6 @@ from django.db import transaction
 import observations.models as models
 from activity.models import EventRelatedSubject
 from analyzers.models import ObservationAnnotator, SubjectAnalyzerResult
-from tracking.models import SourcePlugin
 from utils.tenant.commands import TenantCommandMixin
 
 
@@ -80,20 +79,14 @@ class Command(TenantCommandMixin, BaseCommand):
 class PurgeBase:
     @staticmethod
     def delete_qs(qs, delete_revision=False):
-        if qs.exists():
-            if delete_revision:
-                for row in qs:
-                    PurgeBase._raw_delete_revisions(qs.model, row.id)
-            PurgeBase._raw_delete(qs)
-
-    @staticmethod
-    def _raw_delete_revisions(model, object_id):
-        return PurgeBase._raw_delete(model.revision.model.objects.filter(object_id=object_id))
+        if delete_revision:
+            # Bulk-delete all revisions via a DB-side subquery — avoids loading IDs into memory.
+            PurgeBase._raw_delete(qs.model.revision.model.objects.filter(object_id__in=qs.values("id")))
+        PurgeBase._raw_delete(qs)
 
     @staticmethod
     def _raw_delete(qs):
-        if qs.exists():
-            qs._raw_delete(qs.db)
+        qs._raw_delete(qs.db)
 
 
 class PurgeObservations(PurgeBase):
@@ -144,24 +137,26 @@ class PurgeObservations(PurgeBase):
             self.logger.info(f"Dry Run, would have removed Subject {name}")
 
     def remove_source(self, source, include_subject_source=True):
-        pk = source.id
-        source_manufacturer_id = source.manufacturer_id
-
         if self.is_keep_source(source):
-            self.logger.info(f"Source {source_manufacturer_id} on keep list, do not remove")
+            self.logger.info(f"Source {source.manufacturer_id} on keep list, do not remove")
             return
 
-        if include_subject_source and not self.dry_run:
-            self.delete_qs(models.SubjectSource.objects.filter(source_id=pk))
+        if self.dry_run:
+            self.logger.info(f"Dry Run, would have removed Source {source.manufacturer_id}")
+            return
 
-        if not self.dry_run:
-            source.groups.clear()
-            self.delete_qs(models.Observation.objects.filter(source_id=pk))
-            self.delete_qs(SourcePlugin.objects.filter(source_id=pk))
-            self.delete_qs(models.Source.objects.filter(id=pk))
-            self.logger.info(f"Removed Source {source_manufacturer_id}")
-        else:
-            self.logger.info(f"Dry Run, would have removed Source {source_manufacturer_id}")
+        from observations.services import delete_source_cascade
+        from observations.tasks import maintain_subjectstatus_for_subject
+
+        _, subject_ids = delete_source_cascade(
+            source.id,
+            delete_subject_sources=include_subject_source,
+            log_label=source.manufacturer_id,
+        )
+
+        # Enqueue one task per unique subject, not one per observation.
+        for subject_id in subject_ids:
+            maintain_subjectstatus_for_subject.apply_async(args=[str(subject_id)])
 
     def is_keep_source(self, source):
         return source.manufacturer_id.lower() in self.keep_sources

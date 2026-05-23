@@ -1,9 +1,8 @@
 import logging
 import zipfile
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from io import BytesIO
 
-import pytz
 from oauth2_provider.models import get_access_token_model, get_application_model
 from oauthlib.common import generate_token
 
@@ -47,8 +46,8 @@ def get_kml_access_token(user, ttl=KML_TOKEN_TTL_DAYS):
             user=user,
             application=app,
             scope="read",
-            expires__gt=datetime.now(tz=pytz.utc),
-            defaults=dict(expires=datetime.now(tz=pytz.utc) + timedelta(days=ttl), token=generate_token()),
+            expires__gt=datetime.now(tz=timezone.utc),
+            defaults=dict(expires=datetime.now(tz=timezone.utc) + timedelta(days=ttl), token=generate_token()),
         )
         return token.token
 

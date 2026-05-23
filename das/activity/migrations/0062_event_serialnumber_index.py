@@ -4,39 +4,53 @@ from __future__ import unicode_literals
 
 from django.db import migrations
 
+# Create UNACCENT extension if available. Use a DO block so load failures
+# (e.g. PG extension vs server version mismatch) do not abort the migration.
+create_unaccent_sql = """
+DO $$
+BEGIN
+  CREATE EXTENSION IF NOT EXISTS unaccent;
+EXCEPTION WHEN OTHERS THEN
+  NULL;
+END
+$$;
+"""
+drop_unaccent_sql = "DROP EXTENSION IF EXISTS unaccent;"
+
 # Create an immutable function for converting bigint to char.
 # This is so we're allowed to use it in an index on event table.
-create_bigint_to_char_function = '''
-create or replace function bigint_to_char(bigint) returns text AS 
+create_bigint_to_char_function = """
+create or replace function bigint_to_char(bigint) returns text AS
 $$
 select to_char($1, 'FM9999999999999999');
-$$  
-language sql immutable; 
-'''
+$$
+language sql immutable;
+"""
 
-INDEX_NAME = 'activity_event_bigint_to_char_idx'
-index_forward_sql = '''
+INDEX_NAME = "activity_event_bigint_to_char_idx"
+index_forward_sql = """
 create index if not exists {index_name} on activity_event (bigint_to_char(serial_number));
-'''.format(index_name=INDEX_NAME)
+""".format(
+    index_name=INDEX_NAME
+)
 
-index_reverse_sql = '''
+index_reverse_sql = """
 drop index if exists {index_name};
-'''.format(index_name=INDEX_NAME)
+""".format(
+    index_name=INDEX_NAME
+)
 
 
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('activity', '0061_event_permission_cleanup'),
+        ("activity", "0061_event_permission_cleanup"),
     ]
 
     operations = [
-        migrations.RunSQL(sql='create extension IF NOT EXISTS UNACCENT;',
-                          reverse_sql='drop extension if exists UNACCENT;'),
-
-        migrations.RunSQL(sql=create_bigint_to_char_function,
-                          reverse_sql='drop function if exists bigint_to_char(bigint);'),
-
-        migrations.RunSQL(sql=index_forward_sql,
-                          reverse_sql=index_reverse_sql),
+        migrations.RunSQL(sql=create_unaccent_sql, reverse_sql=drop_unaccent_sql),
+        migrations.RunSQL(
+            sql=create_bigint_to_char_function, reverse_sql="drop function if exists bigint_to_char(bigint);"
+        ),
+        migrations.RunSQL(sql=index_forward_sql, reverse_sql=index_reverse_sql),
     ]

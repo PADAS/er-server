@@ -1,6 +1,6 @@
 import logging
 from collections import OrderedDict
-from datetime import datetime
+from datetime import datetime, timezone
 
 import pytest
 
@@ -10,7 +10,7 @@ from sensors.subject_name_change import HandlerERTrack
 
 @pytest.mark.django_db
 class TestMutateErTrackSubjectAssignment:
-    recorded_at = datetime.now()
+    recorded_at = datetime.now(tz=timezone.utc)
 
     def test_use_linked_subject_to_user(self, ops_user, superuser, subject, source, subject_subtype, caplog):
         ops_user.first_name = "Paul"

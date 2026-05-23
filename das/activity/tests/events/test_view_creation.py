@@ -2,16 +2,15 @@ import copy
 import json
 import logging
 import tempfile
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 import pytest
-import pytz
 from django_multitenant.utils import set_current_tenant
 from drf_extra_fields.geo_fields import PointField
 
 from django.core.management import call_command
 from django.urls import reverse
-from django.utils import lorem_ipsum, timezone
+from django.utils import lorem_ipsum
 from rest_framework import status
 from rest_framework.fields import DateTimeField
 
@@ -79,7 +78,7 @@ class TestEventViewCreation:
         self.event_data = dict(
             title="Test Event",
             message=lorem_ipsum.paragraph(),
-            time=DateTimeField().to_representation(timezone.now()),
+            time=DateTimeField().to_representation(datetime.now(tz=timezone.utc)),
             provenance=Event.PC_SYSTEM,
             event_type=ET_OTHER,
             priority=Event.PRI_REFERENCE,
@@ -139,7 +138,7 @@ class TestEventViewCreation:
         self.user_rep = UserDisplaySerializer().to_representation(self.guest_user)
 
         self.temporary_folder = tempfile.mkdtemp()
-        self.now = datetime.now(tz=pytz.utc)
+        self.now = datetime.now(tz=timezone.utc)
         self.start_of_today = self.now.replace(hour=0, minute=0, second=0, microsecond=0)
         self.end_of_today = self.start_of_today + timedelta(hours=23, minutes=59, seconds=59)
         self.view = views.EventView
@@ -239,8 +238,8 @@ class TestEventViewCreation:
         external_event_id = "asdfioaasfseiuro11414sfa"
         # Create an event with an "External Event ID"
         event_title = "Some arbirtrary event title."
-        event_timestamp = datetime(2018, 9, 8, 12, 5, 4, tzinfo=pytz.utc)
-        sort_at = datetime(2018, 9, 8, 12, 5, 4, tzinfo=pytz.utc)
+        event_timestamp = datetime(2018, 9, 8, 12, 5, 4, tzinfo=timezone.utc)
+        sort_at = datetime(2018, 9, 8, 12, 5, 4, tzinfo=timezone.utc)
         event_data = {
             "event_details": {"attributes": [{"key": "a", "value": "1"}]},
             "external_event_type": external_event_type,
@@ -316,7 +315,7 @@ class TestEventViewCreation:
             "priority": 100,
             "title": "Test External Event",
             "location": {"latitude": 1.4, "longitude": 37.5},
-            "time": datetime.now(tz=pytz.utc).isoformat(),
+            "time": datetime.now(tz=timezone.utc).isoformat(),
         }
 
         client = create_client_for_user(self.eventsource_user_no2)
@@ -359,7 +358,7 @@ class TestEventViewCreation:
             "external_event_id": external_event_id,
             "eventsource": eventsource_id,
             "location": {"latitude": 38.4, "longitude": -116.5},
-            "time": datetime.now(tz=pytz.utc).isoformat(),
+            "time": datetime.now(tz=timezone.utc).isoformat(),
         }
 
         response = client.post(self.events_url, event_data)

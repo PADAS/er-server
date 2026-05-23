@@ -1,8 +1,7 @@
 import logging
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 import psycopg2.extras
-import pytz
 
 from django.conf import settings
 from django.contrib.gis.db import models
@@ -62,7 +61,7 @@ class ObservationAnnotator(Annotator):
     max_speed = models.FloatField(default=10.0, verbose_name="Maximum speed (km/h)")
 
     def annotate(self, start_date=None, end_date=None):
-        end_date = end_date or pytz.utc.localize(datetime.utcnow())
+        end_date = end_date or datetime.now(tz=timezone.utc)
         start_date = start_date or (end_date - DEFAULT_HISTORY_INTERVAL)
 
         date_range = psycopg2.extras.DateTimeTZRange(lower=start_date, upper=end_date)

@@ -1,8 +1,7 @@
 import json
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 import dateutil.parser as dp
-import pytz
 
 from django.conf import settings
 from django.contrib.postgres.fields import jsonb
@@ -78,12 +77,12 @@ def calculate_status_code(service_status):
         is_connected = False
 
     try:
-        connection_age = datetime.now(tz=pytz.utc) - dp.parse(service_status["datasource"]["connection_changed_at"])
+        connection_age = datetime.now(tz=timezone.utc) - dp.parse(service_status["datasource"]["connection_changed_at"])
     except:
         connection_age = None
 
     try:
-        heartbeat_age = datetime.now(tz=pytz.utc) - dp.parse(service_status["heartbeat"]["latest_at"])
+        heartbeat_age = datetime.now(tz=timezone.utc) - dp.parse(service_status["heartbeat"]["latest_at"])
     except:
         heartbeat_age = None
 

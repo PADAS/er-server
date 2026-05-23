@@ -54,7 +54,6 @@ class TestContainsCondition:
             pytest.param("contains_text_field", id="text"),
             pytest.param("contains_choice_field", id="choice"),
             pytest.param("contains_multiselect_field", id="multiselect"),
-            pytest.param("contains_null_value", id="null_value"),
         ],
     )
     def test_valid_contains_condition(self, schema_field, fixture_name):

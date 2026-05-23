@@ -24,6 +24,33 @@ class GeoSpan:
     lon: List[float] = field(metadata=config(field_name="lon"), default_factory=lambda: [-180.0, 180.0])
 
 
+DEFAULT_COMMUNITY_INPUT_ALLOWED_MIME_TYPES = (
+    "image/jpeg",
+    "image/png",
+    "image/gif",
+    "image/webp",
+    "image/heic",
+    "image/heif",
+    "image/bmp",
+    "image/tiff",
+    "video/*",
+    "audio/*",
+    "application/pdf",
+    "application/msword",
+    "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    "application/vnd.ms-excel",
+    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    "application/vnd.ms-powerpoint",
+    "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+    "application/rtf",
+    "application/vnd.oasis.opendocument.text",
+    "application/vnd.oasis.opendocument.spreadsheet",
+    "application/vnd.oasis.opendocument.presentation",
+    "text/plain",
+    "text/csv",
+)
+
+
 @dataclass_json
 @dataclass
 class EnvironmentSettings:
@@ -31,6 +58,25 @@ class EnvironmentSettings:
     alert_rate_limit: int = field(metadata=config(field_name="alertRateLimit"), default=20)
     all_server_names: Optional[List[str]] = field(metadata=config(field_name="allServerNames"), default=None)
     alt_server_names: Optional[List[str]] = field(metadata=config(field_name="altServerNames"), default=None)
+    community_input_allowed_mime_types: Optional[List[str]] = field(
+        metadata=config(field_name="communityInputAllowedMimeTypes"),
+        default_factory=lambda: list(DEFAULT_COMMUNITY_INPUT_ALLOWED_MIME_TYPES),
+    )
+    community_input_event_throttle_rate: Optional[str] = field(
+        metadata=config(field_name="communityInputEventThrottleRate"), default="120/hour"
+    )
+    community_input_file_throttle_rate: Optional[str] = field(
+        metadata=config(field_name="communityInputFileThrottleRate"), default="60/hour"
+    )
+    community_input_max_upload_bytes: Optional[int] = field(
+        metadata=config(field_name="communityInputMaxUploadBytes"), default=20 * 1024 * 1024
+    )
+    community_input_note_throttle_rate: Optional[str] = field(
+        metadata=config(field_name="communityInputNoteThrottleRate"), default="120/hour"
+    )
+    community_input_read_throttle_rate: Optional[str] = field(
+        metadata=config(field_name="communityInputReadThrottleRate"), default="1200/hour"
+    )
     default_event_filter_from_days: Optional[int] = field(
         metadata=config(field_name="defaultEventFilterFromDays"), default=None
     )

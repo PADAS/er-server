@@ -1,29 +1,35 @@
-import datetime
 import hashlib
-from datetime import timedelta
+from datetime import datetime, timedelta, timezone
 from unittest.mock import MagicMock, patch
 
 import pytest
 from dateutil.parser import ParserError
 from psycopg2._range import DateTimeTZRange
 
-from django.utils import lorem_ipsum, timezone
+from django.utils import lorem_ipsum
 
 from observations.models import UserSession
 from observations.utils import dateparse
 from rt_api.client import (
+    CLIENT_REALTIME_SERVICES_TTL,
+    EXPIRED_CLIENT_TRACES_LIST,
     REALTIME_SERVICES_KEY,
+    SESSION_CURSOR_GRACE_WINDOW,
+    SESSION_CURSOR_TTL,
     SID_SESSION_TIMESTAMP_KEY,
+    SID_SUBJECTS_TIMESTAMPS_KEY,
     ClientData,
     add_client,
     cleanup_usersessions,
     create_update_user_session_by_sid,
     get_client,
     get_sid_subject_timestamp,
+    message_index,
     redis_client,
     remove_all_rt_services,
     remove_invalid_rt_service_key,
     save_session_timestamp,
+    trace_expiration_handler,
     update_client,
     update_user_session_by_sid,
 )
@@ -33,20 +39,79 @@ from rt_api.client import (
 @pytest.mark.usefixtures("tenant_settings", "das_tenant_monkeypatch")
 class TestClient:
     sid = "e85ae638fe904b6fa1e018c5c401c11c"
-    mock_datetime_now = datetime.datetime(2010, 10, 2, 14, 10, tzinfo=timezone.utc)
+    mock_datetime_now = datetime(2010, 10, 2, 14, 10, tzinfo=timezone.utc)
 
     def test_save_session_timestamp(self, subject):
+        session_key = SID_SESSION_TIMESTAMP_KEY.format(self.sid)
+        subjects_key = SID_SUBJECTS_TIMESTAMPS_KEY.format(self.sid)
+        redis_client.delete(session_key, subjects_key)
+
         save_session_timestamp(self.sid, str(subject.id))
-        result = redis_client.get(SID_SESSION_TIMESTAMP_KEY.format(self.sid))
+        result = redis_client.get(session_key)
 
         assert result
         assert isinstance(result.decode(), str)
-        assert isinstance(dateparse(result), datetime.datetime)
+        assert isinstance(dateparse(result), datetime)
+
+        # Both cursor keys must carry a bounded TTL so orphaned sessions
+        # can't accumulate forever in Redis — but long enough to survive an
+        # idle tracked subject (no new observations for hours to days).
+        session_ttl = redis_client.ttl(session_key)
+        subjects_ttl = redis_client.ttl(subjects_key)
+        assert 0 < session_ttl <= SESSION_CURSOR_TTL
+        assert session_ttl > CLIENT_REALTIME_SERVICES_TTL
+        assert 0 < subjects_ttl <= SESSION_CURSOR_TTL
+        assert subjects_ttl > CLIENT_REALTIME_SERVICES_TTL
+
+    def test_message_index_sets_ttl(self):
+        key = f"mid-{self.sid}"
+        redis_client.delete(key)
+
+        result = message_index(self.sid, "event")
+
+        assert result == 1
+        ttl = redis_client.ttl(key)
+        assert 0 < ttl <= CLIENT_REALTIME_SERVICES_TTL
+
+        # TTL is refreshed on each call so a continuously-active session
+        # keeps its mid-* key alive.
+        message_index(self.sid, "event")
+        assert 0 < redis_client.ttl(key) <= CLIENT_REALTIME_SERVICES_TTL
+        assert int(redis_client.hget(key, "event")) == 2
+
+    def test_trace_expiration_handler_sets_ttl(self):
+        redis_client.delete(EXPIRED_CLIENT_TRACES_LIST)
+        msg = {"channel": "__keyspace@2__:trace-abc123-1700000000"}
+
+        trace_expiration_handler(msg)
+
+        assert redis_client.hexists(EXPIRED_CLIENT_TRACES_LIST, "abc123")
+        ttl = redis_client.ttl(EXPIRED_CLIENT_TRACES_LIST)
+        assert 0 < ttl <= CLIENT_REALTIME_SERVICES_TTL
+
+    def test_get_sid_subject_timestamp_missing_keys_returns_grace_window(self, subject):
+        # When both cursor keys are missing the fallback must return a
+        # timestamp in the recent past, not now(), so the first observation
+        # after a cursor miss is still picked up by FlattenObservationsView's
+        # created_at >= created_after filter.
+        redis_client.delete(
+            SID_SESSION_TIMESTAMP_KEY.format(self.sid),
+            SID_SUBJECTS_TIMESTAMPS_KEY.format(self.sid),
+        )
+        before = datetime.now(tz=timezone.utc)
+
+        result = get_sid_subject_timestamp(self.sid, str(subject.id))
+
+        parsed = dateparse(result)
+        after = datetime.now(tz=timezone.utc)
+        # result == now - grace_window, so result must fall in
+        # [before - grace_window, after - grace_window].
+        assert (before - SESSION_CURSOR_GRACE_WINDOW) <= parsed <= (after - SESSION_CURSOR_GRACE_WINDOW)
 
     def test_get_sid_subject_timestamp_with_date_as_iso_format(self, subject):
         redis_client.set(
             SID_SESSION_TIMESTAMP_KEY.format(self.sid),
-            datetime.datetime.now().isoformat(),
+            datetime.now(tz=timezone.utc).isoformat(),
         )
         result = get_sid_subject_timestamp(self.sid, str(subject.id))
 
@@ -56,7 +121,7 @@ class TestClient:
     def test_get_sid_subject_timestamp_with_date_as_timestamp(self, subject):
         redis_client.set(
             SID_SESSION_TIMESTAMP_KEY.format(self.sid),
-            datetime.datetime.now().timestamp(),
+            datetime.now(tz=timezone.utc).timestamp(),
         )
         result = get_sid_subject_timestamp(self.sid, str(subject.id))
 
@@ -78,7 +143,7 @@ class TestClient:
         assert not user_session.time_range.upper
 
     def test_create_update_user_session_update_user_session_with_time_range(self, user_session, monkeypatch):
-        date = datetime.datetime(2015, 1, 1, 0, 0, 0, tzinfo=timezone.utc)
+        date = datetime(2015, 1, 1, 0, 0, 0, tzinfo=timezone.utc)
         user_session.time_range = DateTimeTZRange(lower=date)
         user_session.save()
 
@@ -110,24 +175,24 @@ class TestClient:
             (
                 [
                     {
-                        "upper": datetime.datetime.now() + timedelta(days=1),
-                        "lower": datetime.datetime.now(),
+                        "upper": datetime.now(tz=timezone.utc) + timedelta(days=1),
+                        "lower": datetime.now(tz=timezone.utc),
                     },
                     {
-                        "upper": datetime.datetime.now() + timedelta(days=1),
-                        "lower": datetime.datetime.now(),
+                        "upper": datetime.now(tz=timezone.utc) + timedelta(days=1),
+                        "lower": datetime.now(tz=timezone.utc),
                     },
                     {
-                        "upper": datetime.datetime.now() + timedelta(days=1),
-                        "lower": datetime.datetime.now(),
+                        "upper": datetime.now(tz=timezone.utc) + timedelta(days=1),
+                        "lower": datetime.now(tz=timezone.utc),
                     },
                     {
-                        "upper": datetime.datetime.now() + timedelta(days=1),
-                        "lower": datetime.datetime.now(),
+                        "upper": datetime.now(tz=timezone.utc) + timedelta(days=1),
+                        "lower": datetime.now(tz=timezone.utc),
                     },
                     {
-                        "upper": datetime.datetime.now() + timedelta(days=1),
-                        "lower": datetime.datetime.now(),
+                        "upper": datetime.now(tz=timezone.utc) + timedelta(days=1),
+                        "lower": datetime.now(tz=timezone.utc),
                     },
                 ],
                 5,
@@ -145,24 +210,24 @@ class TestClient:
             (
                 [
                     {
-                        "upper": datetime.datetime.now(),
-                        "lower": datetime.datetime.now() - timedelta(days=7),
+                        "upper": datetime.now(tz=timezone.utc),
+                        "lower": datetime.now(tz=timezone.utc) - timedelta(days=7),
                     },
                     {
-                        "upper": datetime.datetime.now(),
-                        "lower": datetime.datetime.now() - timedelta(days=7),
+                        "upper": datetime.now(tz=timezone.utc),
+                        "lower": datetime.now(tz=timezone.utc) - timedelta(days=7),
                     },
                     {
-                        "upper": datetime.datetime.now(),
-                        "lower": datetime.datetime.now() - timedelta(days=4),
+                        "upper": datetime.now(tz=timezone.utc),
+                        "lower": datetime.now(tz=timezone.utc) - timedelta(days=4),
                     },
                     {
-                        "upper": datetime.datetime.now(),
-                        "lower": datetime.datetime.now() - timedelta(days=3),
+                        "upper": datetime.now(tz=timezone.utc),
+                        "lower": datetime.now(tz=timezone.utc) - timedelta(days=3),
                     },
                     {
-                        "upper": datetime.datetime.now(),
-                        "lower": datetime.datetime.now() - timedelta(days=1),
+                        "upper": datetime.now(tz=timezone.utc),
+                        "lower": datetime.now(tz=timezone.utc) - timedelta(days=1),
                     },
                 ],
                 3,
@@ -170,24 +235,24 @@ class TestClient:
             (
                 [
                     {
-                        "upper": datetime.datetime.now(),
-                        "lower": datetime.datetime.now() - timedelta(days=7),
+                        "upper": datetime.now(tz=timezone.utc),
+                        "lower": datetime.now(tz=timezone.utc) - timedelta(days=7),
                     },
                     {
-                        "upper": datetime.datetime.now(),
-                        "lower": datetime.datetime.now() - timedelta(days=7),
+                        "upper": datetime.now(tz=timezone.utc),
+                        "lower": datetime.now(tz=timezone.utc) - timedelta(days=7),
                     },
                     {
-                        "upper": datetime.datetime.now(),
-                        "lower": datetime.datetime.now() - timedelta(days=7),
+                        "upper": datetime.now(tz=timezone.utc),
+                        "lower": datetime.now(tz=timezone.utc) - timedelta(days=7),
                     },
                     {
-                        "upper": datetime.datetime.now(),
-                        "lower": datetime.datetime.now() - timedelta(days=7),
+                        "upper": datetime.now(tz=timezone.utc),
+                        "lower": datetime.now(tz=timezone.utc) - timedelta(days=7),
                     },
                     {
-                        "upper": datetime.datetime.now(),
-                        "lower": datetime.datetime.now() - timedelta(days=1),
+                        "upper": datetime.now(tz=timezone.utc),
+                        "lower": datetime.now(tz=timezone.utc) - timedelta(days=1),
                     },
                 ],
                 1,
@@ -215,7 +280,7 @@ class TestClient:
         mock.datetime.now.return_value = self.mock_datetime_now
         monkeypatch.setattr("rt_api.client.datetime", mock)
 
-        date = datetime.datetime(2009, 1, 1, 0, 0, 0, tzinfo=timezone.utc)
+        date = datetime(2009, 1, 1, 0, 0, 0, tzinfo=timezone.utc)
         user_session.time_range = DateTimeTZRange(lower=date)
         user_session.save()
 

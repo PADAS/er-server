@@ -17,6 +17,7 @@ from utils.categories import (
     GEO_ACTIONS,
     make_eventcategory_permission_codename,
 )
+from utils.user import make_random_password
 
 logger = logging.getLogger(__name__)
 
@@ -28,7 +29,7 @@ def get_er_user():
         defaults={
             "first_name": "EarthRanger",
             "last_name": "System",
-            "password": user_model.objects.make_random_password(),
+            "password": make_random_password(),
             "is_system": True,
         },
     )

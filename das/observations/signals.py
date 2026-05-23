@@ -1,15 +1,22 @@
+from __future__ import annotations
+
+import functools
 import logging
+import threading
+from collections import defaultdict
 from datetime import datetime, timedelta, timezone
+from uuid import UUID
 
 from django_multitenant.utils import get_current_tenant
 
 from django.apps import apps
+from django.conf import settings as django_settings
 from django.contrib.auth import models
 from django.contrib.auth.management import _get_all_permissions
 from django.contrib.auth.models import Permission
 from django.contrib.contenttypes.models import ContentType
 from django.core.cache import cache
-from django.db import transaction
+from django.db import DEFAULT_DB_ALIAS, connections, transaction
 from django.db.models import Q
 from django.db.models.fields.json import KeyTransform
 from django.db.models.signals import (
@@ -22,6 +29,7 @@ from django.db.models.signals import (
 from django.dispatch import receiver
 
 from accounts.models import PermissionSet
+from core.models import DASTenant
 from das_server import pubsub
 from observations.models import (
     Announcement,
@@ -36,15 +44,22 @@ from observations.models import (
     SubjectStatus,
 )
 from observations.servicesutils import SOURCE_PROVIDER_2WAY_MSG_KEY
-from observations.tasks import maintain_subjectstatus_for_subject
+from observations.tasks import (
+    maintain_subjectstatus_for_subject,
+    update_observation_segments_batch_task,
+)
+from utils.cache import bump_observation_segment_tile_version
 from utils.tenant.exceptions import TenantNotFoundInLocalThreadException
 
 logger = logging.getLogger(__name__)
 
-# When False, Observation post_save/pre_delete do not sync ObservationSegments.
-# Disabled: synchronous segment work on every save exhausted DB connection pools at scale.
-# Re-enable after segment updates are moved off the request path (e.g. Celery).
-OBSERVATION_SEGMENT_OBSERVATION_SIGNALS_ENABLED = False
+OBSERVATION_SEGMENT_OBSERVATION_SIGNALS_ENABLED: bool = getattr(
+    django_settings, "OBSERVATION_SEGMENT_SIGNALS_ENABLED", True
+)
+
+# Post-save segment batches (creates and updates) use realtime_p3 (see celery task_routes).
+OBSERVATION_SEGMENT_ASYNC_CREATE_QUEUE = "realtime_p3"
+OBSERVATION_SEGMENT_ASYNC_UPDATE_QUEUE = "realtime_p3"
 
 
 @receiver(post_save, sender=Observation)
@@ -282,7 +297,7 @@ def get_subject_for_observation(observation):
         try:
             subjectsource = (
                 SubjectSource.objects.select_related("subject")
-                .filter(source=observation.source, assigned_range__contains=observation.recorded_at)
+                .filter(source_id=observation.source_id, assigned_range__contains=observation.recorded_at)
                 .first()
             )
 
@@ -308,39 +323,81 @@ def _get_observations_for_source_in_range(source, lower, upper):
     )
 
 
-def recompute_observation_segments(observation_ids):
-    """
-    Recompute ObservationSegments for the given observations (single interface for segment updates).
+# Columns needed for update_segments_for_observation (neighbors are loaded via separate queries).
+RECOMPUTE_OBSERVATION_ONLY_FIELDS: tuple[str, ...] = (
+    "id",
+    "location",
+    "recorded_at",
+    "exclusion_flags",
+    "das_tenant_id",
+    "source_id",
+)
 
-    Invalidates segment caches and calls update_segments_for_observation for each observation.
-    Safe to call with any number of IDs; callers (e.g. Celery task or backfill command) may batch.
+
+def recompute_observation_segments(observation_ids, *, lower=None, upper=None):
+    """Recompute ObservationSegments for the given observations.
+
+    Safe to call with any number of IDs; callers (e.g. Celery task or backfill
+    command) may batch.  Pass ``lower``/``upper`` when available so PostgreSQL
+    can prune partitions on the ``recorded_at``-partitioned observation table.
+
+    Loads rows with ``only()`` on the columns segment maintenance needs, avoiding
+    large fields such as ``additional``.
     """
     if not observation_ids:
         return
     obs_ids = list(observation_ids)
-    # Collect subject IDs involved so we can invalidate their caches
-    subject_ids = set()
-    for obs in Observation.objects.filter(id__in=obs_ids):
-        subject = get_subject_for_observation(obs)
-        if subject:
-            subject_ids.add(subject.id)
-    _invalidate_segment_caches_for_observations_and_subjects(obs_ids, list(subject_ids))
-    for obs in Observation.objects.filter(id__in=obs_ids):
+    # Clear cached subject lookups so recompute picks up any SubjectSource changes.
+    for obs_id in obs_ids:
+        cache.delete(f"obs_subject_{obs_id}")
+    qs = Observation.objects.filter(id__in=obs_ids).only(*RECOMPUTE_OBSERVATION_ONLY_FIELDS)
+    if lower is not None and upper is not None:
+        qs = qs.filter(recorded_at__gte=lower, recorded_at__lte=upper)
+    for obs in qs.iterator():
         update_segments_for_observation(obs, created=False)
 
 
-def recompute_observation_segments_for_source_range(source_id, lower, upper, batch_size=1000):
-    """
-    Recompute segments for all observations of the given source in the time range.
+SEGMENT_RECOMPUTE_MAX_HISTORY_DAYS: int = 3 * 365
 
-    Processes in batches to avoid loading huge ID lists. This is the common entry point
-    used by the SubjectSource signal (via async task) and the backfill command.
+
+def _clamp_recompute_bounds(lower: datetime, upper: datetime) -> tuple[datetime, datetime]:
+    """Clamp lower/upper to the segment partition retention window (3 years).
+
+    SubjectSource rows often use DEFAULT_ASSIGNED_RANGE (datetime.min → datetime.max).
+    Without clamping, a single SubjectSource edit would query the full observation
+    history — potentially millions of rows on a busy source.
     """
+    floor = datetime.now(tz=timezone.utc) - timedelta(days=SEGMENT_RECOMPUTE_MAX_HISTORY_DAYS)
+    ceiling = datetime.now(tz=timezone.utc)
+    clamped_lower = max(lower, floor) if lower.tzinfo else max(lower.replace(tzinfo=timezone.utc), floor)
+    clamped_upper = min(upper, ceiling) if upper.tzinfo else min(upper.replace(tzinfo=timezone.utc), ceiling)
+    if clamped_lower != lower or clamped_upper != upper:
+        logger.info(
+            "Clamped recompute range from [%s, %s] to [%s, %s] (partition retention cap)",
+            lower,
+            upper,
+            clamped_lower,
+            clamped_upper,
+        )
+    return clamped_lower, clamped_upper
+
+
+def recompute_observation_segments_for_source_range(source_id, lower, upper, batch_size=1000):
+    """Recompute segments for all observations of a source in [lower, upper].
+
+    Processes in batches to avoid loading huge ID lists.  Common entry point
+    used by the SubjectSource signal (via async task) and the backfill command.
+
+    Bounds are clamped to the 3-year partition retention window so an unbounded
+    SubjectSource ``assigned_range`` (datetime.min → datetime.max) does not scan
+    the entire observation history.
+    """
+    lower, upper = _clamp_recompute_bounds(lower, upper)
     source = Source.objects.get(id=source_id)
     all_ids = _get_observations_for_source_in_range(source, lower, upper)
     for i in range(0, len(all_ids), batch_size):
         batch = all_ids[i : i + batch_size]
-        recompute_observation_segments(batch)
+        recompute_observation_segments(batch, lower=lower, upper=upper)
 
 
 def _union_assigned_range_bounds(assigned_range_a, assigned_range_b):
@@ -367,19 +424,18 @@ def _union_assigned_range_bounds(assigned_range_a, assigned_range_b):
     return lower, upper
 
 
-def _invalidate_segment_caches_for_observations_and_subjects(observation_ids, subject_ids):
-    """Invalidate caches used by get_subject_for_observation."""
-    for obs_id in observation_ids:
-        cache.delete(f"obs_subject_{obs_id}")
-
-
-def _create_bridge_segment(prev_obs, next_obs, subject):
+def _create_bridge_segment(prev_obs: Observation, next_obs: Observation, subject: Subject) -> None:
     """
     Create a bridge segment between two observations.
-    Caller relies on idempotent segment design; real errors propagate.
+
+    Uses get_or_create_segment so concurrent callers (e.g. an in-flight recompute
+    task that already created this segment) do not raise IntegrityError.
     """
-    ObservationSegment.objects.create_segment(prev_obs, next_obs, subject)
-    logger.debug("Created bridge segment %s -> %s", prev_obs.id, next_obs.id)
+    _segment, created = ObservationSegment.objects.get_or_create_segment(prev_obs, next_obs, subject)
+    if created:
+        logger.debug("Created bridge segment %s -> %s", prev_obs.id, next_obs.id)
+    else:
+        logger.debug("Bridge segment already existed %s -> %s", prev_obs.id, next_obs.id)
 
 
 def _delete_bridge_segment(prev_obs, next_obs, tenant_id):
@@ -486,8 +542,8 @@ def update_segments_for_observation(observation, created=False, deleted=False):
         logger.debug(f"No subject found for observation {observation.id}")
         return
 
-    # Get neighboring observations
-    prev_obs, next_obs = observation.get_neighbor_observations(subject)
+    # Neighbours are scoped to the same source; subject is for attachment only.
+    prev_obs, next_obs = observation.get_neighbor_observations()
 
     # Handle deletion or create/update
     if deleted:
@@ -496,18 +552,149 @@ def update_segments_for_observation(observation, created=False, deleted=False):
         _handle_observation_create_or_update(observation, subject, prev_obs, next_obs, created)
 
 
+def _resolve_tenant_domain(instance) -> str | None:
+    """Resolve tenant domain without hitting the DB when possible.
+
+    Prefers thread-local tenant context (free).  Falls back to the FK only when
+    no thread-local is available (management commands, scripts).  Returns None
+    when neither path works so the caller can skip enqueue gracefully.
+
+    Returning None always silently drops segment maintenance for this save, so we
+    only catch the specific lookup-failure exceptions and let everything else
+    propagate to be visible in logs / error tracking.
+    """
+    try:
+        tenant = get_current_tenant()
+        if tenant is not None:
+            domain = getattr(tenant, "domain", None)
+            if domain:
+                return domain
+    except TenantNotFoundInLocalThreadException:
+        pass
+
+    try:
+        return instance.das_tenant.domain
+    except (DASTenant.DoesNotExist, AttributeError) as exc:
+        logger.warning(
+            "Could not resolve das_tenant for observation %s (%s); skipping segment enqueue",
+            getattr(instance, "pk", "?"),
+            exc.__class__.__name__,
+        )
+        return None
+
+
+_segment_post_save_tl = threading.local()
+
+
+def _get_segment_post_save_bucket(db_alias: str) -> dict:
+    """Return the per-(thread, db_alias) buffer for coalescing segment post-save enqueues."""
+    if not hasattr(_segment_post_save_tl, "buffers"):
+        _segment_post_save_tl.buffers = {}
+    if db_alias not in _segment_post_save_tl.buffers:
+        _segment_post_save_tl.buffers[db_alias] = {"pending": {}, "flush_registered": False, "callback": None}
+    return _segment_post_save_tl.buffers[db_alias]
+
+
+def _flush_callback_still_registered(db_alias: str, callback) -> bool:
+    """Return True if our flush callback is still in the connection's ``run_on_commit`` queue.
+
+    Django prunes ``on_commit`` callbacks registered inside a savepoint when that
+    savepoint is rolled back.  Without this check, a rolled-back savepoint would
+    leave ``flush_registered=True`` while the actual callback is gone, so later
+    saves on the same connection would skip re-registering and silently drop
+    their batch enqueue.
+    """
+    if callback is None:
+        return False
+    conn = connections[db_alias]
+    # ``run_on_commit`` entries are ``(savepoint_ids, func)`` on Django 3.2 and
+    # ``(savepoint_ids, func, robust)`` on 4.x; index 1 is the function in both.
+    for entry in getattr(conn, "run_on_commit", ()):
+        if entry[1] is callback:
+            return True
+    return False
+
+
+def _clear_segment_post_save_buffers() -> None:
+    """Drop any buffered post_save state on this thread.
+
+    A rolled-back transaction discards its ``on_commit`` callbacks but leaves the
+    thread-local ``pending`` dict and ``flush_registered=True`` flag in place.  Without
+    this cleanup, the next save on the same thread would not re-register a flush AND
+    would enqueue stale IDs from the rolled-back transaction.  Wired to ``request_started``
+    and Celery ``task_prerun`` so the buffer always starts empty on a new unit of work.
+    """
+    if hasattr(_segment_post_save_tl, "buffers"):
+        del _segment_post_save_tl.buffers
+
+
+def _flush_segment_post_save_buffer(db_alias: str) -> None:
+    """Flush buffered observation segment work: chunk, split create/update queues, enqueue batch tasks."""
+    buffers = getattr(_segment_post_save_tl, "buffers", None)
+    if not buffers:
+        return
+    bucket = buffers.get(db_alias)
+    if not bucket:
+        return
+
+    pending: dict[UUID, tuple[bool, str]] = dict(bucket["pending"])
+    bucket["pending"].clear()
+    bucket["flush_registered"] = False
+    bucket["callback"] = None
+
+    if not pending:
+        return
+
+    creates_by_domain: dict[str, list[UUID]] = defaultdict(list)
+    updates_by_domain: dict[str, list[UUID]] = defaultdict(list)
+    for obs_id, (created_flag, domain) in pending.items():
+        if created_flag:
+            creates_by_domain[domain].append(obs_id)
+        else:
+            updates_by_domain[domain].append(obs_id)
+
+    chunk_size = int(getattr(django_settings, "OBSERVATION_SEGMENT_POST_SAVE_BATCH_SIZE", 200))
+
+    for domain, ids in creates_by_domain.items():
+        for i in range(0, len(ids), chunk_size):
+            chunk_ids = ids[i : i + chunk_size]
+            update_observation_segments_batch_task.apply_async(
+                kwargs={
+                    "observation_ids": [str(u) for u in chunk_ids],
+                    "created": True,
+                    "domain": domain,
+                },
+                queue=OBSERVATION_SEGMENT_ASYNC_CREATE_QUEUE,
+            )
+
+    for domain, ids in updates_by_domain.items():
+        for i in range(0, len(ids), chunk_size):
+            chunk_ids = ids[i : i + chunk_size]
+            update_observation_segments_batch_task.apply_async(
+                kwargs={
+                    "observation_ids": [str(u) for u in chunk_ids],
+                    "created": False,
+                    "domain": domain,
+                },
+                queue=OBSERVATION_SEGMENT_ASYNC_UPDATE_QUEUE,
+            )
+
+
 @receiver(post_save, sender=Observation)
 def observation_segment_post_save(sender, instance, created, **kwargs):
-    """
-    Signal handler to maintain ObservationSegments when observations are created or updated.
-    This handler updates only the 2 affected segments (O(1) update).
-    Uses transaction.on_commit(); in tests that roll back transactions, call
-    update_segments_for_observation() directly if segment state is needed.
+    """Enqueue async segment maintenance after an observation is saved.
 
-    Rollout-safe by design: "segment doesn't exist yet" is handled via idempotent
-    operations (filter().first(), filter().delete(), manager IntegrityError handling)
-    so we never raise for that case. Any exception that does propagate is a real
-    error and will 500 the request so it gets fixed rather than hidden in logs.
+    Buffers work per database connection and transaction: many saves in one
+    ``atomic()`` produce one ``on_commit`` flush per DB alias (chunked by
+    ``OBSERVATION_SEGMENT_POST_SAVE_BATCH_SIZE``). Both creates and updates enqueue
+    to ``realtime_p3``.
+
+    In tests that roll back transactions, ``on_commit`` does not run; call
+    ``update_segments_for_observation()`` directly if segment state is needed.
+
+    Idempotent by design: concurrent or duplicate tasks are harmless because the
+    segment manager uses ``select_for_update`` + ``IntegrityError`` fallback.
+    Failures surface in Celery (dead-letter / retry), not as HTTP 500s.
     """
     # Skip during fixture loading
     if kwargs.get("raw", False):
@@ -520,21 +707,74 @@ def observation_segment_post_save(sender, instance, created, **kwargs):
     if not instance.location:
         return
 
-    # Schedule segment update after transaction commits. In test environments
-    # that roll back transactions, on_commit hooks do not run; tests that need
-    # segment updates should call update_segments_for_observation() directly.
-    transaction.on_commit(lambda: update_segments_for_observation(instance, created=created))
+    # Resolve domain eagerly (before on_commit) so the callback cannot raise
+    # TenantNotFoundInLocalThreadException after the DB transaction commits.
+    domain = _resolve_tenant_domain(instance)
+    if not domain:
+        logger.warning("Cannot resolve tenant domain for observation %s; skipping segment enqueue", instance.pk)
+        return
+
+    db_alias = kwargs.get("using") or getattr(instance._state, "db", None) or DEFAULT_DB_ALIAS
+    bucket = _get_segment_post_save_bucket(db_alias)
+    bucket["pending"][instance.pk] = (created, domain)
+
+    # Re-sync ``flush_registered`` against the connection's ``run_on_commit`` queue:
+    # a savepoint rollback can prune a previously-registered callback while leaving
+    # this flag True, which would otherwise cause subsequent saves to drop their
+    # batch enqueue on outer commit.
+    if bucket["flush_registered"] and not _flush_callback_still_registered(db_alias, bucket["callback"]):
+        bucket["flush_registered"] = False
+        bucket["callback"] = None
+
+    if bucket["flush_registered"]:
+        return
+    callback = functools.partial(_flush_segment_post_save_buffer, db_alias)
+    bucket["callback"] = callback
+    bucket["flush_registered"] = True
+    transaction.on_commit(callback, using=db_alias)
 
 
 @receiver(pre_delete, sender=Observation)
 def observation_segment_pre_delete(sender, instance, **kwargs):
-    """
-    Signal handler to maintain ObservationSegments when observations are deleted.
-    Removes affected segments and bridges the gap if possible.
+    """Maintain ObservationSegments when an observation is deleted.
+
+    Runs synchronously (not Celery): the row must exist until we read neighbors
+    and delete/bridge segments.  After segments are fixed, a per-tenant tile
+    version bump is scheduled on commit so cached tiles become stale.
     """
     if not OBSERVATION_SEGMENT_OBSERVATION_SIGNALS_ENABLED:
         return
 
-    # We need to process this before the observation is actually deleted
-    # so we can still access its relationships
     update_segments_for_observation(instance, deleted=True)
+
+    tenant_id = str(instance.das_tenant_id)
+    transaction.on_commit(lambda tid=tenant_id: bump_observation_segment_tile_version(tid))
+
+
+# --- Thread-local buffer cleanup ----------------------------------------------------
+# Pooled threads survive across requests (gunicorn sync) and across Celery tasks; a
+# rolled-back transaction leaves the ``pending`` dict + ``flush_registered`` flag in place.
+# Clear at the start of each new unit of work so no rolled-back state leaks forward.
+
+from django.core.signals import request_started  # noqa: E402
+
+
+@receiver(request_started)
+def _clear_segment_buffers_on_request_started(sender, **kwargs) -> None:
+    _clear_segment_post_save_buffers()
+
+
+def _clear_segment_buffers_on_celery_task_prerun(sender=None, **kwargs) -> None:
+    _clear_segment_post_save_buffers()
+
+
+def _connect_celery_segment_buffer_cleanup() -> None:
+    """Connect Celery's ``task_prerun`` so worker threads start each task with a clean buffer."""
+    try:
+        from celery.signals import task_prerun
+    except ImportError:
+        return
+    task_prerun.connect(_clear_segment_buffers_on_celery_task_prerun, weak=False)
+
+
+_connect_celery_segment_buffer_cleanup()

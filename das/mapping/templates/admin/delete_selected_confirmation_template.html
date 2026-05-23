@@ -37,10 +37,6 @@
 {% block deletion_bar %}
     <p>{% blocktrans %}Are you sure you want to delete the selected {{ objects_name }}? All of the following objects and their related items will be deleted:{% endblocktrans %}</p>
     {% include "admin/includes/object_delete_summary_template.html" %}
-    <h2>{% trans "Objects" %}</h2>
-    {% for deletable_object in deletable_objects %}
-        <ul>{{ deletable_object|unordered_list }}</ul>
-    {% endfor %}
     <form method="post">{% csrf_token %}
     <div>
     {% for obj in queryset %}

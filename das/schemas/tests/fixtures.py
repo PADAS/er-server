@@ -42,7 +42,7 @@ class MockDynamicSchemaView(DynamicSchemaFromSourceView):
     source_view = MockSourceView
     schema_title = "TestSchema"
     schema_description = "Tests data list"
-    default_const_field = "id"
-    default_title_field = "name"
+    default_value_field = "id"
+    default_label_field = "name"
     default_description_field = "bio"
-    default_x_fields = {"info": "extra_info"}
+    default_extra_fields = {"info": "extra_info"}

@@ -1,7 +1,7 @@
 {
   "json": {
     "$schema": "https://json-schema.org/draft/2020-12/schema",
-    "additionalProperties": false,
+    "unevaluatedProperties": false,
     "properties": {
       "subjects_from_subject_group": {
         "deprecated": false,
@@ -10,7 +10,7 @@
         "type": "string",
         "anyOf": [
           {
-            "$ref": "https://zoo.com/api/v2.0/schemas/subjects.json?subject_group=b4c8e9f6-1ccb-4e3f-8c07-3b727b9ec057"
+            "$ref": "/api/v2.0/schemas/subjects.json?subject_group=b4c8e9f6-1ccb-4e3f-8c07-3b727b9ec057"
           }
         ]
       }

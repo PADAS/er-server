@@ -66,7 +66,7 @@ def test_add_new_tenant_domains_includes_hostname_parameter(monkeypatch):
         assert "newsite.pamdas.org" in django_settings.ALLOWED_HOSTS
         assert "newsite.pamdas.org" in django_settings.SERVER_NAMES
         assert "newsite.pamdas.org" in django_settings.ALT_SERVER_NAMES
-        assert "newsite.pamdas.org" in django_settings.CSRF_TRUSTED_ORIGINS
+        assert "https://newsite.pamdas.org" in django_settings.CSRF_TRUSTED_ORIGINS
 
 
 class TestSetTenantByRequestDisallowedHost:

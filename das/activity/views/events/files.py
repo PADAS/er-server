@@ -3,6 +3,7 @@ import logging
 import mimetypes
 
 import versatileimagefield.files
+from google.auth.exceptions import DefaultCredentialsError
 
 from django.http import HttpResponse
 from rest_framework import status
@@ -15,7 +16,10 @@ from rest_framework.response import Response
 
 from activity.libs.constants import ActivityConstants
 from activity.models import Event, EventFile
-from activity.permissions import EventCategoryGeographicPermission
+from activity.permissions import (
+    EventCategoryGeographicPermission,
+    EventFilesPermissions,
+)
 from activity.serializers import EventFileSerializer
 from usercontent.serializers import get_stored_filename
 from utils.drf import StandardResultsSetPagination
@@ -74,7 +78,7 @@ class EventFileView(RetrieveUpdateDestroyAPIView):
 
 
 class EventFilesView(ListCreateAPIView):
-    permission_classes = (EventCategoryGeographicPermission,)
+    permission_classes = (EventFilesPermissions,)
     serializer_class = EventFileSerializer
     pagination_class = StandardResultsSetPagination
 
@@ -82,26 +86,39 @@ class EventFilesView(ListCreateAPIView):
 
         event = get_object_or_404(Event.objects.all(), pk=self.kwargs["id"])
 
-        # TODO: This conditional is to handle the case where a file is uploaded
-        # via XHR. Figure out why.
-        if "filecontent.file" not in request.data:
-            try:
-                # Ajax request.
-                request.data["filecontent.file"] = request.stream.FILES["filecontent.file"]
-            except KeyError:
-                pass
-
         this_data = copy.copy(request.data)
         this_data["event"] = event.id
 
-        this_data["usercontent.file"] = this_data["filecontent.file"]
+        if "usercontent_id" not in request.data:
+            # Legacy path: inline file upload (direct POST or XHR multipart).
+            # TODO: This conditional is to handle the case where a file is uploaded
+            # via XHR. Figure out why.
+            if "filecontent.file" not in request.data:
+                try:
+                    # Ajax request.
+                    request.data["filecontent.file"] = request.stream.FILES["filecontent.file"]
+                except KeyError:
+                    pass
+            this_data["usercontent.file"] = this_data["filecontent.file"]
 
         serializer = self.get_serializer(data=this_data)
         serializer.is_valid(raise_exception=True)
-        self.perform_create(serializer)
+        try:
+            self.perform_create(serializer)
+        except DefaultCredentialsError:
+            return Response(
+                {"detail": "File storage is not configured."},
+                status=status.HTTP_503_SERVICE_UNAVAILABLE,
+            )
 
         headers = self.get_success_headers(serializer.data)
         return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
+
+    def perform_create(self, serializer):
+        if self.request.user.is_anonymous:
+            serializer.save(created_by=None)
+        else:
+            super().perform_create(serializer)
 
     def get_queryset(self):
         event = get_object_or_404(Event.objects.all(), pk=self.kwargs.get("id"))

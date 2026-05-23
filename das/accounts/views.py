@@ -1,12 +1,12 @@
-import datetime
 import logging
+from datetime import datetime
+from zoneinfo import ZoneInfo
 
-import pytz
 from django_filters import rest_framework as filters
 from rest_framework_condition import etag
 
 from django.contrib.auth import get_user_model
-from django.utils import timezone
+from django.utils.timezone import get_current_timezone_name
 from rest_framework import generics, status
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
@@ -110,8 +110,8 @@ class UsersCsvView(APIView):
         users = self.get_queryset()
         group_membership = request.GET.get("additional.tech", "")
 
-        current_tz = pytz.timezone(timezone.get_current_timezone_name())
-        timestamp = current_tz.localize(datetime.datetime.utcnow()).strftime("%Y-%m-%d %H:%M:%S")
+        current_tz = ZoneInfo(get_current_timezone_name())
+        timestamp = datetime.now(tz=current_tz).strftime("%Y-%m-%d %H:%M:%S")
         filename = f"DAS Users({group_membership}) {timestamp}.csv"
 
         return StreamingCSVResponse(

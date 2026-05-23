@@ -1,9 +1,12 @@
+import hashlib
 import logging
 import time
+import uuid
 from random import uniform
 
 from django.conf import settings
-from django.db import IntegrityError
+from django.contrib.contenttypes.models import ContentType
+from django.db import IntegrityError, connection, models, transaction
 from django.db.models import BigIntegerField, Subquery, Value
 from django.db.models.functions import Coalesce
 
@@ -36,6 +39,25 @@ class TileLayersMixin:
         return f"{url}?access_token={token}"
 
 
+def _serial_number_lock_key(tenant_id: uuid.UUID | str, model_class: type[models.Model]) -> int:
+    """Derive a stable signed int64 advisory-lock key from ``(tenant, model)``.
+
+    ``tenant_id`` may be a ``uuid.UUID`` or ``str`` pre-save depending on how
+    the caller assigned it; both must produce the same key so workers agree on
+    the lock.
+    """
+    tenant_uuid = uuid.UUID(str(tenant_id))
+    content_type_id = ContentType.objects.get_for_model(model_class).id
+    return int.from_bytes(
+        hashlib.blake2b(
+            tenant_uuid.bytes + content_type_id.to_bytes(4, "big"),
+            digest_size=8,
+        ).digest(),
+        byteorder="big",
+        signed=True,
+    )
+
+
 class SerialNumberModelMixin:
     """
     Adds an incremental serial number on inserts.
@@ -61,35 +83,52 @@ class SerialNumberModelMixin:
         """
         Save method for new objects with automatic serial number generation.
 
-        Uses a retry mechanism to handle IntegrityError exceptions that can occur
-        during concurrent serial number generation. This method avoids nested
-        transaction.atomic() blocks to prevent TransactionManagementError.
+        Serializes concurrent mixin writers for a given ``(tenant, model)``
+        with ``pg_advisory_xact_lock`` so the embedded ``MAX+1`` subquery
+        cannot race against itself. The retry loop remains as a safety net
+        for non-mixin writers (bulk_create, raw SQL) that can still commit
+        between our subquery and INSERT.
         """
         serial_number_field_name = self._get_serial_number_field_name()
+        tenant_id = getattr(self, "das_tenant_id", None)
+
+        if tenant_id is None:
+            raise FailedToSetSerialNumberError(
+                f"Cannot generate serial number without a tenant for {self.__class__.__name__}"
+            )
+
+        lock_key = _serial_number_lock_key(tenant_id, self.__class__)
+
         max_retries = 40
         retries = 0
 
         while retries < max_retries:
             try:
-                # Generate the serial number
-                setattr(
-                    self,
-                    serial_number_field_name,
-                    Coalesce(
-                        Subquery(
-                            self.__class__.objects.filter(serial_number__isnull=False)
-                            .order_by(f"-{serial_number_field_name}")
-                            .values(serial_number_field_name)[:1],
-                            output_field=BigIntegerField(),
-                        ),
-                        Value(0),
-                    )
-                    + Value(1),
-                )
+                with transaction.atomic():
+                    with connection.cursor() as cursor:
+                        cursor.execute("SELECT pg_advisory_xact_lock(%s)", [lock_key])
 
-                # Save without nested atomic block - let the caller handle transactions
-                result = super().save(*args, **kwargs)
+                    setattr(
+                        self,
+                        serial_number_field_name,
+                        Coalesce(
+                            Subquery(
+                                self.__class__.objects.filter(
+                                    das_tenant_id=tenant_id,
+                                    **{f"{serial_number_field_name}__isnull": False},
+                                )
+                                .order_by(f"-{serial_number_field_name}")
+                                .values(serial_number_field_name)[:1],
+                                output_field=BigIntegerField(),
+                            ),
+                            Value(0),
+                        )
+                        + Value(1),
+                    )
+
+                    result = super().save(*args, **kwargs)
                 self.refresh_from_db()
+                self._sync_serial_number_into_added_revision(serial_number_field_name)
                 return result
 
             except IntegrityError as exc:
@@ -123,3 +162,23 @@ class SerialNumberModelMixin:
             f"Serial number field not found. Please either add a serial_number field "
             f"or set serial_number_field in {self.__class__.__name__}"
         )
+
+    def _sync_serial_number_into_added_revision(self, field_name):
+        # The post_save signal fires inside super().save() while the field
+        # still holds the Coalesce/Subquery expression we assigned above, so
+        # the ADDED revision JSON-stringifies that expression instead of the
+        # integer the DB computed. refresh_from_db has just put the real
+        # value on the instance — copy it onto the revision row.
+        from revision.manager import ACTION_ADDED
+
+        revision_manager = getattr(self, "revision", None)
+        if revision_manager is None:
+            return
+        added = revision_manager.filter(action=ACTION_ADDED).order_by("-sequence").first()
+        if added is None:
+            return
+        actual_value = getattr(self, field_name)
+        if added.data.get(field_name) == actual_value:
+            return
+        added.data[field_name] = actual_value
+        added.save(update_fields=["data"])

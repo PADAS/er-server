@@ -1,7 +1,11 @@
 import pytest
 
+from django.contrib.auth import get_user_model
 from django.urls import reverse
+from rest_framework import status
 
+from accounts.models import PermissionSet
+from activity.models import CommunityInput
 from choices.models import Choice
 from factories import (
     EventCategoryFactory,
@@ -10,6 +14,14 @@ from factories import (
     SubjectFactory,
 )
 from observations.models import SubjectGroup
+from schemas.view_mixins import ENUM_EXTRA_KEY
+from utils.tenant.managers import TenantContextManager
+
+
+def _dynamic_schema_rows(data: dict) -> list[dict]:
+    """Expand ``enum`` + ``x-enumExtra`` rows into ``{"const", ...}`` dicts for assertions."""
+    extra = data.get(ENUM_EXTRA_KEY) or {}
+    return [{"const": v, **(extra.get(v) or {})} for v in data.get("enum", [])]
 
 
 @pytest.mark.django_db
@@ -22,9 +34,11 @@ def test_get_dynamic_schemas(superuser_client, view):
 
     assert response.status_code == 200
     assert data["$schema"] == "https://json-schema.org/draft/2020-12/schema"
-    for item in data["oneOf"]:
+    assert "enum" in data
+    assert ENUM_EXTRA_KEY in data
+    for item in _dynamic_schema_rows(data):
         assert item["const"]
-        assert item["title"]
+        assert item["display"]
 
 
 @pytest.mark.django_db
@@ -32,17 +46,31 @@ def test_get_choices_dynamic_schemas(superuser_client):
     url = reverse("schemas:choices")
     response = superuser_client.get(url)
 
-    choices = Choice.objects.all()
-    choice_values = [choice.value for choice in choices]
-    choice_displays = [choice.display for choice in choices]
+    choices = list(Choice.objects.all())
+    choice_triples = {(str(c.value), c.display, c.field) for c in choices}
 
     data = response.json()
 
     assert response.status_code == 200
     assert data["$schema"] == "https://json-schema.org/draft/2020-12/schema"
-    for item in data["oneOf"]:
-        assert item["const"] in choice_values
-        assert item["title"] in choice_displays
+    for item in _dynamic_schema_rows(data):
+        triple = (str(item["const"]), item["display"], item["description"])
+        assert triple in choice_triples, f"schema item {triple!r} does not match any Choice row"
+
+
+@pytest.mark.django_db
+def test_users_schema_includes_username_as_description(superuser_client):
+    url = reverse("schemas:users")
+    response = superuser_client.get(url)
+    assert response.status_code == 200
+    data = response.json()
+    user_model = get_user_model()
+    ids = [str(item["const"]) for item in _dynamic_schema_rows(data)]
+    id_to_username = {
+        str(pk): username for pk, username in user_model.objects.filter(pk__in=ids).values_list("pk", "username")
+    }
+    for item in _dynamic_schema_rows(data):
+        assert item["description"] == id_to_username[str(item["const"])]
 
 
 @pytest.mark.django_db
@@ -58,13 +86,19 @@ def test_choices_dynamic_schema_accessible_without_choice_permissions(user_clien
 
     data = response.json()
     assert data["$schema"] == "https://json-schema.org/draft/2020-12/schema"
-    assert "oneOf" in data
-    assert len(data["oneOf"]) >= len(five_choices)
+    assert "enum" in data
+    assert len(data["enum"]) >= len(five_choices)
 
-    # Verify the structure matches what's expected from choice data
-    for item in data["oneOf"]:
+    for item in _dynamic_schema_rows(data):
         assert "const" in item
-        assert "title" in item
+        assert "display" in item
+        assert "description" in item
+
+    # Every fixture choice must appear in the schema; match on (value, display, field) so values are not ambiguous.
+    items_by_triple = {(str(i["const"]), i["display"], i["description"]) for i in _dynamic_schema_rows(data)}
+    for choice in five_choices:
+        triple = (str(choice.value), choice.display, choice.field)
+        assert triple in items_by_triple, f"expected schema item for fixture choice {triple!r}"
 
 
 @pytest.mark.django_db
@@ -85,21 +119,22 @@ def test_get_dynamic_schema_choices_filtered(superuser_client):
     ]
 
     assert response.status_code == 200
-    for item in response.json()["oneOf"]:
+    for item in _dynamic_schema_rows(response.json()):
         assert item["const"] in filtered_choices
         assert item["const"] not in not_in_filter_choices
+        assert Choice.objects.filter(value=item["const"], field=item["description"]).exists()
 
 
 @pytest.mark.django_db
-def test_choices_display_as_title(superuser_client):
+def test_choices_description_matches_display_when_description_maps_to_display_field(superuser_client):
     url = reverse("schemas:choices")
     response = superuser_client.get(f"{url}?s_description=display")
 
     data = response.json()
 
     assert response.status_code == 200
-    for item in data["oneOf"]:
-        assert item["description"] == item["title"]
+    for item in _dynamic_schema_rows(data):
+        assert item["description"] == item["display"]
 
 
 @pytest.mark.django_db
@@ -120,14 +155,14 @@ def test_dynamic_subjects_filtered_by_subtypes(superuser_client):
 
     assert response.status_code == 200
     response_json = response.json()
-    assert len(response_json["oneOf"])
-    for item in response_json["oneOf"]:
+    assert len(response_json["enum"])
+    for item in _dynamic_schema_rows(response_json):
         # assert attached first subject filtered by first group
         assert item["const"] == str(last_subject.id)
-        assert item["title"] == str(last_subject.name)
+        assert item["display"] == str(last_subject.name)
         # assert other created subjects aren't present
         assert item["const"] not in [str(two_subjects[0].id), str(two_subjects[1].id)]
-        assert item["title"] not in [str(two_subjects[0].name), str(two_subjects[1].name)]
+        assert item["display"] not in [str(two_subjects[0].name), str(two_subjects[1].name)]
 
 
 @pytest.mark.django_db
@@ -148,14 +183,14 @@ def test_dynamic_subjects_filtered_by_group_id(superuser_client):
     assert response.status_code == 200
 
     response_json = response.json()
-    assert len(response_json["oneOf"]) == 1
-    for item in response_json["oneOf"]:
+    assert len(response_json["enum"]) == 1
+    for item in _dynamic_schema_rows(response_json):
         # assert attached first subject filtered by first group
         assert item["const"] == str(two_subjects[0].id)
-        assert item["title"] == two_subjects[0].name
+        assert item["display"] == two_subjects[0].name
         # assert other created subjects aren't present
         assert item["const"] not in [str(two_subjects[1].id), str(last_subject.id)]
-        assert item["title"] not in [str(two_subjects[1].name), str(last_subject.name)]
+        assert item["display"] not in [str(two_subjects[1].name), str(last_subject.name)]
 
 
 @pytest.mark.django_db
@@ -168,16 +203,29 @@ def test_get_sources_dynamic_schemas(superuser_client, source):
 
     assert response.status_code == 200
     assert data["$schema"] == "https://json-schema.org/draft/2020-12/schema"
-    assert "oneOf" in data
-    assert len(data["oneOf"]) >= 1
+    assert "enum" in data
+    assert len(data["enum"]) >= 1
 
     # Find our test source in the response
-    source_items = [item for item in data["oneOf"] if item["const"] == str(source.id)]
+    source_items = [item for item in _dynamic_schema_rows(data) if item["const"] == str(source.id)]
     assert len(source_items) == 1
 
     source_item = source_items[0]
     assert source_item["const"] == str(source.id)
-    assert source_item["title"]  # Should have a title (display name)
+    assert source_item["display"]  # primary label for the row
+    source.refresh_from_db()
+    if source.manufacturer_id and source.model_name:
+        assert source_item["display"] == (source.model_name or "").strip()
+        assert source_item["description"] == (source.manufacturer_id or "").strip()
+    elif source.manufacturer_id:
+        assert source_item["display"] == (source.manufacturer_id or "").strip()
+        assert "description" not in source_item
+    elif source.model_name:
+        assert source_item["display"] == (source.model_name or "").strip()
+        assert "description" not in source_item
+    else:
+        assert source_item["display"] == (source.source_type or f"Source {source.id}")
+        assert "description" not in source_item
 
 
 @pytest.mark.django_db
@@ -202,24 +250,28 @@ def test_sources_display_name_logic(superuser_client):
     assert response.status_code == 200
     data = response.json()
 
-    # Find each source and verify display names
-    items_by_id = {item["const"]: item for item in data["oneOf"]}
+    # Find each source and verify display / description rules
+    items_by_id = {item["const"]: item for item in _dynamic_schema_rows(data)}
 
-    # Source 1: manufacturer_id (model_name)
+    # Source 1: model_name as display, manufacturer_id as description
     source1_item = items_by_id[str(source1.id)]
-    assert source1_item["title"] == "Vectronic Aerospace (GPS-COLLAR-123)"
+    assert source1_item["display"] == "Vectronic Aerospace"
+    assert source1_item["description"] == "GPS-COLLAR-123"
 
-    # Source 2: just manufacturer_id
+    # Source 2: manufacturer_id only — display only, no description
     source2_item = items_by_id[str(source2.id)]
-    assert source2_item["title"] == "SENSOR-456"
+    assert source2_item["display"] == "SENSOR-456"
+    assert "description" not in source2_item
 
-    # Source 3: just model_name
+    # Source 3: model_name only — display only, no description
     source3_item = items_by_id[str(source3.id)]
-    assert source3_item["title"] == "Custom Device"
+    assert source3_item["display"] == "Custom Device"
+    assert "description" not in source3_item
 
-    # Source 4: fallback to source_type
+    # Source 4: fallback to source_type for display, no description
     source4_item = items_by_id[str(source4.id)]
-    assert source4_item["title"] == "tracking-device"
+    assert source4_item["display"] == "tracking-device"
+    assert "description" not in source4_item
 
 
 @pytest.mark.django_db
@@ -236,12 +288,12 @@ def test_sources_schema_accessible_to_authenticated_users(user_client):
     assert response.status_code == 200
     data = response.json()
     assert data["$schema"] == "https://json-schema.org/draft/2020-12/schema"
-    assert "oneOf" in data
+    assert "enum" in data
 
     # Verify structure is correct
-    for item in data["oneOf"]:
+    for item in _dynamic_schema_rows(data):
         assert "const" in item
-        assert "title" in item
+        assert "display" in item
 
 
 @pytest.mark.django_db
@@ -254,18 +306,17 @@ def test_get_event_types_dynamic_schemas(superuser_client, event_type):
 
     assert response.status_code == 200
     assert data["$schema"] == "https://json-schema.org/draft/2020-12/schema"
-    assert "oneOf" in data
-    assert len(data["oneOf"]) >= 1
+    assert "enum" in data
+    assert len(data["enum"]) >= 1
 
     # Find our test event type in the response
-    event_type_items = [item for item in data["oneOf"] if item["const"] == str(event_type.id)]
+    event_type_items = [item for item in _dynamic_schema_rows(data) if item["const"] == str(event_type.id)]
     assert len(event_type_items) == 1
 
     event_type_item = event_type_items[0]
     assert event_type_item["const"] == str(event_type.id)
-    assert event_type_item["title"] == event_type.value
-    if event_type.display:
-        assert event_type_item.get("description") == event_type.display
+    assert event_type_item["display"] == event_type.display
+    assert event_type_item["description"] == event_type.value
 
 
 @pytest.mark.django_db
@@ -284,19 +335,39 @@ def test_event_types_schema_structure(superuser_client):
     data = response.json()
 
     # Find each event type and verify field mappings
-    items_by_id = {item["const"]: item for item in data["oneOf"]}
+    items_by_id = {item["const"]: item for item in _dynamic_schema_rows(data)}
 
-    # Event type 1: check const=id, title=value, description=display
+    # Event type 1: const=id, display=model display, description=value
     event_type1_item = items_by_id[str(event_type1.id)]
     assert event_type1_item["const"] == str(event_type1.id)
-    assert event_type1_item["title"] == "test_event_type_1"
-    assert event_type1_item["description"] == "Test Event Type 1"
+    assert event_type1_item["display"] == "Test Event Type 1"
+    assert event_type1_item["description"] == "test_event_type_1"
 
-    # Event type 2: check const=id, title=value, description=display
+    # Event type 2: const=id, display=model display, description=value
     event_type2_item = items_by_id[str(event_type2.id)]
     assert event_type2_item["const"] == str(event_type2.id)
-    assert event_type2_item["title"] == "test_event_type_2"
-    assert event_type2_item["description"] == "Test Event Type 2"
+    assert event_type2_item["display"] == "Test Event Type 2"
+    assert event_type2_item["description"] == "test_event_type_2"
+
+
+@pytest.mark.django_db
+def test_event_types_schema_blank_display_uses_value_as_display_when_display_blank(superuser_client):
+    """When model display is blank, x-enumExtra display falls back to value and description is omitted."""
+    event_type = EventTypeFactory.create(value="only_value_slug", display="")
+    event_type_ws = EventTypeFactory.create(value="whitespace_display_slug", display="   ")
+
+    url = reverse("schemas:event_types")
+    response = superuser_client.get(url)
+    assert response.status_code == 200
+    items_by_id = {item["const"]: item for item in _dynamic_schema_rows(response.json())}
+
+    empty_display_item = items_by_id[str(event_type.id)]
+    assert empty_display_item["display"] == "only_value_slug"
+    assert "description" not in empty_display_item
+
+    ws_display_item = items_by_id[str(event_type_ws.id)]
+    assert ws_display_item["display"] == "whitespace_display_slug"
+    assert "description" not in ws_display_item
 
 
 @pytest.mark.django_db
@@ -324,7 +395,7 @@ def test_event_types_permissions_and_categories(superuser_client):
     data = response.json()
 
     # Get all const values (event type IDs) from response
-    response_ids = [item["const"] for item in data["oneOf"]]
+    response_ids = [item["const"] for item in _dynamic_schema_rows(data)]
 
     # Active category event types should be present (for superuser)
     assert str(event_type1.id) in response_ids
@@ -335,11 +406,15 @@ def test_event_types_permissions_and_categories(superuser_client):
 
 
 @pytest.mark.django_db
-def test_event_types_schema_accessible_to_authenticated_users(user_client):
+def test_event_types_schema_accessible_to_authenticated_users(user_client, tenant):
     """Test that event types dynamic schema is accessible to authenticated users."""
 
-    # Create an event type
-    event_type = EventTypeFactory.create(value="test_event_type", display="Test Event Type")
+    with TenantContextManager(domain=tenant.domain):
+        event_type = EventTypeFactory.create(value="test_event_type", display="Test Event Type")
+        # The ensure_perms_exist signal created a PermissionSet for the category; add the user to it
+        # so the queryset returns this event type for non-superusers.
+        perm_set = PermissionSet.objects.get(name=event_type.category.auto_permissionset_name)
+        perm_set.user_set.add(user_client.user)
 
     url = reverse("schemas:event_types")
     response = user_client.get(url)
@@ -348,10 +423,67 @@ def test_event_types_schema_accessible_to_authenticated_users(user_client):
     assert response.status_code == 200
     data = response.json()
     assert data["$schema"] == "https://json-schema.org/draft/2020-12/schema"
-    assert "oneOf" in data
+    assert "enum" in data
 
     # Verify structure is correct
-    for item in data["oneOf"]:
+    for item in _dynamic_schema_rows(data):
         assert "const" in item
-        assert "title" in item
-        # description is optional but should be present if display field exists
+        assert "display" in item
+
+    created_item = next(item for item in _dynamic_schema_rows(data) if item["const"] == str(event_type.id))
+    assert created_item["display"] == event_type.display
+    assert created_item["description"] == event_type.value
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("tenant_settings")
+class TestEventTypesDynamicSchemaViewCommunityInput:
+    schema_url = "schemas:event_types"
+
+    @pytest.fixture
+    def event_type(self):
+        return EventTypeFactory.create(value="survey_type_1", display="Survey Type 1")
+
+    @pytest.fixture
+    def other_event_type(self):
+        return EventTypeFactory.create(value="survey_type_2", display="Survey Type 2")
+
+    @pytest.fixture
+    def active_community_input(self, event_type):
+        ci = CommunityInput.objects.create(name="Public Survey", value="public_survey", is_active=True)
+        ci.event_types.add(event_type)
+        return ci
+
+    @pytest.fixture
+    def inactive_community_input(self, event_type):
+        ci = CommunityInput.objects.create(name="Old Survey", value="old_survey", is_active=False)
+        ci.event_types.add(event_type)
+        return ci
+
+    def test_unauthenticated_with_active_community_input_returns_200(self, client, active_community_input):
+        url = reverse("community-event-types-schema", kwargs={"community_input_value": active_community_input.value})
+        response = client.get(url)
+        assert response.status_code == status.HTTP_200_OK
+
+    def test_returns_only_associated_event_types(self, client, active_community_input, event_type, other_event_type):
+        url = reverse("community-event-types-schema", kwargs={"community_input_value": active_community_input.value})
+        response = client.get(url)
+        assert response.status_code == status.HTTP_200_OK
+        returned_ids = {item["const"] for item in _dynamic_schema_rows(response.json())}
+        assert str(event_type.id) in returned_ids
+        assert str(other_event_type.id) not in returned_ids
+
+    def test_unauthenticated_without_community_input_returns_401(self, client):
+        url = reverse(self.schema_url)
+        response = client.get(url)
+        assert response.status_code == status.HTTP_401_UNAUTHORIZED
+
+    def test_unknown_community_input_returns_401(self, client):
+        url = reverse(self.schema_url)
+        response = client.get(url, {"community_input": "does_not_exist"})
+        assert response.status_code == status.HTTP_401_UNAUTHORIZED
+
+    def test_inactive_community_input_returns_401(self, client, inactive_community_input):
+        url = reverse(self.schema_url)
+        response = client.get(url, {"community_input": inactive_community_input.value})
+        assert response.status_code == status.HTTP_401_UNAUTHORIZED

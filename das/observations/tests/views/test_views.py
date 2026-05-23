@@ -1,13 +1,11 @@
-import datetime
 import json
 import random
-from datetime import timedelta
+from datetime import date, datetime, time, timedelta, timezone
 from typing import NamedTuple
 from unittest.mock import MagicMock, patch
 
 import dateutil.parser
 import pytest
-import pytz
 
 from django.contrib.auth.models import Permission
 from django.contrib.gis.geos import Point
@@ -128,7 +126,7 @@ class BasePermissionTest(BaseAPITest):
         self.ranger.groups.add(self.ranger_group)
 
         DEFAULT_DATE_RANGE = (
-            datetime.datetime(2015, 11, 1, tzinfo=pytz.utc),
+            datetime(2015, 11, 1, tzinfo=timezone.utc),
             dateutil.parser.parse("9999-12-31 23:59:59+0000"),
         )
 
@@ -136,12 +134,12 @@ class BasePermissionTest(BaseAPITest):
         subject_source = SubjectSource.objects.create(
             assigned_range=DEFAULT_DATE_RANGE, source=source, subject=self.ele, additional={}
         )
-        t = datetime.datetime.now(tz=pytz.UTC) - datetime.timedelta(hours=26)
+        t = datetime.now(tz=timezone.utc) - timedelta(hours=26)
         self.ob_yesterday = Observation.objects.create(
             source_id=source.id, location=Point((31, 0)), recorded_at=t, additional={}
         )
 
-        t = datetime.datetime.now(tz=pytz.UTC)
+        t = datetime.now(tz=timezone.utc)
         self.ob_today = Observation.objects.create(
             source_id=source.id, location=Point((31, 0)), recorded_at=t, additional={}
         )
@@ -291,8 +289,8 @@ class SubjectViewPermissionsTest(BasePermissionTest):
             source=ele2_source,
             subject=ele2,
             assigned_range=(
-                datetime.datetime(1000, 1, 1, tzinfo=pytz.utc),
-                datetime.datetime(9999, 1, 1, tzinfo=pytz.utc),
+                datetime(1000, 1, 1, tzinfo=timezone.utc),
+                datetime(9999, 1, 1, tzinfo=timezone.utc),
             ),
         )
         ele2_sourcegroup = SourceGroup.objects.create(name="ele2 source group")
@@ -560,8 +558,8 @@ def subject_with_month_long_track(db, user_with_one_week_track_perms):
     subjectgroup.permission_sets.set(user_with_one_week_track_perms.permission_sets.all())
     SubjectSource.objects.create(subject=subject, source=source, assigned_range=DEFAULT_ASSIGNED_RANGE)
 
-    now = datetime.datetime.now(tz=datetime.timezone.utc)
-    next_time = now - datetime.timedelta(days=31)
+    now = datetime.now(tz=timezone.utc)
+    next_time = now - timedelta(days=31)
     x = 37.5
     y = 0.56
     while now > next_time:
@@ -570,7 +568,7 @@ def subject_with_month_long_track(db, user_with_one_week_track_perms):
         Observation.objects.create(
             source=subject.source, location=Point(x=x, y=y), recorded_at=next_time, additional={}
         )
-        next_time += datetime.timedelta(hours=6)
+        next_time += timedelta(hours=6)
 
     return UserSubject(user_with_one_week_track_perms, subject)
 
@@ -578,17 +576,15 @@ def subject_with_month_long_track(db, user_with_one_week_track_perms):
 @pytest.mark.django_db
 @pytest.mark.usefixtures("tenant_settings", "das_tenant_monkeypatch")
 def test_one_week_track_permissions(subject_with_month_long_track, tenant_response, tenant_document_cache_client_mock):
-    now = datetime.datetime.now(tz=datetime.timezone.utc)
-    oldest_time = now - datetime.timedelta(days=31)
+    now = datetime.now(tz=timezone.utc)
+    oldest_time = now - timedelta(days=31)
 
     user, subject = (subject_with_month_long_track.user, subject_with_month_long_track.subject)
     client = APIClient()
     client.force_authenticate(user=user)
     url = reverse("subject-view-tracks", kwargs=dict(subject_id=subject.id))
     response = client.get(url + "?since=" + oldest_time.isoformat())
-    max_day = datetime.datetime.combine(
-        datetime.date.today() - datetime.timedelta(days=7), datetime.time.min, tzinfo=datetime.timezone.utc
-    )
+    max_day = datetime.combine(date.today() - timedelta(days=7), time.min, tzinfo=timezone.utc)
     assert response.status_code == 200
     assert not [t for t in response.data["features"][0]["properties"]["coordinateProperties"]["times"] if t < max_day]
 
@@ -600,9 +596,7 @@ def test_one_week_track_permissions(subject_with_month_long_track, tenant_respon
 
     url = reverse("subject-view-tracks", kwargs=dict(subject_id=subject.id))
     response = client.get(url + "?since=" + oldest_time.isoformat())
-    max_day = datetime.datetime.combine(
-        datetime.date.today() - datetime.timedelta(days=7), datetime.time.min, tzinfo=datetime.timezone.utc
-    )
+    max_day = datetime.combine(date.today() - timedelta(days=7), time.min, tzinfo=timezone.utc)
     assert response.status_code == 200
     assert [t for t in response.data["features"][0]["properties"]["coordinateProperties"]["times"] if t > max_day]
 
@@ -610,8 +604,8 @@ def test_one_week_track_permissions(subject_with_month_long_track, tenant_respon
 @pytest.mark.django_db
 @pytest.mark.usefixtures("tenant_settings", "das_tenant_monkeypatch")
 def test_retrieving_future_tracks(subject_with_month_long_track, tenant_response, tenant_document_cache_client_mock):
-    since = datetime.datetime.now(tz=datetime.timezone.utc) + datetime.timedelta(days=1)
-    until = since + datetime.timedelta(days=31)
+    since = datetime.now(tz=timezone.utc) + timedelta(days=1)
+    until = since + timedelta(days=31)
 
     user, subject = (subject_with_month_long_track.user, subject_with_month_long_track.subject)
     client = APIClient()
@@ -628,7 +622,7 @@ def test_retrieving_future_tracks(subject_with_month_long_track, tenant_response
 def test_retrieving_since_equals_to_until(
     subject_with_month_long_track, tenant_response, tenant_document_cache_client_mock
 ):
-    since = datetime.datetime.now(tz=datetime.timezone.utc) + datetime.timedelta(days=1)
+    since = datetime.now(tz=timezone.utc) + timedelta(days=1)
     until = since
 
     user, subject = (subject_with_month_long_track.user, subject_with_month_long_track.subject)
@@ -732,7 +726,7 @@ class TestFlattenObservationsView:
     def test_subject_with_observations(
         self, superuser_client, subject_source, tenant_response, tenant_document_cache_client_mock
     ):
-        now = datetime.datetime.now(tz=pytz.utc)
+        now = datetime.now(tz=timezone.utc)
         source = subject_source.source
         for count in range(1, 6):
             Observation.objects.create(

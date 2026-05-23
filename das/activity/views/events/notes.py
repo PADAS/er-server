@@ -5,13 +5,13 @@ from rest_framework.generics import (
 )
 
 from activity.models import Event, EventNote
-from activity.permissions import EventNotesCategoryGeographicPermissions
+from activity.permissions import EventNotesPermissions
 from activity.serializers import EventNoteSerializer
 from utils.drf import StandardResultsSetPagination
 
 
 class EventNoteView(RetrieveUpdateDestroyAPIView):
-    permission_classes = (EventNotesCategoryGeographicPermissions,)
+    permission_classes = (EventNotesPermissions,)
     serializer_class = EventNoteSerializer
 
     def get_queryset(self):
@@ -34,13 +34,21 @@ class EventNoteView(RetrieveUpdateDestroyAPIView):
 
 
 class EventNotesView(ListCreateAPIView):
-    permission_classes = (EventNotesCategoryGeographicPermissions,)
+    permission_classes = (EventNotesPermissions,)
     serializer_class = EventNoteSerializer
     pagination_class = StandardResultsSetPagination
 
     def create(self, request, *args, **kwargs):
+        if hasattr(request.data, "_mutable"):
+            request.data._mutable = True
         request.data["event"] = self.kwargs["id"]
         return super().create(request, *args, **kwargs)
+
+    def perform_create(self, serializer):
+        if self.request.user.is_anonymous:
+            serializer.save(created_by_user=None)
+        else:
+            super().perform_create(serializer)
 
     def get_queryset(self):
         event = self.get_event()

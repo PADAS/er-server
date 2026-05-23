@@ -350,4 +350,10 @@ application_default_credentials.json
 .claude/settings.local.json
 
 # ln -s AGENTS.md CLAUDE.md to use it in your claude prompt
-CLAUDE.md
+# Ignore all local Claude settings
+claude/settings.local.json
+# Ignore Claude cache and temp files
+claude/cache/
+claude/tmp/
+# Ignore personal notes or experimental configs
+claude/notes.md

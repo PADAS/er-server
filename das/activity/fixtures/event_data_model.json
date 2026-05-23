@@ -4277,6 +4277,22 @@
   },
   {
     "model": "activity.eventtype",
+    "pk": "1d463714-2ac9-4fa2-8d88-2995589576a9",
+    "fields": {
+      "created_at": "2017-10-31T20:37:09.949Z",
+      "updated_at": "2017-11-16T20:06:18.573Z",
+      "value": "low_speed_percentile_all_clear",
+      "display": "Low Speed (Percentile) All Clear",
+      "category": [
+        "analyzer_event"
+      ],
+      "ordernum": 413,
+      "schema": "{\"schema\": {\"definition\": [\"name\", \"details\", \"low_speed_threshold_percentile\", \"low_speed_threshold_value\", \"current_median_speed_value\", \"total_fix_count\"], \"properties\": {\"low_speed_threshold_percentile\": {\"title\": \"Low Speed Threshold Percentile\", \"type\": \"number\"}, \"low_speed_threshold_value\": {\"title\": \"Low Speed Threshold Value\", \"type\": \"number\"}, \"details\": {\"title\": \"Details\", \"type\": \"string\"}, \"cur_median_speed\": {\"title\": \"Current Median Speed\", \"type\": \"number\"}, \"name\": {\"title\": \"Name of subject\", \"type\": \"string\"}, \"total_fix_count\": {\"title\": \"Total Fix Count\", \"type\": \"number\"}}, \"title\": \"EventType Low Speed Percentile All Clear\", \"type\": \"object\", \"$schema\": \"http://json-schema.org/draft-04/schema#\"}}",
+      "is_collection": false
+    }
+  },
+  {
+    "model": "activity.eventtype",
     "pk": "c96620be-9d3d-416c-86e6-c0daa64a7063",
     "fields": {
       "created_at": "2017-11-16T20:05:54.543Z",

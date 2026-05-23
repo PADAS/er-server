@@ -1,9 +1,8 @@
 import copy
 import json
 import logging
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
-import pytz
 import requests
 from dateutil.parser import parse
 
@@ -43,7 +42,7 @@ class VectronicsPlugin(TrackingPlugin):
     @staticmethod
     def parse_date(date_string):
         # Parse date string to utc timezone format
-        return pytz.utc.localize(parse(date_string))
+        return parse(date_string).replace(tzinfo=timezone.utc)
 
     def _transform_to_observation(self, source, track_data):
         # Convert track_data into Observation data format
@@ -100,9 +99,9 @@ class VectronicsPlugin(TrackingPlugin):
         try:
             after_date = parse(self.cursor_data["latest_timestamp"]) - timedelta(hours=12)
             if not after_date.tzinfo:
-                after_date = after_date.replace(tzinfo=pytz.UTC)
+                after_date = after_date.replace(tzinfo=timezone.utc)
         except Exception:
-            after_date = datetime.now(tz=pytz.UTC) - self.DEFAULT_START_OFFSET
+            after_date = datetime.now(tz=timezone.utc) - self.DEFAULT_START_OFFSET
 
         latest_timestamp = None
         try:

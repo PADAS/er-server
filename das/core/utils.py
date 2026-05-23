@@ -5,15 +5,17 @@ import re
 import time
 import urllib.parse
 import uuid
+import zoneinfo
 from collections import namedtuple
 from datetime import datetime
 from typing import Dict
+from zoneinfo import ZoneInfo
 
 import jsonschema
-import pytz
 
 from django.apps.registry import Apps
 from django.conf import settings
+from django.contrib.staticfiles import finders
 from django.contrib.staticfiles.storage import staticfiles_storage
 from django.core.cache import caches
 from django.core.exceptions import SuspiciousFileOperation, ValidationError
@@ -55,7 +57,13 @@ class StaticImageFinder(object):
                 for static_path in self.static_paths:
                     static_file = static_path.format(file)
                     try:
+                        # Prefer storage (STATIC_ROOT); fall back to finders (STATICFILES_DIRS)
+                        # so icons are found in tests and dev when collectstatic has not been run
                         if staticfiles_storage.exists(static_file):
+                            path = self.web_path.format(static_file)
+                            image_cache[key] = self.StaticImage(True, path)
+                            return path
+                        if finders.find(static_file):
                             path = self.web_path.format(static_file)
                             image_cache[key] = self.StaticImage(True, path)
                             return path
@@ -155,7 +163,7 @@ class OneWeekSchedule(Schedule):
         self.schedule_periods = self.schedule_definition.get("periods", {})
 
         if "timezone" in self.schedule_definition:
-            self.schedule_timezone = pytz.timezone(self.schedule_definition["timezone"])
+            self.schedule_timezone = ZoneInfo(self.schedule_definition["timezone"])
         else:
             self.schedule_timezone = timezone.get_current_timezone()
 
@@ -254,7 +262,7 @@ class OneWeekSchedule(Schedule):
                 "$id": "#/properties/timezone",
                 "type": "string",
                 "title": "The name of the timezone within which the schedule will be evaluated.",
-                "enum": list(pytz.all_timezones_set),
+                "enum": sorted(zoneinfo.available_timezones()),
             },
         },
     }
@@ -361,10 +369,10 @@ def update_tenant_models(models: list, tenant) -> None:
                     cnt += 1
                     batch.append(class_model(**{pk_name: id, "das_tenant": tenant}))
                     if 0 == cnt % batch_size:
-                        copy_update(qs=qs, objs=batch, fieldnames=("das_tenant",))
+                        copy_update(qs=qs, objs=batch, local_fieldnames=("das_tenant",))
                         batch = []
                 if batch:
-                    copy_update(qs=qs, objs=batch, fieldnames=("das_tenant",))
+                    copy_update(qs=qs, objs=batch, local_fieldnames=("das_tenant",))
 
                 total_seconds = time.time() - start
                 logger.info(

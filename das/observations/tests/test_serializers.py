@@ -1,12 +1,11 @@
-from datetime import datetime, timedelta
+import zoneinfo
+from datetime import datetime, timedelta, timezone
 
 import pytest
-import pytz
 from faker import Faker
 
 from django.contrib.gis.geos import Point
 from django.urls import reverse
-from django.utils import timezone
 from rest_framework.test import APIRequestFactory
 
 from buoy.constants import BUOY_GEAR_SUBJECT_SUBTYPE
@@ -48,7 +47,7 @@ class TestSubjectSourceSerializer:
             "data_starts_source": "starts_source",
             "date_off_or_removed": "off_or_remove",
         }
-        now = datetime.now(timezone.utc)
+        now = datetime.now(tz=timezone.utc)
         subject_source.assigned_range = [now - timedelta(hours=1), now]
         subject_source.location = Point(-103.313486, 20.420935)
         subject_source.save()
@@ -90,7 +89,7 @@ class TestSubjectSourceSerializer:
             "data_starts_source": "starts_source",
             "date_off_or_removed": "off_or_remove",
         }
-        now = datetime.now(timezone.utc)
+        now = datetime.now(tz=timezone.utc)
         subject_source.assigned_range = [now - timedelta(hours=1), now]
         subject_source.location = Point(-103.313486, 20.420935)
         subject_source.save()
@@ -170,7 +169,7 @@ class TestSubjectTrackSerializer:
         url = reverse("subject-view-tracks", kwargs={"subject_id": subject.id})
         request = factory.get(url)
         request.user = UserFactory(is_superuser=True)
-        now = pytz.utc.localize(datetime.utcnow())
+        now = datetime.now(tz=timezone.utc)
         context = {
             "tracks_since": now - timedelta(days=5),
             "tracks_until": now,
@@ -212,7 +211,7 @@ class TestObservationSerializer:
             {"dest": "altitude", "label": "altitude", "units": "feet", "source": "altitude"},
         ]
         provider.save()
-        now = timezone.now()
+        now = datetime.now(tz=timezone.utc)
         point = Point(coordinates)
         data = {
             "recorded_at": now,
@@ -263,7 +262,11 @@ class TestFlattenObservationSerializer:
         assert isinstance(serialized_observation["time"], str)
 
     def test_serialized_observation(self, observation):
-        observation.recorded_at = datetime(2020, 12, 20, 15, 45, 0)
+
+        # Use zoneinfo for timezone-aware datetime, America/Los_Angeles is UTC-8 in December
+        tz = zoneinfo.ZoneInfo("America/Los_Angeles")
+        aware_dt = datetime(2020, 12, 20, 15, 45, 0, tzinfo=tz)
+        observation.recorded_at = aware_dt
         observation.location = Point(-103.313486, 20.420935)
         observation.save()
 

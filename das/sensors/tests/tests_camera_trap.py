@@ -5,7 +5,6 @@ from io import BytesIO
 from unittest.mock import patch
 
 import piexif
-import pytz
 from PIL import Image
 
 import django.contrib.auth
@@ -57,7 +56,6 @@ class CameraTrapTest(BaseAPITest):
     user_const = dict(last_name="last", first_name="first")
     sensor_type = "camera-trap"
 
-    @patch("django.contrib.auth.models.PermissionManager.get_by_natural_key", permission_get_by_natural_key)
     def setUp(self):
         super().setUp()
         call_command("loaddata", "event_data_model.json")
@@ -163,9 +161,9 @@ class CameraTrapTest(BaseAPITest):
     def test_get_time_from_exif(self):
         exif_dict = {"DateTimeOriginal": b"2017:12:11 16:04:46", "OffsetTimeOriginal": b"-5:00"}
 
-        control = datetime.datetime(2017, 12, 11, 21, 4, 46, tzinfo=pytz.UTC)
+        control = datetime.datetime(2017, 12, 11, 21, 4, 46, tzinfo=datetime.timezone.utc)
 
-        self.assertEquals(control, camera_trap.CameraTrapSensorHandler.get_time(None, exif_dict))
+        assert control == camera_trap.CameraTrapSensorHandler.get_time(None, exif_dict)
 
     def test_invalid_exif_timezone(self):
         with self.assertRaises(ValueError):
@@ -178,10 +176,10 @@ class CameraTrapTest(BaseAPITest):
             camera_trap.exif_time_zone(":0")
 
     def test_exif_timzone(self):
-        self.assertEquals(pytz.FixedOffset(-120), camera_trap.exif_time_zone("-02:00"))
+        assert datetime.timezone(datetime.timedelta(minutes=-120)) == camera_trap.exif_time_zone("-02:00")
 
-        self.assertEquals(pytz.FixedOffset(-125), camera_trap.exif_time_zone("-02:05"))
+        assert datetime.timezone(datetime.timedelta(minutes=-125)) == camera_trap.exif_time_zone("-02:05")
 
-        self.assertEquals(pytz.FixedOffset(0), camera_trap.exif_time_zone("-00:00"))
+        assert datetime.timezone.utc == camera_trap.exif_time_zone("-00:00")
 
-        self.assertEquals(pytz.FixedOffset(-300), camera_trap.exif_time_zone("-05:00"))
+        assert datetime.timezone(datetime.timedelta(minutes=-300)) == camera_trap.exif_time_zone("-05:00")

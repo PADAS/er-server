@@ -2,7 +2,7 @@ import json
 import logging
 import os
 import urllib
-from datetime import timedelta
+from datetime import datetime, timedelta, timezone
 
 import pytest
 import yaml
@@ -12,7 +12,6 @@ from django.contrib.gis.geos import LineString, Point, Polygon
 from django.core.files import File
 from django.core.serializers import serialize
 from django.test import TestCase, override_settings
-from django.utils import timezone
 
 from activity.models import Event, EventCategory, EventType
 from analyzers.exceptions import InsufficientDataAnalyzerException
@@ -62,7 +61,7 @@ FIXTURE_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), "fixture
 das_tenant_management = DASTenantManagement(domain="domain.com")
 
 
-@override_settings(DEFAULT_FILE_STORAGE="django.core.files.storage.FileSystemStorage")
+@override_settings(STORAGES={"default": {"BACKEND": "django.core.files.storage.FileSystemStorage"}})
 @pytest.mark.usefixtures("tenant_settings", "das_tenant_monkeypatch")
 class TestGeofenceAnalyzer(TestCase):
     @classmethod
@@ -266,7 +265,10 @@ class TestGeofenceAnalyzer(TestCase):
 
         # Create the Geofence Analyzer Config object
         config = GeofenceAnalyzerConfig.objects.create(
-            subject_group=sg, critical_geofence_group=gf_grp, containment_regions=cr_grp
+            name="Mara Geofence Analyzer",
+            subject_group=sg,
+            critical_geofence_group=gf_grp,
+            containment_regions=cr_grp,
         )
 
         # Iterate through the observations adding another point to the
@@ -286,7 +288,9 @@ class TestGeofenceAnalyzer(TestCase):
 
         for e in Event.objects.all():
             self.assertTrue(e.event_details.all().exists())
-            assert e.event_details.all().first().data["event_details"]["contain_regions"] == "Pardamat Conservancy"
+            ed = e.event_details.all().first().data["event_details"]
+            assert ed["contain_regions"] == "Pardamat Conservancy"
+            assert ed["analyzer_name"] == config.name
 
         for e in Event.objects.all():
             for ed in e.event_details.all():
@@ -575,8 +579,10 @@ class TestGeofenceAnalyzerQuietPeriod:
         monkeypatch,
     ):
 
-        wildlife_subject_type = SubjectType.objects.get(value="wildlife")
-        elephant_subject_subtype = SubjectSubType.objects.get(value="elephant")
+        wildlife_subject_type, _ = SubjectType.objects.get_or_create(value="wildlife", defaults={"display": "Wildlife"})
+        elephant_subject_subtype, _ = SubjectSubType.objects.get_or_create(
+            value="elephant", defaults={"display": "Elephant", "subject_type": wildlife_subject_type}
+        )
         elephant_subject_subtype.subject_type = wildlife_subject_type
         elephant_subject_subtype.save()
 
@@ -611,7 +617,7 @@ class TestGeofenceAnalyzerQuietPeriod:
             source=subject_source.source,
         )
         for minutes, observation in enumerate(Observation.objects.all(), 1):
-            observation.recorded_at = timezone.now() - timedelta(hours=6, minutes=minutes * 15)
+            observation.recorded_at = datetime.now(tz=timezone.utc) - timedelta(hours=6, minutes=minutes * 15)
             observation.save()
 
         analyze_subject_(subject.id)

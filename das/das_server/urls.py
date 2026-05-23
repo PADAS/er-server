@@ -19,10 +19,15 @@ from drf_spectacular.views import SpectacularAPIView, SpectacularRedocView
 
 import django.contrib.staticfiles.views
 from django.conf import settings
-from django.conf.urls import include
 from django.contrib import admin
-from django.urls import path, re_path
+from django.urls import include, path, re_path
 
+from accounts.account_linker import (
+    ACCOUNT_LINKER_CALLBACK_URL_NAME,
+    ACCOUNT_LINKER_LANDING_URL_NAME,
+    account_linker_callback,
+    account_linker_landing,
+)
 from accounts.auth0_admin import (
     INITIATE_AUTH0_ADMIN_LOGIN_URL_NAME,
     admin_login_entrypoint,
@@ -65,6 +70,9 @@ urlpatterns = [
     # Auth0 admin authentication URLs
     path("auth/admin-login/", initiate_auth0_admin_login, name=INITIATE_AUTH0_ADMIN_LOGIN_URL_NAME),
     path("auth/callback/", auth0_callback, name="auth0_callback"),
+    # Account Linker: PKCE flow to bind ER user to Auth0 identity
+    path("auth/account-linker/", account_linker_landing, name=ACCOUNT_LINKER_LANDING_URL_NAME),
+    path("auth/account-linker/callback/", account_linker_callback, name=ACCOUNT_LINKER_CALLBACK_URL_NAME),
     # Override admin login with conditional Auth0 integration
     path("admin/login/", admin_login_entrypoint, name="admin_login"),
     # Override admin logout with conditional Auth0 integration
@@ -81,6 +89,7 @@ urlpatterns = [
     path("api/v1.0/core/", include("core.urls")),
     path("api/v2.0/schemas/", include("schemas.urls", namespace="schemas")),
     path("api/v2.0/activity/", include("activity.urls_v2")),
+    path("api/v2.0/community/", include("activity.community_urls")),
     path(
         "api/v2.0/subject/<uuid:subject_id>/tracks/",
         SubjectTrackSegmentsV2View.as_view(),
@@ -90,7 +99,7 @@ urlpatterns = [
 
 
 # give the api a chance to override and return json
-django.conf.urls.handler404 = "utils.drf.error404View"
+handler404 = "utils.drf.error404View"
 
 if settings.ENABLE_SILK:
     urlpatterns += [path("silk/", include("silk.urls", namespace="silk"))]

@@ -5,14 +5,14 @@ import dateutil.parser as dateparser
 from django_filters import rest_framework as filters
 from django_filters.widgets import CSVWidget
 
-from django.db.models import Q
+from django.db.models import Exists, OuterRef, Q
 from django.db.models.query import QuerySet
 from rest_framework.exceptions import ParseError
 from rest_framework.filters import BaseFilterBackend
 from rest_framework.request import Request
 from rest_framework.views import APIView
 
-from activity.models import EventCategory, EventType
+from activity.models import EventCategory, EventRelatedSubject, EventType
 from activity.views.exceptions import BadRequestAPIException
 from observations.models import Subject
 from utils.categories import (
@@ -57,10 +57,17 @@ class EventTypeFilterSet(filters.FilterSet):
 class EventSubjectsFilter(BaseFilterBackend):
 
     def filter_queryset(self, request: Request, queryset: QuerySet, view: APIView) -> QuerySet:
+        # Use Exists subqueries (via alias, not annotate) instead of an M2M
+        # filter on related_subjects. The previous form added a LEFT OUTER JOIN
+        # to activity_eventrelatedsubject on every events list request and
+        # inflated COUNT(*) for events with multiple matching related subjects.
         user_subjects = Subject.objects.by_user_subjects(request.user).values_list("id", flat=True)
-        queryset = queryset.filter(Q(related_subjects__isnull=True) | Q(related_subjects__in=user_subjects))
-
-        return queryset
+        any_related = EventRelatedSubject.objects.filter(event_id=OuterRef("pk"))
+        matching_related = EventRelatedSubject.objects.filter(event_id=OuterRef("pk"), subject_id__in=user_subjects)
+        return queryset.alias(
+            _has_any_related=Exists(any_related),
+            _has_matching_related=Exists(matching_related),
+        ).filter(Q(_has_any_related=False) | Q(_has_matching_related=True))
 
 
 class EventPermissionsFilter(BaseFilterBackend):

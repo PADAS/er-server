@@ -1,6 +1,4 @@
-from datetime import datetime
-
-import pytz
+from datetime import datetime, timezone
 
 from django.core.management.base import BaseCommand
 from django.db.models import F
@@ -17,7 +15,7 @@ class Command(TenantCommandMixin, BaseCommand):
         parser.add_argument("--name", type=str)
 
     def handle(self, *args, **options):
-        ts = pytz.utc.localize(datetime.utcnow())
+        ts = datetime.now(tz=timezone.utc)
 
         for source in (
             Source.objects.filter(

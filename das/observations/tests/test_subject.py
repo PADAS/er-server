@@ -5,14 +5,12 @@ import random
 import urllib.parse
 import uuid
 from datetime import datetime, timedelta, timezone
-from unittest import mock
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 import dateutil.parser as dateparser
 import pytest
-import pytz
 from faker import Faker
-from pytz import UTC
+from oauth2_provider.models import get_application_model
 
 import django.contrib.auth
 from django.contrib.admin.sites import AdminSite
@@ -29,8 +27,8 @@ from django.urls import reverse
 from accounts.models import PermissionSet
 from activity.tools.createevents import gen_random_point
 from client_http import HTTPClient
-from conftest import TENANT_RESPONSE
 from core.tests import BaseAPITest
+from core.utils import static_image_finder
 from factories import SubjectFactory
 from observations.admin import GPXAdmin
 from observations.models import (
@@ -45,6 +43,7 @@ from observations.models import (
     SubjectSource,
     SubjectStatus,
     SubjectSubType,
+    SubjectType,
 )
 from observations.tasks import process_trackpoints
 from observations.utils import calculate_track_range
@@ -52,9 +51,10 @@ from observations.views import (
     GPXFileUploadView,
     SubjectGroupsView,
     SubjectsView,
+    SubjectTracksView,
     SubjectView,
 )
-from utils.tenant import Tenant
+from utils.user import make_random_password
 
 User = django.contrib.auth.get_user_model()
 TESTS_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), "tests")
@@ -68,9 +68,41 @@ def random_date(start_date, end_date):
     )
 
 
+@pytest.fixture(autouse=True)
+def _ensure_reference_subject_types(db):
+    """Tests in this module reference fixed-name SubjectType / SubjectSubType /
+    SubjectGroup records that ordinarily come from
+    das_server/fixtures/initial_data.json (loaded outside this module's setup).
+    Make the file self-contained so the same tests pass with --create-db, in
+    isolation, or in any test order.
+    """
+    wildlife, _ = SubjectType.objects.get_or_create(value="wildlife", defaults={"display": "Wildlife"})
+    stationary, _ = SubjectType.objects.get_or_create(
+        value="stationary-object", defaults={"display": "Stationary Object"}
+    )
+    vehicle, _ = SubjectType.objects.get_or_create(value="vehicle", defaults={"display": "Vehicle"})
+    SubjectSubType.objects.get_or_create(value="elephant", defaults={"display": "Elephant", "subject_type": wildlife})
+    SubjectSubType.objects.get_or_create(value="cheetah", defaults={"display": "Cheetah", "subject_type": wildlife})
+    SubjectSubType.objects.get_or_create(
+        value="camera_trap", defaults={"display": "Camera Trap", "subject_type": stationary}
+    )
+    SubjectSubType.objects.get_or_create(
+        value="security_vehicle", defaults={"display": "Security Vehicle", "subject_type": vehicle}
+    )
+    SubjectGroup.objects.get_or_create(name="Subjects", defaults={"is_visible": True, "is_default": True})
+    # The query-count test in TestSubjectsView assumes the "cybertracker"
+    # DASApplication is already cached. With --reuse-db this typically holds;
+    # ensure it explicitly so the count is stable in any test order.
+    Application = get_application_model()
+    Application.objects.get_or_create(client_id="cybertracker")
+
+
 class SubjectTestCase(BaseAPITest):
     def setUp(self):
         super().setUp()
+        # Clear static icon cache so lookups use current storage (avoids stale "not found"
+        # from earlier tests or different Django 4.2 static handling)
+        static_image_finder.image_caches.clear()
         call_command("loaddata_with_tenant", "test/user_and_usergroup.yaml", tenant_domain=self.tenant_settings.domain)
         call_command("loaddata_with_tenant", "test/source_group.json", tenant_domain=self.tenant_settings.domain)
         call_command("loaddata_with_tenant", "test/observations_source.json", tenant_domain=self.tenant_settings.domain)
@@ -93,13 +125,8 @@ class SubjectTestCase(BaseAPITest):
         self.site = AdminSite()
         self.request = RequestFactory()
         self.admin = GPXAdmin(model=GPXTrackFile, admin_site=self.site)
-        self.tenant = Tenant.from_dict(TENANT_RESPONSE)
-        self.thread = MagicMock()
-        self.thread.tenant_object = self.tenant
 
     def test_empty_point_not_included_in_subject_tracks(self):
-        from django.contrib.gis.geos import Point
-
         coordinates = self.get_coordinates_returned()
         # Existing trackpoint from fixtures
         monitored_location = Point(50.7586930900307, 40.3297162190965)
@@ -114,14 +141,13 @@ class SubjectTestCase(BaseAPITest):
         self.assertEqual(2, len(new_coordinates))
 
     def get_coordinates_returned(self):
-        from observations import views
 
-        self.satellite_user = User.objects.get(username="satellite-user")
+        satellite_user = User.objects.get(username="satellite-user")
         self.henry = Subject.objects.get(name="Henry")
 
         request = self.factory.get(self.api_base + "/subject/{}/tracks/".format(self.henry.id))
-        self.force_authenticate(request, self.satellite_user)
-        response = views.SubjectTracksView.as_view()(request, subject_id=self.henry.id)
+        self.force_authenticate(request, satellite_user)
+        response = SubjectTracksView.as_view()(request, subject_id=self.henry.id)
         return response.data["features"][0]["geometry"]["coordinates"]
 
     def test_subject_observations(self):
@@ -134,8 +160,8 @@ class SubjectTestCase(BaseAPITest):
     def test_subject_observations_last_days(self):
         subject = Subject.objects.get(name="Topsy")
         point = Point((0.000001, 0.000001))  # really close to Null Island
-        t1 = datetime.now(tz=UTC) - timedelta(days=2)
-        t2 = datetime.now(tz=UTC) - timedelta(days=20)
+        t1 = datetime.now(tz=timezone.utc) - timedelta(days=2)
+        t2 = datetime.now(tz=timezone.utc) - timedelta(days=20)
 
         Observation.objects.create(source=subject.source, location=point, recorded_at=t1, additional={})
 
@@ -151,9 +177,7 @@ class SubjectTestCase(BaseAPITest):
 
         self.assertEqual(actual, expected)
 
-    @patch("utils.tenant.thread._get_local_thread")
-    def test_add_subject(self, get_main_thread):
-        get_main_thread.return_value = self.thread
+    def test_add_subject(self):
         data = {
             "name": "testCheetah",
             "subject_type": "wildlife",
@@ -168,9 +192,7 @@ class SubjectTestCase(BaseAPITest):
         response = SubjectsView.as_view()(request)
         self.assertEqual(response.status_code, 201)
 
-    @patch("utils.tenant.thread._get_local_thread")
-    def test_add_subject_with_id(self, get_main_thread):
-        get_main_thread.return_value = self.thread
+    def test_add_subject_with_id(self):
         data = {
             "id": uuid.uuid4(),
             "name": "testCheetah",
@@ -186,9 +208,7 @@ class SubjectTestCase(BaseAPITest):
         response = SubjectsView.as_view()(request)
         assert response.status_code == 201
 
-    @patch("utils.tenant.thread._get_local_thread")
-    def test_fail_add_subject_with_existing_id(self, get_main_thread):
-        get_main_thread.return_value = self.thread
+    def test_fail_add_subject_with_existing_id(self):
         data = {
             "id": uuid.uuid4(),
             "name": "testCheetah",
@@ -219,9 +239,7 @@ class SubjectTestCase(BaseAPITest):
         response = SubjectsView.as_view()(request)
         assert response.status_code == 409
 
-    @patch("utils.tenant.thread._get_local_thread")
-    def test_update_subject(self, get_main_thread):
-        get_main_thread.return_value = self.thread
+    def test_update_subject(self):
         data = {
             "name": "testCheetah",
             "subject_type": "wildlife",
@@ -252,9 +270,7 @@ class SubjectTestCase(BaseAPITest):
         assert subject_id == response.data["id"]
         assert response.data["name"] == data_update["name"]
 
-    @patch("utils.tenant.thread._get_local_thread")
-    def test_update_subject_change_id(self, get_main_thread):
-        get_main_thread.return_value = self.thread
+    def test_update_subject_change_id(self):
         data = {
             "name": "testCheetah",
             "subject_type": "wildlife",
@@ -282,9 +298,8 @@ class SubjectTestCase(BaseAPITest):
         response = SubjectView.as_view()(request, id=subject_id)
         assert response.status_code == 400
 
-    @patch("utils.tenant.thread._get_local_thread")
-    def test_subject_sex_male(self, get_main_thread):
-        get_main_thread.return_value = self.thread
+    def test_subject_sex_male(self):
+
         data = {
             "name": "testCheetah",
             "subject_type": "wildlife",
@@ -300,9 +315,7 @@ class SubjectTestCase(BaseAPITest):
         self.assertEqual(response.status_code, 201)
         assert "/static/elephant-black-male.svg" in response.data["image_url"]
 
-    @patch("utils.tenant.thread._get_local_thread")
-    def test_subject_sex_empty(self, get_main_thread):
-        get_main_thread.return_value = self.thread
+    def test_subject_sex_empty(self):
         data = {
             "name": "testCheetah",
             "subject_type": "wildlife",
@@ -318,9 +331,7 @@ class SubjectTestCase(BaseAPITest):
         self.assertEqual(response.status_code, 201)
         assert "/static/elephant-black-male.svg" in response.data["image_url"]
 
-    @patch("utils.tenant.thread._get_local_thread")
-    def test_subject_sex_unknown(self, get_main_thread):
-        get_main_thread.return_value = self.thread
+    def test_subject_sex_unknown(self):
         data = {
             "name": "testCheetah",
             "subject_type": "wildlife",
@@ -336,9 +347,7 @@ class SubjectTestCase(BaseAPITest):
         self.assertEqual(response.status_code, 201)
         assert "/static/elephant-black-male.svg" in response.data["image_url"]
 
-    @patch("utils.tenant.thread._get_local_thread")
-    def test_subject_vehicle_sex_empty(self, get_main_thread):
-        get_main_thread.return_value = self.thread
+    def test_subject_vehicle_sex_empty(self):
         data = {
             "name": "testCheetah",
             "subject_subtype": "security_vehicle",
@@ -353,9 +362,7 @@ class SubjectTestCase(BaseAPITest):
         self.assertEqual(response.status_code, 201)
         assert "/static/security_vehicle-black.svg" in response.data["image_url"]
 
-    @patch("utils.tenant.thread._get_local_thread")
-    def test_call_subject_api(self, get_main_thread):
-        get_main_thread.return_value = self.thread
+    def test_call_subject_api(self):
         url = reverse("subjects-list-view")
         request = self.factory.get(url)
 
@@ -393,17 +400,15 @@ class SubjectTestCase(BaseAPITest):
         self.assertEqual(response.status_code, 200)
 
     @override_settings(CELERY_TASK_ALWAYS_EAGER=True)
-    @patch("utils.tenant.thread._get_local_thread")
-    def test_date_range_filter_works(self, get_main_thread):
-        get_main_thread.return_value = self.thread
+    def test_date_range_filter_works(self):
         url = reverse("subjects-list-view")
 
         subject = Subject.objects.get(name="Topsy")
         subject2 = Subject.objects.get(name="Turvey")
 
         point = Point((-122.334, 47.598))
-        t2 = datetime.now(tz=UTC)
-        t1 = datetime.now(tz=UTC) - timedelta(days=3)
+        t2 = datetime.now(tz=timezone.utc)
+        t1 = datetime.now(tz=timezone.utc) - timedelta(days=3)
 
         Observation.objects.create(source=subject.source, location=point, recorded_at=t1, additional={})
 
@@ -446,17 +451,15 @@ class SubjectTestCase(BaseAPITest):
         self.assertEqual(actual_size, expected_size)
 
     @override_settings(CELERY_TASK_ALWAYS_EAGER=True)
-    @patch("utils.tenant.thread._get_local_thread")
-    def test_date_range_filter_works_with_bbox(self, get_main_thread):
-        get_main_thread.return_value = self.thread
+    def test_date_range_filter_works_with_bbox(self):
         url = reverse("subjects-list-view")
 
         subject = Subject.objects.get(name="Topsy")
         subject2 = Subject.objects.get(name="Turvey")
 
         point = Point((-122.334, 47.598))
-        t1 = datetime.now(tz=UTC)
-        t2 = datetime.now(tz=UTC) + timedelta(days=3)
+        t1 = datetime.now(tz=timezone.utc)
+        t2 = datetime.now(tz=timezone.utc) + timedelta(days=3)
 
         Observation.objects.create(source=subject.source, location=point, recorded_at=t1, additional={})
 
@@ -485,8 +488,8 @@ class SubjectTestCase(BaseAPITest):
         Returns:
             [type]: [description]
         """
-        expiry_date = (datetime.now(tz=UTC) - timedelta(days=5)).date().isoformat()
-        mou_datesigned = (datetime.now(tz=UTC) - timedelta(days=50)).date().isoformat()
+        expiry_date = (datetime.now(tz=timezone.utc) - timedelta(days=5)).date().isoformat()
+        mou_datesigned = (datetime.now(tz=timezone.utc) - timedelta(days=50)).date().isoformat()
         additional_data = {
             "notes": "Testing Notes",
             "expiry": expiry_date,
@@ -497,12 +500,10 @@ class SubjectTestCase(BaseAPITest):
         }
         return additional_data
 
-    @patch("utils.tenant.thread._get_local_thread")
-    def test_subject_api_returning_last_position_per_MOU_expiry(self, get_main_thread):
-        get_main_thread.return_value = self.thread
+    def test_subject_api_returning_last_position_per_MOU_expiry(self):
         url = reverse("subjects-list-view")
 
-        password = User.objects.make_random_password()
+        password = make_random_password()
         extra_fields = dict(additional=self.additional_data_for_user)
         user = User.objects.create_user(
             username="Capt.America",
@@ -518,9 +519,9 @@ class SubjectTestCase(BaseAPITest):
         subject3 = Subject.objects.get(name="StatusGuy")
 
         point = Point((-122.334, 47.598))
-        t1 = datetime.now(tz=UTC) - timedelta(days=10)
-        t2 = datetime.now(tz=UTC) - timedelta(days=7)
-        t3 = datetime.now(tz=UTC) - timedelta(days=4)
+        t1 = datetime.now(tz=timezone.utc) - timedelta(days=10)
+        t2 = datetime.now(tz=timezone.utc) - timedelta(days=7)
+        t3 = datetime.now(tz=timezone.utc) - timedelta(days=4)
 
         Observation.objects.create(source=subject.source, location=point, recorded_at=t1, additional={})
 
@@ -551,12 +552,10 @@ class SubjectTestCase(BaseAPITest):
         self.assertEqual(t1.date().isoformat(), subject_last_position)
         self.assertEqual(t2.date().isoformat(), subject2_last_postion)
 
-    @patch("utils.tenant.thread._get_local_thread")
-    def test_return_no_last_position_past_mou_expiry(self, get_main_thread):
-        get_main_thread.return_value = self.thread
+    def test_return_no_last_position_past_mou_expiry(self):
         url = reverse("subjects-list-view")
 
-        password = User.objects.make_random_password()
+        password = make_random_password()
         extra_fields = dict(additional=self.additional_data_for_user)
         user = User.objects.create_user(
             username="Capt.America",
@@ -569,7 +568,7 @@ class SubjectTestCase(BaseAPITest):
 
         subject = Subject.objects.get(name="StatusGuy")
         point = Point((-122.334, 47.598))
-        t1 = datetime.now(tz=UTC)
+        t1 = datetime.now(tz=timezone.utc)
 
         # this observation is past mou date
         Observation.objects.create(source=subject.source, location=point, recorded_at=t1, additional={})
@@ -594,9 +593,7 @@ class SubjectTestCase(BaseAPITest):
         self.assertEqual(GPXTrackFile.objects.count(), 1)
 
     @override_settings(CELERY_TASK_ALWAYS_EAGER=True)
-    @patch("utils.tenant.thread._get_local_thread")
-    def test_gpxfile_upload_on_adminpage(self, get_main_thread):
-        get_main_thread.return_value = self.thread
+    def test_gpxfile_upload_on_adminpage(self):
         subject = Subject.objects.get(name="Topsy")
         subject_source = SubjectSource.objects.get(subject=subject)
         data = File(open(os.path.join(TESTS_PATH, "testdata/gpsmap_data.gpx"), "rb"))
@@ -687,7 +684,7 @@ class SubjectTestCase(BaseAPITest):
 
     def test_calculate_track_range_fn(self):
         user = self.user
-        t1 = datetime.now(tz=UTC) - timedelta(days=3, hours=2, minutes=30)
+        t1 = datetime.now(tz=timezone.utc) - timedelta(days=3, hours=2, minutes=30)
         since, until, limit = calculate_track_range(user=user, since=t1, until=None, limit=None)
 
         expected_since = t1.replace(microsecond=0, second=0).isoformat()
@@ -695,7 +692,7 @@ class SubjectTestCase(BaseAPITest):
         self.assertEqual(returned_since, expected_since)
 
         # when since greater than today
-        t2 = datetime.now(tz=UTC) + timedelta(days=3, hours=7, minutes=30)
+        t2 = datetime.now(tz=timezone.utc) + timedelta(days=3, hours=7, minutes=30)
         since, until, limit = calculate_track_range(user=user, since=t2, until=None, limit=None)
 
         expected_since = t2.replace(microsecond=0, second=0).isoformat()
@@ -703,7 +700,7 @@ class SubjectTestCase(BaseAPITest):
         self.assertEqual(returned_since, expected_since)
 
     def test_calculate_track_range_fn_today(self):
-        t1 = datetime.combine(datetime.today(), datetime.min.time()).replace(tzinfo=UTC)  # midnight
+        t1 = datetime.combine(datetime.today(), datetime.min.time()).replace(tzinfo=timezone.utc)  # midnight
         since, until, limit = calculate_track_range(user=self.user, since=t1, until=None, limit=None)
 
         expected_since = t1.replace(microsecond=0, second=0).isoformat()
@@ -727,9 +724,7 @@ class SubjectTestCase(BaseAPITest):
         assert until == t1_until
 
     @override_settings(CELERY_TASK_ALWAYS_EAGER=True)
-    @patch("utils.tenant.thread._get_local_thread")
-    def test_process_gpx_file_upload_via_api(self, get_main_thread):
-        get_main_thread.return_value = self.thread
+    def test_process_gpx_file_upload_via_api(self):
         subject = Subject.objects.get(name="Topsy")
         subject_source = SubjectSource.objects.get(subject=subject)
         file = File(open(os.path.join(TESTS_PATH, "testdata/gpsmap_data.gpx"), "rb"))
@@ -763,10 +758,8 @@ class SubjectTestCase(BaseAPITest):
         self.assertEqual(float(trkpoint_lon), obs_longitude)
 
     @override_settings(CELERY_TASK_ALWAYS_EAGER=True)
-    @patch("utils.tenant.thread._get_local_thread")
-    def test_process_gpx_file_upload_garmin_inreach_track(self, get_main_thread):
+    def test_process_gpx_file_upload_garmin_inreach_track(self):
         """Import Garmin inReach GPX track and verify no error (track-only, Garmin extensions)."""
-        get_main_thread.return_value = self.thread
         subject = Subject.objects.get(name="Topsy")
         subject_source = SubjectSource.objects.get(subject=subject)
         file = File(open(os.path.join(TESTS_PATH, "testdata/garmin_inreach_track.gpx"), "rb"))
@@ -795,10 +788,8 @@ class SubjectTestCase(BaseAPITest):
             )
 
     @override_settings(CELERY_TASK_ALWAYS_EAGER=True)
-    @patch("utils.tenant.thread._get_local_thread")
-    def test_process_gpx_file_upload_multi_trkseg(self, get_main_thread):
+    def test_process_gpx_file_upload_multi_trkseg(self):
         """Import GPX with multiple trkseg elements (avoids 'list indices must be integers or slices, not str')."""
-        get_main_thread.return_value = self.thread
         subject = Subject.objects.get(name="Topsy")
         subject_source = SubjectSource.objects.get(subject=subject)
         file = File(open(os.path.join(TESTS_PATH, "testdata/multi_trkseg.gpx"), "rb"))
@@ -854,10 +845,8 @@ class SubjectTestCase(BaseAPITest):
         response = GPXFileUploadView.as_view()(request, id=str(subject_source.source_id))
         self.assertEqual(response.status_code, 403)
 
-    @mock.patch("observations.views.get_tenant_settings")
     @override_settings(CELERY_TASK_ALWAYS_EAGER=True)
-    def test_process_gpx_upload_with_create_observation_perm(self, get_tenant_settings):
-        get_tenant_settings.return_value = Tenant.from_dict(TENANT_RESPONSE)
+    def test_process_gpx_upload_with_create_observation_perm(self):
         # give user with no permission, permission to create observation.
         subject = Subject.objects.get(name="Topsy")
         subject_source = SubjectSource.objects.get(subject=subject)
@@ -883,7 +872,7 @@ class SubjectTestCase(BaseAPITest):
 @pytest.mark.usefixtures("tenant_settings", "das_tenant_monkeypatch")
 class TestSubjectsView:
     def test_static_sensor_response(self, subject_source):
-        now = datetime.now(tz=pytz.utc)
+        now = datetime.now(tz=timezone.utc)
         subject_source.location = Point(-103.6, 20.6)
         subject_source.save()
         subject = subject_source.subject
@@ -929,7 +918,7 @@ class TestSubjectsView:
                         assert device_property.get("default")
 
     def test_response_stationary_subject_without_location(self, subject_source):
-        now = datetime.now(tz=pytz.utc)
+        now = datetime.now(tz=timezone.utc)
         subject = subject_source.subject
         subject.name = "Subject test"
         subject.subject_subtype = SubjectSubType.objects.get(display="Camera Trap")
@@ -966,7 +955,7 @@ class TestSubjectsView:
         assert not data[0].get("tracks_available")
 
     def test_static_sensor_response_with_many_observations(self, subject_source):
-        now = datetime.now(tz=pytz.utc)
+        now = datetime.now(tz=timezone.utc)
         subject_source.location = Point(-103.6, 20.6)
         subject_source.save()
         subject = subject_source.subject
@@ -1178,7 +1167,7 @@ class TestSubjectsView:
         Observation.objects.create(
             source=subject_source.source,
             location=Point(0, 0),
-            recorded_at=datetime.now(tz=pytz.UTC) - timedelta(weeks=1),
+            recorded_at=datetime.now(tz=timezone.utc) - timedelta(weeks=1),
         )
 
         request = self._get_request(
@@ -1230,20 +1219,20 @@ class TestSubjectsView:
         obs_returned = Observation.objects.create(
             source=subject_source.source,
             location=Point((-122.334, 47.598)),
-            recorded_at=datetime.now(tz=pytz.UTC) - timedelta(weeks=1),
+            recorded_at=datetime.now(tz=timezone.utc) - timedelta(weeks=1),
         )
 
         obs_excluded = Observation.objects.create(
             source=subject_source.source,
             location=Point((-122.334, 48.598)),
             exclusion_flags=Observation.EXCLUDED_MANUALLY,
-            recorded_at=datetime.now(tz=pytz.UTC) - timedelta(seconds=1),
+            recorded_at=datetime.now(tz=timezone.utc) - timedelta(seconds=1),
         )
 
         obs_null_island = Observation.objects.create(
             source=subject_source.source,
             location=Point(0, 0),
-            recorded_at=datetime.now(tz=pytz.UTC),
+            recorded_at=datetime.now(tz=timezone.utc),
         )
 
         url = reverse("subjects-list-view") + "?use_lkl=true"
@@ -1330,7 +1319,7 @@ class TestSubjectsViewFilter:
         bbox = "-103.71599063163262,20.51126608854284,-103.36639645879019,20.780283984574012"
         for position, source in zip(status_subjects_position, Source.objects.all()):
             Observation.objects.create(
-                recorded_at=datetime.now(tz=pytz.UTC),
+                recorded_at=datetime.now(tz=timezone.utc),
                 source=source,
                 location=Point(position),
             )
@@ -1380,7 +1369,7 @@ class TestSubjectsViewFilter:
         total,
         subject_group_with_perms,
     ):
-        position_updated_since = datetime.now(tz=pytz.UTC)
+        position_updated_since = datetime.now(tz=timezone.utc)
         recorded_at = position_updated_since - timedelta(seconds=1)
         for position, source in zip(status_subjects_position, Source.objects.all()):
             Observation.objects.create(
@@ -1431,7 +1420,7 @@ class TestSubjectsViewFilter:
         first_subject.save()
         for position, source in zip(self.position_observations, Source.objects.all()):
             Observation.objects.create(
-                recorded_at=datetime.now(tz=pytz.UTC),
+                recorded_at=datetime.now(tz=timezone.utc),
                 source=source,
                 location=Point(position),
             )
@@ -1476,7 +1465,7 @@ class TestSubjectsViewFilter:
         first_subject.save()
         for position, source in zip(self.position_observations, Source.objects.all()):
             Observation.objects.create(
-                recorded_at=datetime.now(tz=pytz.UTC),
+                recorded_at=datetime.now(tz=timezone.utc),
                 source=source,
                 location=Point(position),
             )
@@ -1534,7 +1523,7 @@ class TestSubjectsViewFilter:
             )
             # Add some observations for each source
             Observation.objects.create(
-                recorded_at=datetime.now(tz=pytz.UTC),
+                recorded_at=datetime.now(tz=timezone.utc),
                 source=source,
                 location=stationary_location,
             )
@@ -1571,7 +1560,7 @@ class TestSubjectsViewFilter:
                 )
                 # Add some observations for each source
                 Observation.objects.create(
-                    recorded_at=datetime.now(tz=pytz.UTC),
+                    recorded_at=datetime.now(tz=timezone.utc),
                     source=source,
                     location=location,
                 )
@@ -1716,7 +1705,7 @@ class TestSubjectsViewFilter:
 
         increase_year = 0
         for source in five_sources:
-            initial_date = pytz.utc.localize(datetime(1990 + increase_year, 1, 1))
+            initial_date = datetime(1990 + increase_year, 1, 1, tzinfo=timezone.utc)
             end_date = initial_date + timedelta(days=10)
             assigned_range = list((initial_date, end_date))
 

@@ -4,7 +4,6 @@ import logging
 from datetime import date, datetime, timedelta
 
 import geojson
-import pytz
 import requests
 from oauth2_provider.models import (
     generate_client_secret,
@@ -23,7 +22,6 @@ from sensors.handlers import GFWAlertHandler
 
 AccessToken = get_access_token_model()
 Application = get_application_model()
-
 
 DEFAULT_REQUESTS_TIMEOUT_SECS = (2, 5)
 SERVICE_ERROR_CODE = -1
@@ -80,7 +78,10 @@ def get_gfw_access_token(user, ttl_days=5 * 365):
     else:
         try:
             access_token = AccessToken.objects.filter(
-                user=user, application=app, scope="write", expires__gt=datetime.now(tz=pytz.utc) + timedelta(days=365)
+                user=user,
+                application=app,
+                scope="write",
+                expires__gt=datetime.now(tz=datetime.timezone.utc) + timedelta(days=365),
             ).latest("expires")
         except AccessToken.DoesNotExist:
             logger.info("Valid access token not found, will create new token")
@@ -88,7 +89,7 @@ def get_gfw_access_token(user, ttl_days=5 * 365):
                 user=user,
                 application=app,
                 scope="write",
-                expires=datetime.now(tz=pytz.utc) + timedelta(days=ttl_days),
+                expires=datetime.now(tz=datetime.timezone.utc) + timedelta(days=ttl_days),
                 token=generate_token(),
             )
 

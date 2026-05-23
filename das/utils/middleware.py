@@ -4,17 +4,15 @@ import logging
 import re
 import time
 import uuid
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from threading import local
 
-import pytz
 from oauth2_provider.models import get_access_token_model
 from opentelemetry import trace
 
 from django.http import JsonResponse
 from django.shortcuts import redirect
 from django.urls import reverse
-from django.utils import timezone
 from django.utils.deprecation import MiddlewareMixin
 from rest_framework import status
 
@@ -90,6 +88,8 @@ class RequestLoggingMiddleware(object):
             user_agent = request.META.get("HTTP_USER_AGENT", "")
             status_code = response.status_code
             request_path = request.path
+            query_string = request.META.get("QUERY_STRING", "")
+            full_path = f"{request_path}?{query_string}" if query_string else request_path
             host = request.get_host()
             method = request.method
             protocol = request.META.get("SERVER_PROTOCOL", "")
@@ -116,7 +116,7 @@ class RequestLoggingMiddleware(object):
                 referer=referer,
                 user_agent=user_agent,
                 status=status_code,
-                path=request_path,
+                path=full_path,
                 method=method,
                 protocol=protocol,
                 tenant=tenant_domain,
@@ -165,7 +165,7 @@ class RequestLoggingMiddleware(object):
             and re.search(ACTIVITY_EVENTS_PATH_REGEX, request.path)
             and "location" in request.GET
         ):
-            now = timezone.now()
+            now = datetime.now(tz=timezone.utc)
             key = get_user_key(request.user, LOCATION)
             point = convert_to_point(request.GET.get("location"))
             position = json.dumps(
@@ -185,7 +185,7 @@ class RequestLoggingMiddleware(object):
             if last_item:
                 last_item_point = convert_to_point(last_item.get("position"))
                 if last_item_point == point:
-                    last_item_datetime = datetime.fromtimestamp(last_item.get("datetime"), tz=pytz.UTC)
+                    last_item_datetime = datetime.fromtimestamp(last_item.get("datetime"), tz=timezone.utc)
                     if int((now - last_item_datetime).seconds / 60) > 0:
                         persistent_storage.insert_in_sorted_set(key, position, datetime.timestamp(now))
                 else:
@@ -231,7 +231,7 @@ class EULARedirectMiddleware:
             response = redirect(add_base_url(request, "/#eula"))
             response.set_cookie("routeAfterEulaAccepted", "/admin/")
             AccessToken = get_access_token_model()
-            expires = timezone.now() + timedelta(minutes=20)
+            expires = datetime.now(tz=timezone.utc) + timedelta(minutes=20)
             access_token = AccessToken.objects.create(user=user, token=str(uuid.uuid4()), expires=expires)
 
             response.set_cookie("temporaryAccessToken", access_token.token)
