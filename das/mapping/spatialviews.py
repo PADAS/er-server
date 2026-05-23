@@ -35,6 +35,12 @@ logger = logging.getLogger(__name__)
 
 
 class DisplayCategoryListView(generics.ListCreateAPIView, DynamicSchemaDataMixin):
+    # DynamicSchemaDataMixin is only required on list views that are wired up
+    # as a ``source_view`` for a ``DynamicSchemaFromSourceView`` (see
+    # ``schemas/views.py``); on other views it's a no-op. It is applied here
+    # and on ``SpatialFeatureListView`` because both have been (or are
+    # expected to be) consumed by schema source views; the other v2 list
+    # views deliberately omit it.
     permission_classes = (LayerObjectPermissions,)
     serializer_class = DisplayCategorySerializer
 
@@ -129,6 +135,11 @@ class DeprecatedSpatialFeatureGroupDetailView(DeprecatedEndpointMixin, SpatialFe
 
 
 class SpatialFeatureListView(generics.ListCreateAPIView, DynamicSchemaDataMixin):
+    # DynamicSchemaDataMixin is required here because this view is consumed
+    # by ``SpatialFeaturesDynamicSchemaView`` (schemas/views.py) as its
+    # ``source_view``; the mixin exposes ``get_schema_data`` so the schema
+    # generator can bypass HTTP rendering. See ``DisplayCategoryListView``
+    # for the broader rationale.
     permission_classes = (LayerObjectPermissions,)
     filter_backends = [OrderingFilter, filters.DjangoFilterBackend]
     filterset_class = SpatialFeatureFilterSet
