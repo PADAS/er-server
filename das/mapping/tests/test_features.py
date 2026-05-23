@@ -411,9 +411,9 @@ class TestSpatialFeatureListView:
         assert "Select a valid choice." in response.content.decode("utf-8")
         assert "feature_class" in response.json()
 
-    def test_filter_by_feature_set(self, user_client, feature1, feature2, feature3, category2):
+    def test_filter_by_display_category(self, user_client, feature1, feature2, feature3, category2):
         url = reverse("mapping:spatialfeature-list")
-        response = user_client.get(url, {"feature_set": str(category2.id)})
+        response = user_client.get(url, {"display_category": str(category2.id)})
         assert response.status_code == 200
         data = response.json()
         features = data["data"]
@@ -422,9 +422,11 @@ class TestSpatialFeatureListView:
         assert len(features) == 1
         assert features[0]["name"] == "Feature Three"
 
-    def test_filter_by_multiple_feature_sets(self, user_client, feature1, feature2, feature3, category1, category2):
+    def test_filter_by_multiple_display_categories(
+        self, user_client, feature1, feature2, feature3, category1, category2
+    ):
         url = reverse("mapping:spatialfeature-list")
-        response = user_client.get(url, {"feature_set": f"{category1.id},{category2.id}"})
+        response = user_client.get(url, {"display_category": f"{category1.id},{category2.id}"})
         assert response.status_code == 200
         data = response.json()
         features = data["data"]
@@ -434,18 +436,18 @@ class TestSpatialFeatureListView:
         names = [f["name"] for f in features]
         assert set(names) == {"Feature One", "Feature Two", "Feature Three"}
 
-    def test_filter_by_invalid_feature_set(self, user_client, feature3):
+    def test_filter_by_invalid_display_category(self, user_client, feature3):
         url = reverse("mapping:spatialfeature-list")
-        response = user_client.get(url, {"feature_set": "invalid_uuid"})
+        response = user_client.get(url, {"display_category": "invalid_uuid"})
         assert response.status_code == 400
         assert "is not a valid UUID" in response.content.decode("utf-8")
-        assert "feature_set" in response.json()
+        assert "display_category" in response.json()
 
-        # Feature 3 is not a feature set
-        response = user_client.get(url, {"feature_set": str(feature3.id)})
+        # Feature 3 is not a display category
+        response = user_client.get(url, {"display_category": str(feature3.id)})
         assert response.status_code == 400
         assert "Select a valid choice." in response.content.decode("utf-8")
-        assert "feature_set" in response.json()
+        assert "display_category" in response.json()
 
 
 @pytest.mark.django_db

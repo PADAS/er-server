@@ -71,14 +71,15 @@ class TestFeaturesAPIValidation:
         names = {f["name"] for f in response.json()["features"]}
         assert names == {"Feature Three"}
 
-    # ------------------------------------------------------------------ filter by feature_set (DisplayCategory)
-    # Note: /features/ feature_set filters by SpatialFeatureGroupStatic, not DisplayCategory.
-    # The spatialfeature API used feature_set to mean DisplayCategory (via feature_type__display_category).
-    # These tests document the gap.
+    # ------------------------------------------------------------------ filter by feature_set (SpatialFeatureGroupStatic)
+    # /features/ ``feature_set`` filters by SpatialFeatureGroupStatic — this is the legacy v1
+    # semantics, intentionally preserved. The v2 endpoint exposes the
+    # DisplayCategory equivalent as ``display_category`` to avoid silent
+    # cross-meaning of the same param name across versions.
 
     def test_filter_by_display_category_not_supported(self, user_client, feature1, feature2, feature3, category2):
-        """Filtering by DisplayCategory ID has no effect — /features/ feature_set
-        filters by SpatialFeatureGroupStatic, not DisplayCategory."""
+        """Passing a DisplayCategory ID has no effect on v1 ``/features/`` —
+        ``feature_set`` here means SpatialFeatureGroupStatic."""
         response = user_client.get("/api/v1.0/features/", {"feature_set": str(category2.id)})
         assert response.status_code == 200
         # category2.id is not a SpatialFeatureGroupStatic id, so no features match
