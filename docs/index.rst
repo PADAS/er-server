@@ -53,6 +53,7 @@ API
    :caption: API
 
    topics/api_primer
+   api/deprecations
    topics/eventtype-sync
    topics/patrol-sync
    api/oauth2
