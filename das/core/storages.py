@@ -31,6 +31,16 @@ class TolerantManifestStaticFilesStorage(CompressedManifestStaticFilesStorage):
     of failing the whole collect step.
     """
 
+    def stored_name(self, name: str) -> str:
+        # Catches both "missing manifest entry" (Django's strict-mode KeyError
+        # turned ValueError) and "file could not be found" (WhiteNoise's
+        # dynamic-hash fallback in hashed_name when the file is absent from
+        # STATICFILES_DIRS, e.g. uncollected third-party assets like tagulous).
+        try:
+            return super().stored_name(name)
+        except ValueError:
+            return self.clean_name(name)
+
     def url_converter(self, name, hashed_files, template=None):
         original = super().url_converter(name, hashed_files, template)
 
