@@ -1,6 +1,8 @@
 import hashlib
 import logging
-from typing import Any, Dict, List, Optional, Union
+from datetime import datetime, timezone
+from email.utils import format_datetime
+from typing import Any, Dict, Final, List, Optional, Union
 from urllib.parse import quote
 
 from rest_framework_gis.pagination import GeoJsonPagination
@@ -353,20 +355,50 @@ class CycleDetectedException(exceptions.APIException):
     default_code = "loop_detected"
 
 
-class DeprecatedEndpointMixin:
-    """Mixin that adds Deprecation and Sunset headers to all responses.
+# RFC 9745 §2: structured field Date item, "@" + unix seconds (2026-05-23T00:00:00Z).
+_DEPRECATION_HEADER_VALUE: Final[str] = f"@{int(datetime(2026, 5, 23, tzinfo=timezone.utc).timestamp())}"
+# RFC 8594 / RFC 7231 §7.1.1.1 IMF-fixdate (2027-05-23T00:00:00Z).
+_SUNSET_HEADER_VALUE: Final[str] = format_datetime(datetime(2027, 5, 23, tzinfo=timezone.utc), usegmt=True)
+# RFC 9745 §3 recommends pairing the Deprecation header with a Link to the
+# deprecation policy doc so clients can discover migration guidance.
+_DEPRECATION_POLICY_URL: Final[str] = "/api/v1.0/docs/api/deprecations.html"
+_DEPRECATION_LINK_VALUE: Final[str] = f'<{_DEPRECATION_POLICY_URL}>; rel="deprecation"; type="text/html"'
 
-    Set ``deprecated_use_instead`` on the subclass to include a hint in the
-    Sunset header pointing clients to the replacement path.
+
+class DeprecatedEndpointMixin:
+    """Mixin that marks responses as deprecated and advertises the successor URL.
+
+    Sets the following headers on every response:
+      * ``Deprecation`` (RFC 9745): a structured-field Date item
+        (``@<unix-seconds>``) indicating when the endpoint became deprecated.
+      * ``Sunset`` (RFC 8594): an HTTP-date (IMF-fixdate) indicating when the
+        endpoint will be removed. ``Deprecation`` is always less than or equal
+        to ``Sunset``.
+      * ``Link`` (RFC 8288): a single header carrying one or two
+        comma-separated link values:
+
+        - ``<successor-path>; rel="successor-version"`` when
+          ``deprecated_use_instead`` is set on the subclass, pointing clients
+          at the replacement endpoint.
+        - ``<deprecation-policy-url>; rel="deprecation"; type="text/html"``
+          (RFC 9745 §3), always emitted, pointing clients at the
+          human-readable deprecation policy doc.
     """
 
     deprecated_use_instead: str = ""
 
     def finalize_response(self, request: Request, response: Response, *args: Any, **kwargs: Any) -> Response:
         response = super().finalize_response(request, response, *args, **kwargs)  # type: ignore[misc]
-        response["Deprecation"] = "true"
+        response["Deprecation"] = _DEPRECATION_HEADER_VALUE
+        response["Sunset"] = _SUNSET_HEADER_VALUE
+        link_values: list[str] = []
         if self.deprecated_use_instead:
-            response["Sunset"] = self.deprecated_use_instead
+            link_values.append(f'<{self.deprecated_use_instead}>; rel="successor-version"')
+        link_values.append(_DEPRECATION_LINK_VALUE)
+        # RFC 8288 §3: multiple link-values may be sent in a single header by
+        # comma-separating them. Use one Link header so intermediaries that
+        # don't merge repeated headers still see both relations.
+        response["Link"] = ", ".join(link_values)
         return response
 
 

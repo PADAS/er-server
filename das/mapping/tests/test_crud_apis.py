@@ -194,8 +194,11 @@ class TestDeprecatedMapsAPI:
     def test_maps_returns_deprecation_header(self, user_client):
         response = user_client.get("/api/v1.0/maps/")
         assert response.status_code == 200
-        assert response["Deprecation"] == "true"
-        assert "Sunset" in response
+        assert response["Deprecation"] == "@1779494400"
+        assert response["Sunset"] == "Sun, 23 May 2027 00:00:00 GMT"
+        assert 'rel="successor-version"' in response["Link"]
+        assert 'rel="deprecation"' in response["Link"]
+        assert "/api/v1.0/docs/api/deprecations.html" in response["Link"]
 
     def test_quicklinks_has_no_deprecation_header(self, user_client):
         response = user_client.get("/api/v1.0/quicklinks/")
@@ -210,14 +213,20 @@ class TestDeprecatedFeatureSetAPI:
     def test_featureset_list_returns_deprecation_header(self, user_client):
         response = user_client.get("/api/v1.0/featureset/")
         assert response.status_code == 200
-        assert response["Deprecation"] == "true"
-        assert "Sunset" in response
+        assert response["Deprecation"] == "@1779494400"
+        assert response["Sunset"] == "Sun, 23 May 2027 00:00:00 GMT"
+        assert 'rel="successor-version"' in response["Link"]
+        assert 'rel="deprecation"' in response["Link"]
+        assert "/api/v1.0/docs/api/deprecations.html" in response["Link"]
 
     def test_featureset_detail_returns_deprecation_header(self, user_client, display_category):
         response = user_client.get(f"/api/v1.0/featureset/{display_category.id}/")
         assert response.status_code == 200
-        assert response["Deprecation"] == "true"
-        assert "Sunset" in response
+        assert response["Deprecation"] == "@1779494400"
+        assert response["Sunset"] == "Sun, 23 May 2027 00:00:00 GMT"
+        assert 'rel="successor-version"' in response["Link"]
+        assert 'rel="deprecation"' in response["Link"]
+        assert "/api/v1.0/docs/api/deprecations.html" in response["Link"]
 
     def test_featuregroup_list_has_no_deprecation_header(self, user_client):
         response = user_client.get("/api/v1.0/featuregroups/")
@@ -245,15 +254,21 @@ class TestDeprecatedFeatureClassAPI:
     def test_featureclass_list_returns_deprecation_header(self, user_client):
         response = user_client.get("/api/v1.0/featureclass/")
         assert response.status_code == 200
-        assert response["Deprecation"] == "true"
-        assert "Sunset" in response
+        assert response["Deprecation"] == "@1779494400"
+        assert response["Sunset"] == "Sun, 23 May 2027 00:00:00 GMT"
+        assert 'rel="successor-version"' in response["Link"]
+        assert 'rel="deprecation"' in response["Link"]
+        assert "/api/v1.0/docs/api/deprecations.html" in response["Link"]
 
     def test_featureclass_detail_returns_deprecation_header(self, user_client, display_category):
         ft = SpatialFeatureTypeFactory(display_category=display_category)
         response = user_client.get(f"/api/v1.0/featureclass/{ft.id}/")
         assert response.status_code == 200
-        assert response["Deprecation"] == "true"
-        assert "Sunset" in response
+        assert response["Deprecation"] == "@1779494400"
+        assert response["Sunset"] == "Sun, 23 May 2027 00:00:00 GMT"
+        assert 'rel="successor-version"' in response["Link"]
+        assert 'rel="deprecation"' in response["Link"]
+        assert "/api/v1.0/docs/api/deprecations.html" in response["Link"]
 
     def test_featuretype_list_has_no_deprecation_header(self, user_client):
         response = user_client.get("/api/v1.0/featuretypes/")
@@ -438,21 +453,28 @@ class TestDeprecatedSpatialFeatureAPI:
     def test_spatialfeature_list_returns_deprecation_header(self, user_client):
         response = user_client.get("/api/v1.0/spatialfeature/")
         assert response.status_code == 200
-        assert response["Deprecation"] == "true"
-        assert "Sunset" in response
+        assert response["Deprecation"] == "@1779494400"
+        assert response["Sunset"] == "Sun, 23 May 2027 00:00:00 GMT"
+        assert 'rel="successor-version"' in response["Link"]
+        assert 'rel="deprecation"' in response["Link"]
+        assert "/api/v1.0/docs/api/deprecations.html" in response["Link"]
 
     def test_spatialfeature_detail_returns_deprecation_header(self, user_client):
         ft = SpatialFeatureTypeFactory()
         feature = SpatialFeatureFactory(feature_type=ft, feature_geometry=Point(-122.3, 47.5))
         response = user_client.get(f"/api/v1.0/spatialfeature/{feature.id}/")
         assert response.status_code == 200
-        assert response["Deprecation"] == "true"
-        assert "Sunset" in response
+        assert response["Deprecation"] == "@1779494400"
+        assert response["Sunset"] == "Sun, 23 May 2027 00:00:00 GMT"
+        assert 'rel="successor-version"' in response["Link"]
+        assert 'rel="deprecation"' in response["Link"]
+        assert "/api/v1.0/docs/api/deprecations.html" in response["Link"]
 
     def test_features_list_has_deprecation_header(self, user_client):
         response = user_client.get("/api/v1.0/features/")
         assert response.status_code == 200
-        assert response["Deprecation"] == "true"
+        assert response["Deprecation"] == "@1779494400"
+        assert response["Sunset"] == "Sun, 23 May 2027 00:00:00 GMT"
 
 
 @pytest.mark.django_db
