@@ -14,7 +14,9 @@ from django.http import Http404, HttpResponse
 from django.shortcuts import get_object_or_404
 from django.urls import reverse
 from django.utils.translation import gettext_lazy as _
-from rest_framework import generics, status
+from rest_framework import generics
+from rest_framework import serializers as drf_serializers
+from rest_framework import status
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.parsers import JSONParser
 from rest_framework.request import Request
@@ -60,6 +62,17 @@ def hashtext_uuid(uuid_value):
     return hash_value
 
 
+class _FeatureListQueryParamsSerializer(drf_serializers.Serializer):
+    """Validates query params for ``FeatureListJsonView``.
+
+    Both ``feature_type`` and ``feature_set`` must be well-formed UUIDs; a malformed
+    value should produce a 400 rather than bubble up as a 500 from the DB layer.
+    """
+
+    feature_type = drf_serializers.UUIDField(required=False)
+    feature_set = drf_serializers.UUIDField(required=False)
+
+
 class FeatureListJsonView(APIView):
     """
     A simple list of vector layers available to the clients
@@ -74,8 +87,10 @@ class FeatureListJsonView(APIView):
 
     def get(self, request: Request) -> HttpResponse:
         include_hidden = parse_bool(request.GET.get("include_hidden", False))
-        feature_type_id = request.GET.get("feature_type")
-        feature_set_id = request.GET.get("feature_set")
+        params_serializer = _FeatureListQueryParamsSerializer(data=request.GET)
+        params_serializer.is_valid(raise_exception=True)
+        feature_type_id = params_serializer.validated_data.get("feature_type")
+        feature_set_id = params_serializer.validated_data.get("feature_set")
         sort_by = request.GET.get("sort_by", "name")
 
         qs = SpatialFeature.objects.select_related("feature_type")

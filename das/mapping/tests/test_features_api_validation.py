@@ -121,3 +121,15 @@ class TestFeaturesAPIValidation:
         response = user_client.get("/api/v1.0/features/", {"sort_by": "-name"})
         names = [f["name"] for f in response.json()["features"]]
         assert names == sorted(names, reverse=True)
+
+    # ------------------------------------------------------------------ query param validation
+
+    def test_malformed_feature_type_returns_400(self, user_client):
+        response = user_client.get("/api/v1.0/features/", {"feature_type": "not-a-uuid"})
+        assert response.status_code == 400
+        assert "feature_type" in response.json()
+
+    def test_malformed_feature_set_returns_400(self, user_client):
+        response = user_client.get("/api/v1.0/features/", {"feature_set": "also-not-a-uuid"})
+        assert response.status_code == 400
+        assert "feature_set" in response.json()
