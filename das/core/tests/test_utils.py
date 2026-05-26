@@ -93,3 +93,48 @@ class TestDirectoryIconFinder:
             finder._file_metadata
 
         assert str(excinfo.value) == "Not found"
+
+    @patch("core.utils.staticfiles_storage")
+    def test_file_metadata_excludes_manifest_hashed_siblings(self, mock_storage):
+        # ManifestStaticFilesStorage writes the hashed sibling next to the original
+        # in STATIC_ROOT after collectstatic. Without filtering, both end up in the
+        # icon picker and the React UI shows e.g. "all_posts_rep.8e82a124f0f1".
+        mock_storage.listdir.return_value = (
+            [],
+            [
+                "all_posts_rep.svg",
+                "all_posts_rep.8e82a124f0f1.svg",
+                "aardvark_rep.svg",
+                "aardvark_rep.ff892328fc20.svg",
+                "icon2.png",
+                "icon2.abcdef012345.png",
+            ],
+        )
+        mock_storage.get_modified_time.return_value = 1234567890
+
+        finder = DirectoryIconFinder()
+        result = finder._file_metadata
+
+        names = [name for name, _ in result]
+        assert names == ["aardvark_rep.svg", "all_posts_rep.svg", "icon2.png"]
+
+    @patch("core.utils.staticfiles_storage")
+    def test_file_metadata_keeps_dotted_names_that_are_not_hashed(self, mock_storage):
+        # The hashed-sibling pattern is exactly 12 hex chars between dots; names
+        # that happen to contain dots for other reasons must still pass through.
+        mock_storage.listdir.return_value = (
+            [],
+            [
+                "version.1.2.svg",  # not 12 hex chars -- keep
+                "icon.deadbeefcafe.svg",  # 12 hex chars -- drop
+                "icon.DEADBEEFCAFE.svg",  # uppercase hex -- keep (Django emits lowercase)
+            ],
+        )
+        mock_storage.get_modified_time.return_value = 1234567890
+
+        finder = DirectoryIconFinder()
+        names = [name for name, _ in finder._file_metadata]
+
+        assert "version.1.2.svg" in names
+        assert "icon.DEADBEEFCAFE.svg" in names
+        assert "icon.deadbeefcafe.svg" not in names
