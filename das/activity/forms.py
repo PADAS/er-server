@@ -126,7 +126,7 @@ class PrettyReadOnlyJSONWidget(forms.widgets.Widget):
         return render_to_string("json_readonly.html", {"name": name, "value": value, "attrs": attrs})
 
     class Media:
-        css = {"all": ("css/prism-default.css", "json_readonly.css")}
+        css = {"all": ("css/prism-default.css", "css/json_readonly.css")}
         js = ["js/json_readonly.js", "js/prism.js"]
 
 
