@@ -101,8 +101,15 @@ class PermissionSetAdmin(ModelAdminDisplayingManyToManyFieldMixin, DjangoGroupAd
         #
         # The permissions prefetch needs the explicit tenant filter because
         # instance.permissions.all() bypasses tenant-scoping on the through
-        # table (see all_permissions for the long-form note).
-        tenant_permissions = Permission.objects.filter(permission_sets__das_tenant=get_current_tenant())
+        # table (see all_permissions for the long-form note). `.distinct()`
+        # is load-bearing: Django's M2M prefetch adds its own
+        # `permission_sets__in=<page>` filter on top of our
+        # `permission_sets__das_tenant=...` filter, and each `.filter()`
+        # against a multi-valued relation gets a separate JOIN through the
+        # through table. The cross-product fans out one row per matching
+        # (other permissionset in the same tenant) pair, which renders as
+        # duplicate permission rows in the changelist (ERA-10962 redux).
+        tenant_permissions = Permission.objects.filter(permission_sets__das_tenant=get_current_tenant()).distinct()
         return queryset.prefetch_related(
             Prefetch("permissions", queryset=tenant_permissions, to_attr="_tenant_permissions"),
             "user_set",
@@ -119,10 +126,14 @@ class PermissionSetAdmin(ModelAdminDisplayingManyToManyFieldMixin, DjangoGroupAd
         # itself is not, so we must filter by current tenant. get_queryset
         # populates instance._tenant_permissions via Prefetch; fall back to
         # the live query for cases where this admin's get_queryset wasn't
-        # used to load the instance.
+        # used to load the instance. `.distinct()` collapses the
+        # cross-product that arises because `instance.permissions` and
+        # `permission_sets__das_tenant=...` each join through the through
+        # table separately — without it, a permission held by N
+        # PermissionSets in the same tenant renders N times.
         permissions = getattr(instance, "_tenant_permissions", None)
         if permissions is None:
-            permissions = instance.permissions.filter(permission_sets__das_tenant=get_current_tenant())
+            permissions = instance.permissions.filter(permission_sets__das_tenant=get_current_tenant()).distinct()
         return make_html_list(sorted(ps.name for ps in permissions))
 
     all_permissions.short_description = "Permissions"

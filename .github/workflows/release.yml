@@ -152,6 +152,10 @@ jobs:
 
   deploy-stage:
     needs: [config, unit-test-gate]
+    if: |
+      always() &&
+      needs.config.result == 'success' &&
+      needs.unit-test-gate.result == 'success'
     uses: PADAS/serca-pipelines/.github/workflows/_argocd-deploy.yml@main
     with:
       app-name: das-server
@@ -164,6 +168,7 @@ jobs:
 
   approve-prod-me:
     needs: [deploy-stage]
+    if: always() && needs.deploy-stage.result == 'success'
     runs-on: ubuntu-latest
     timeout-minutes: 4320
     environment: production-me
@@ -172,6 +177,7 @@ jobs:
 
   approve-prod-us:
     needs: [deploy-stage]
+    if: always() && needs.deploy-stage.result == 'success'
     runs-on: ubuntu-latest
     timeout-minutes: 4320
     environment: production-us
@@ -180,6 +186,10 @@ jobs:
 
   deploy-prod-me:
     needs: [config, approve-prod-me]
+    if: |
+      always() &&
+      needs.config.result == 'success' &&
+      needs.approve-prod-me.result == 'success'
     uses: PADAS/serca-pipelines/.github/workflows/_argocd-deploy.yml@main
     with:
       app-name: das-server
@@ -192,6 +202,10 @@ jobs:
 
   deploy-prod-us:
     needs: [config, approve-prod-us]
+    if: |
+      always() &&
+      needs.config.result == 'success' &&
+      needs.approve-prod-us.result == 'success'
     uses: PADAS/serca-pipelines/.github/workflows/_argocd-deploy.yml@main
     with:
       app-name: das-server
@@ -204,6 +218,7 @@ jobs:
 
   approve-prod:
     needs: [deploy-stage]
+    if: always() && needs.deploy-stage.result == 'success'
     runs-on: ubuntu-latest
     timeout-minutes: 4320
     environment: production
@@ -212,6 +227,10 @@ jobs:
 
   deploy-prod:
     needs: [config, approve-prod]
+    if: |
+      always() &&
+      needs.config.result == 'success' &&
+      needs.approve-prod.result == 'success'
     uses: PADAS/serca-pipelines/.github/workflows/_argocd-deploy.yml@main
     with:
       app-name: das-server

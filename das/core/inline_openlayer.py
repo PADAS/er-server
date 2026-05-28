@@ -3,9 +3,8 @@ from django.contrib.gis.admin.widgets import OpenLayersWidget
 from django.contrib.gis.db import models
 from django.contrib.gis.gdal import OGRGeomType
 from django.forms import Media
-from django.templatetags.static import static
 
-from core.openlayers import OlWidget, SaveCoordinatesToCookieMixin
+from core.openlayers import OlWidget, SaveCoordinatesToCookieMixin, static_lazy
 
 from .mixins import TileLayersMixin
 
@@ -145,7 +144,7 @@ class InlineOSMGeoAdmin(TileLayersMixin, OSMGeoAdmin, SaveCoordinatesToCookieMix
     wms_layer = "terrain,overlay"
     wms_url = "http://tiles.maps.eox.at/wms/"
     map_template = "admin/openlayer/ol.html"
-    openlayers_url = static("openlayers/v6/ol.js")
+    openlayers_url = static_lazy("openlayers/v6/ol.js")
     map_srid = 4326
     display_wkt = True
     num_zoom = 19
