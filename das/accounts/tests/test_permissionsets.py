@@ -5,12 +5,14 @@ import random
 import pytest
 from django_multitenant.utils import get_current_tenant, set_current_tenant
 
+from django.contrib import admin as django_admin
 from django.contrib.auth.models import ContentType, Permission
 from django.core.exceptions import ValidationError
 from django.test import TestCase
 from rest_framework.exceptions import PermissionDenied
 
 import accounts.views as views
+from accounts.admin import PermissionSetAdmin
 from accounts.backends import AccountsModelBackend
 from accounts.models import PermissionSet, User
 from core.tests import BaseAPITest
@@ -105,6 +107,30 @@ class TestTenantPermissionSets:
         finally:
             set_current_tenant(previous_tenant)
         return user
+
+    def test_admin_changelist_prefetch_no_duplicate_permissions(self, view_subject_permissions):
+        """PermissionSetAdmin.get_queryset prefetches each row's tenant-scoped
+        permissions. When a permission is held by N PermissionSets in the
+        current tenant, the M2M filter joins through the through table twice
+        (once for the das_tenant filter, once for the prefetch's permissionset
+        IN-filter) producing an NxN cross-product per row. Reproduces the
+        duplicate-permission rendering in the admin changelist."""
+        set_current_tenant(self.das_tenant)
+
+        shared_perm = view_subject_permissions[0]
+        ps_a = PermissionSetFactory.create(name="A", permissions=[shared_perm])
+        ps_b = PermissionSetFactory.create(name="B", permissions=[shared_perm])
+        ps_c = PermissionSetFactory.create(name="C", permissions=[shared_perm])
+
+        model_admin = PermissionSetAdmin(PermissionSet, django_admin.site)
+        instances = list(model_admin.get_queryset(request=None).filter(pk__in=[ps_a.pk, ps_b.pk, ps_c.pk]))
+
+        for instance in instances:
+            prefetched = instance._tenant_permissions
+            assert len(prefetched) == 1, (
+                f"{instance.name} expected 1 prefetched permission but got "
+                f"{len(prefetched)}: {[p.name for p in prefetched]}"
+            )
 
     def test_get_group_permissions_does_not_leak_cross_tenant_permissions(self, cross_tenant_copies_with_extra_perm):
         """get_group_permissions must not return permissions from other tenants' PermissionSetPermission
