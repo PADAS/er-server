@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import copy
 import html
 import json
@@ -6,6 +8,7 @@ import re
 import typing
 import uuid
 from collections import OrderedDict
+from typing import Any
 
 import dateutil.parser as dateparser
 import jsonschema
@@ -563,7 +566,13 @@ def property_keys_order_as_dict(schema):
     return OrderedDict()
 
 
-def detail_resolver(properties, schema, key, value, event=None):
+def detail_resolver(
+    properties: dict[str, Any],
+    schema: dict[str, Any],
+    key: str,
+    value: Any,
+    event: Any | None = None,
+) -> tuple[str, Any, Any] | None:
     if key in properties:
         schema_item = properties[key]
         return extractor(schema_item, schema.get("definition", []), key, value, event=event)
@@ -854,7 +863,7 @@ def schema_property_choices(schema, rendered_schema):
             yield SchemaChoiceProperty(prop_name, props, field_name, lookup)
 
 
-def get_resolved_v1v2_properties(schema):
+def get_resolved_v1v2_properties(schema: dict[str, Any]) -> dict[str, Any]:
     """
     Resolve schema properties from either legacy or new schema structure.
 
@@ -875,6 +884,10 @@ def get_resolved_v1v2_properties(schema):
         all_of = schema["json"].get("allOf", [])
         if not all_of:
             return schema["json"]["properties"]
+        # allOf.then.properties are merged on top of the base properties.
+        # If a conditional section redeclares a top-level key, the conditional
+        # definition wins (last-wins). Nested allOf and else branches are not
+        # traversed — current schemas do not use them.
         properties = dict(schema["json"]["properties"])
         for condition in all_of:
             then_props = condition.get("then", {}).get("properties", {})

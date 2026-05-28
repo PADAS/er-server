@@ -458,6 +458,38 @@ class TestGetResolvedV1V2Properties:
         result = schema_utils.get_display_value_header_for_key(self.V2_CONDITIONAL_SCHEMA, "conditional_field")
         assert result == "Conditional Field"
 
+    @pytest.mark.parametrize(
+        "schema,expected_title",
+        [
+            pytest.param(
+                {
+                    "json": {
+                        "properties": {
+                            "foo": {"title": "Top Foo"},
+                        },
+                        "allOf": [
+                            {
+                                "then": {
+                                    "properties": {
+                                        "foo": {"title": "Conditional Foo"},
+                                    }
+                                }
+                            }
+                        ],
+                    }
+                },
+                "Conditional Foo",
+                id="allOf_then_overrides_top_level",
+            ),
+        ],
+    )
+    def test_conditional_property_overrides_top_level_with_same_key(self, schema, expected_title):
+        result = schema_utils.get_resolved_v1v2_properties(schema)
+        assert result["foo"]["title"] == expected_title
+        # Verify original schema is not mutated
+        assert schema_utils.get_resolved_v1v2_properties(schema)["foo"]["title"] == expected_title
+        assert schema["json"]["properties"]["foo"]["title"] == "Top Foo"
+
 
 class TestExtractFromList:
     """extract_from_list must not include the full items list in each warning.
