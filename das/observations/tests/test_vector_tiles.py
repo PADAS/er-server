@@ -289,8 +289,8 @@ class TestSegmentPermissionFiltering:
 class TestSegmentQueryParameterFiltering:
     """Test query parameter filtering for ObservationSegmentVectorLayer (range, show_excluded)."""
 
-    def test_filter_range_45_default_excludes_old_segments(self, das_tenant, subject_subtype):
-        """Verify default range=45 excludes segments that ended more than 45 days ago."""
+    def test_default_range_excludes_segments_older_than_30_days(self, das_tenant, subject_subtype):
+        """Default range (no param) excludes segments that ended more than 30 days ago."""
         subject = Subject.objects.create(name="Range Test", subject_subtype=subject_subtype, das_tenant=das_tenant)
         provider, _ = SourceProvider.objects.get_or_create(
             provider_key="test_range", display_name="Test", das_tenant=das_tenant
@@ -300,22 +300,22 @@ class TestSegmentQueryParameterFiltering:
 
         now = timezone.now()
 
-        # Segment that ended 50 days ago (should be excluded with range=45)
+        # Segment that ended 35 days ago (outside 30-day default window)
         obs_old_1 = Observation.objects.create(
             source=source,
-            recorded_at=now - timedelta(days=50),
+            recorded_at=now - timedelta(days=35),
             location=Point(0, 0),
             das_tenant=das_tenant,
         )
         obs_old_2 = Observation.objects.create(
             source=source,
-            recorded_at=now - timedelta(days=50) + timedelta(hours=1),
+            recorded_at=now - timedelta(days=35) + timedelta(hours=1),
             location=Point(1, 0),
             das_tenant=das_tenant,
         )
         ObservationSegment.objects.create_segment(obs_old_1, obs_old_2, subject)
 
-        # Segment that ended 10 days ago (should be included)
+        # Segment that ended 10 days ago (inside 30-day default window)
         obs_recent_1 = Observation.objects.create(
             source=source,
             recorded_at=now - timedelta(days=10),
@@ -332,13 +332,61 @@ class TestSegmentQueryParameterFiltering:
 
         qs = ObservationSegment.objects.filter(subject=subject)
 
-        # Default (no data) or explicit range=45: only recent segment
         filterset_default = ObservationSegmentVectorTileFilterSet(data={}, queryset=qs)
         assert filterset_default.qs.count() == 1
-        assert filterset_default.qs.first().end_recorded_at >= now - timedelta(days=45)
+        assert filterset_default.qs.first().end_recorded_at >= now - timedelta(days=30)
 
-        filterset_45 = ObservationSegmentVectorTileFilterSet(data={"range": "45"}, queryset=qs)
-        assert filterset_45.qs.count() == 1
+    @pytest.mark.parametrize("days", [30, 45, 60, 90, 150, 210, 365, 500])
+    def test_numeric_range_param_filters_by_end_recorded_at(self, das_tenant, subject_subtype, days):
+        """Each supported numeric range excludes segments older than that many days and includes recent ones."""
+        subject = Subject.objects.create(
+            name=f"Range {days} Test", subject_subtype=subject_subtype, das_tenant=das_tenant
+        )
+        provider, _ = SourceProvider.objects.get_or_create(
+            provider_key=f"test_range_{days}", display_name="Test", das_tenant=das_tenant
+        )
+        source = Source.objects.create(
+            manufacturer_id=f"range_{days}_test", provider=provider, das_tenant=das_tenant
+        )
+        SubjectSource.objects.create(subject=subject, source=source, das_tenant=das_tenant)
+
+        now = timezone.now()
+
+        # Segment that ended just outside the window (days + 5 days ago)
+        obs_old_1 = Observation.objects.create(
+            source=source,
+            recorded_at=now - timedelta(days=days + 5),
+            location=Point(0, 0),
+            das_tenant=das_tenant,
+        )
+        obs_old_2 = Observation.objects.create(
+            source=source,
+            recorded_at=now - timedelta(days=days + 5) + timedelta(hours=1),
+            location=Point(1, 0),
+            das_tenant=das_tenant,
+        )
+        ObservationSegment.objects.create_segment(obs_old_1, obs_old_2, subject)
+
+        # Segment that ended just inside the window (days - 1 day ago)
+        obs_recent_1 = Observation.objects.create(
+            source=source,
+            recorded_at=now - timedelta(days=days - 1),
+            location=Point(2, 0),
+            das_tenant=das_tenant,
+        )
+        obs_recent_2 = Observation.objects.create(
+            source=source,
+            recorded_at=now - timedelta(days=days - 1) + timedelta(hours=1),
+            location=Point(3, 0),
+            das_tenant=das_tenant,
+        )
+        ObservationSegment.objects.create_segment(obs_recent_1, obs_recent_2, subject)
+
+        qs = ObservationSegment.objects.filter(subject=subject)
+        filterset = ObservationSegmentVectorTileFilterSet(data={"range": str(days)}, queryset=qs)
+
+        assert filterset.qs.count() == 1
+        assert filterset.qs.first().end_recorded_at >= now - timedelta(days=days)
 
     def test_filter_range_all_includes_old_segments(self, das_tenant, subject_subtype):
         """Verify range=all includes segments regardless of end_recorded_at."""
@@ -916,8 +964,8 @@ class TestVectorTileEdgeCases:
 
         assert not qs.filter(id=subject.id).exists()
 
-    def test_filter_range_invalid_value_defaults_to_45(self, das_tenant, subject_subtype):
-        """Verify invalid range value falls back to 45-day window."""
+    def test_filter_range_invalid_value_defaults_to_30_days(self, das_tenant, subject_subtype):
+        """Verify invalid range value falls back to the 30-day default window."""
         subject = Subject.objects.create(
             name="Invalid Range Test", subject_subtype=subject_subtype, das_tenant=das_tenant
         )
@@ -928,18 +976,35 @@ class TestVectorTileEdgeCases:
         SubjectSource.objects.create(subject=subject, source=source, das_tenant=das_tenant)
 
         now = timezone.now()
+
+        # Segment within the 30-day fallback window — should be included
         obs1 = Observation.objects.create(
-            source=source, recorded_at=now - timedelta(hours=2), location=Point(0, 0), das_tenant=das_tenant
+            source=source, recorded_at=now - timedelta(days=29), location=Point(0, 0), das_tenant=das_tenant
         )
         obs2 = Observation.objects.create(
-            source=source, recorded_at=now - timedelta(hours=1), location=Point(1, 0), das_tenant=das_tenant
+            source=source,
+            recorded_at=now - timedelta(days=29) + timedelta(hours=1),
+            location=Point(1, 0),
+            das_tenant=das_tenant,
         )
         ObservationSegment.objects.create_segment(obs1, obs2, subject)
 
-        qs = ObservationSegment.objects.all()
+        # Segment outside the 30-day fallback window — should be excluded
+        obs3 = Observation.objects.create(
+            source=source, recorded_at=now - timedelta(days=31), location=Point(2, 0), das_tenant=das_tenant
+        )
+        obs4 = Observation.objects.create(
+            source=source,
+            recorded_at=now - timedelta(days=31) + timedelta(hours=1),
+            location=Point(3, 0),
+            das_tenant=das_tenant,
+        )
+        ObservationSegment.objects.create_segment(obs3, obs4, subject)
+
+        qs = ObservationSegment.objects.filter(subject=subject)
         filterset = ObservationSegmentVectorTileFilterSet(data={"range": "invalid"}, queryset=qs)
-        # Should still apply 45-day window (segment is recent, so included)
         assert filterset.qs.count() == 1
+        assert filterset.qs.first().end_recorded_at >= now - timedelta(days=30)
 
     def test_multiple_exclusion_flags_combined(self, das_tenant, subject_subtype):
         """Verify segments with multiple exclusion flags are handled correctly."""
@@ -1071,7 +1136,7 @@ class TestVectorTileEdgeCases:
         )
         factory = APIRequestFactory()
 
-        # Default (no range param) or range=45: exclude old segment
+        # Default (no range param): applies 30-day window, excludes the old segment
         request_default = factory.get("/observations/segments/tiles/10/512/512.pbf")
         request_default.user = superuser
         layer_default = ObservationSegmentVectorLayer(request=request_default)

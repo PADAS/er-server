@@ -81,6 +81,12 @@ class DirectoryIconFinder:
     _instance = None
     _cache = caches["default"]
 
+    # Matches the content-hash sibling files that ManifestStaticFilesStorage writes
+    # alongside the originals (e.g. "all_posts_rep.8e82a124f0f1.svg"). Without this
+    # filter the icon picker lists both the unhashed name and every hashed variant
+    # as if they were distinct icons.
+    _HASHED_SIBLING_RE = re.compile(r"\.[0-9a-f]{12}\.[^.]+$")
+
     def __new__(cls, dir_name="sprite-src", timeout=3600 * 24):
         if cls._instance is None:
             cls._instance = super().__new__(cls)
@@ -100,7 +106,7 @@ class DirectoryIconFinder:
             return tuple(
                 (f, staticfiles_storage.get_modified_time(f"{self.dir_name}/{f}"))
                 for f in sorted(filenames)
-                if f.split(".")[-1].lower() in allowed_extentions
+                if f.split(".")[-1].lower() in allowed_extentions and not self._HASHED_SIBLING_RE.search(f)
             )
         except ValueError:
             return tuple()

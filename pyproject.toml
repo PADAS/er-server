@@ -126,7 +126,7 @@ dependencies = [
     "simplejson==3.20.2",
     "simplekml",
     "twilio",
-    "urllib3==2.6.3",
+    "urllib3==2.7.0",
     "wheel==0.46.2",  # needed at runtime to install local .whl dependencies (e.g. pymet wheelhouse)
     "whitenoise==6.11.0",
     "xmltodict==0.13.0",

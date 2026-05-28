@@ -18,6 +18,7 @@ from django.contrib.auth import get_user_model
 from django.contrib.contenttypes.models import ContentType
 from django.contrib.gis.db import models
 from django.core import serializers
+from django.core.exceptions import FieldDoesNotExist
 from django.db.models import Max
 
 from activity.constants import PRIORITY_CHOICES
@@ -166,20 +167,17 @@ class Revision(object):
         manager = getattr(instance, self.manager_name)
         adapter = self.revision_adapter(type(instance))
 
-        # ACTION_ADDED fires from post_save with created=True, meaning the
-        # parent row was just inserted with a fresh PK — no prior revisions
-        # can exist for this object_id, so skip the lookup. For other
-        # actions, one aggregate gives us both "is this the first revision?"
-        # and the next sequence number (previously done as two queries).
-        if action == ACTION_ADDED:
-            max_sequence = 0
-        else:
-            max_sequence = (
-                manager.filter(object_id=instance.id).aggregate(max_sequence=Max("sequence")).get("max_sequence") or 0
-            )
+        # Always compute next sequence from existing revisions: callers can
+        # legitimately reuse an object_id whose prior incarnation was deleted
+        # (revisions are retained as a tombstone history so a delete can be
+        # restored), so an ACTION_ADDED on that id needs sequence = max + 1,
+        # not 1.
+        max_sequence = (
+            manager.filter(object_id=instance.id).aggregate(max_sequence=Max("sequence")).get("max_sequence") or 0
+        )
         instance.revision_sequence = max_sequence
 
-        if max_sequence == 0:
+        if action == ACTION_ADDED or max_sequence == 0:
             data = adapter.get_serialized_data(instance)
         elif action == ACTION_DELETED:
             data = {}
@@ -233,7 +231,22 @@ class Revision(object):
         instance.revision_sequence = 0
         if instance.id:
             adapter = RevisionAdapter(type(instance))
-            instance.revision_original = adapter.get_data_copy(instance)
+            deferred = instance.get_deferred_fields()
+            if not deferred:
+                instance.revision_original = adapter.get_data_copy(instance)
+            else:
+                # Skip deferred fields — accessing them triggers refresh_from_db → post_init recursion.
+                model_meta = type(instance)._meta
+                loaded_fieldnames = []
+                for name in adapter.get_fieldnames():
+                    try:
+                        field = model_meta.get_field(name)
+                        if field.attname in deferred:
+                            continue
+                    except FieldDoesNotExist:
+                        pass
+                    loaded_fieldnames.append(name)
+                instance.revision_original = adapter._serialize(instance, loaded_fieldnames)
 
     def finalize(self, sender, **kwargs):
         revision_model = self.create_revision_model(sender)

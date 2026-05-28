@@ -283,6 +283,57 @@ class TestRevisionActions:
         assert added.data["serial_number"] == event.serial_number
         assert isinstance(added.data["serial_number"], int)
 
+    def test_added_revision_after_recycled_object_id(self, event):
+        # If an Event is deleted and a client later POSTs a new Event with
+        # the same UUID (e.g. a mobile sync queue retrying an idempotent
+        # upload after the row was deleted server-side), the prior
+        # incarnation's revisions remain in the table as a tombstone. The
+        # new ADDED revision must pick up at sequence = max + 1 — not 1 —
+        # or it collides on the (das_tenant_id, object_id, sequence) unique
+        # constraint and the SerialNumberModelMixin retry loop just spins
+        # until it 500s.
+        recycled_id = event.id
+        event_type = event.event_type
+        das_tenant = event.das_tenant
+
+        event.delete()
+        pre_existing = list(Event.revision.filter(object_id=recycled_id).order_by("sequence"))
+        assert [r.action for r in pre_existing] == ["added", "deleted"]
+
+        recycled = Event(
+            id=recycled_id,
+            event_type=event_type,
+            das_tenant=das_tenant,
+            title="recycled",
+        )
+        recycled.save()
+
+        revisions = list(Event.revision.filter(object_id=recycled_id).order_by("sequence"))
+        assert [r.action for r in revisions] == ["added", "deleted", "added"]
+        new_added = revisions[-1]
+        assert new_added.sequence == pre_existing[-1].sequence + 1
+        # Full snapshot for ACTION_ADDED, not a partial diff against the
+        # post_init snapshot.
+        assert new_added.data["title"] == "recycled"
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("tenant_settings", "das_tenant_monkeypatch")
+class TestPostInitDeferredFields:
+    def test_post_init_does_not_recurse_on_deferred_field_instance(self, event, django_assert_num_queries):
+        # Regression: fetching a revision-tracked model with .only() caused infinite recursion.
+        # post_init → get_data_copy → serialize all fields → DeferredAttribute.__get__ →
+        # refresh_from_db → from_db → post_init → ∞
+        instance = Event.objects.only("id", "title").get(pk=event.pk)
+        from revision.manager import Revision
+
+        revision = Revision()
+        with django_assert_num_queries(0):
+            # Must complete without RecursionError and without hitting the DB.
+            revision.post_init(instance)
+
+        assert hasattr(instance, "revision_original")
+
 
 @pytest.mark.django_db
 @pytest.mark.usefixtures("tenant_settings", "das_tenant_monkeypatch")

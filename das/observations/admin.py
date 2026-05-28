@@ -1343,12 +1343,12 @@ class SubjectAdmin(ExportCsvMixin, FieldSetElementMixin, ObservationsContextMixi
         # Bounded to the current monthly partition window to avoid a full table scan;
         # the inline preview only renders the first 25 observations.
         latest_observations = subject.observations(last_hours=30 * 24).values(
-            "source__manufacturer_id", "recorded_at", "location", "additional"
+            "id", "source__manufacturer_id", "recorded_at", "location", "additional"
         )
         extra_context = self.get_observations_context(extra_context, latest_observations, object_id)
 
         if request.user.has_any_perms(
-            ("observations.add_observation" "observations.view_observation", "observations.change_observation")
+            ("observations.add_observation", "observations.view_observation", "observations.change_observation")
         ):
             latest_gpx_upload = (
                 models.GPXTrackFile.objects.filter(source_assignment__subject=object_id)
@@ -1361,8 +1361,7 @@ class SubjectAdmin(ExportCsvMixin, FieldSetElementMixin, ObservationsContextMixi
                 .values()
             )
             extra_context = self.get_gpxdata_context(extra_context, latest_gpx_upload, object_id)
-
-        self.check_for_no_trackpoints_import_failure(request, latest_gpx_upload)
+            self.check_for_no_trackpoints_import_failure(request, latest_gpx_upload)
 
         return super().change_view(
             request,

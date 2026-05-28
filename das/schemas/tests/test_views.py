@@ -19,15 +19,9 @@ from utils.tenant.managers import TenantContextManager
 
 
 def _dynamic_schema_rows(data: dict) -> list[dict]:
-    """Expand ``enum`` + ``x-enumExtra`` into row dicts with a ``const`` key for assertions."""
-    extra_root = data.get(ENUM_EXTRA_KEY) or {}
-    rows: list[dict] = []
-    for const in data.get("enum", []):
-        part = extra_root.get(const)
-        if part is None:
-            part = extra_root.get(str(const)) or {}
-        rows.append({"const": const, **part})
-    return rows
+    """Expand ``enum`` + ``x-enumExtra`` rows into ``{"const", ...}`` dicts for assertions."""
+    extra = data.get(ENUM_EXTRA_KEY) or {}
+    return [{"const": v, **(extra.get(v) or {})} for v in data.get("enum", [])]
 
 
 @pytest.mark.django_db
