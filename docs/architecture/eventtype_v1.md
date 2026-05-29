@@ -72,6 +72,54 @@ Dynamic choices are populated from custom database queries defined in the `Dynam
 - User-specific options
 - Time-sensitive data
 
+### Collections (Arrays of Objects)
+
+A property can be defined as a repeating group — an array of zero or more objects, each with its own properties. In V2 this is a first-class field type (`type: "COLLECTION"`); in V1 it is expressed directly with standard JSON Schema:
+
+```json
+"property_name": {
+  "type": "array",
+  "items": {
+    "type": "object",
+    "properties": { ... }
+  }
+}
+```
+
+**Example — "Livestock Killed" repeating group:**
+```json
+"livestock_killed_array": {
+  "title": "Livestock Killed",
+  "type": "array",
+  "items": {
+    "type": "object",
+    "properties": {
+      "Animal Name": {
+        "title": "Type of Livestock/ Poultry",
+        "type": "string",
+        "enum": {{enum___behavior___values}},
+        "enumNames": {{enum___behavior___names}}
+      },
+      "Number": {
+        "title": "No. of Animals",
+        "type": "number",
+        "minimum": 1
+      }
+    }
+  }
+}
+```
+
+**Choice templates work inside nested items.** Template markers like `{{enum___field___values}}` are resolved by text substitution on the raw schema string before JSON parsing, so they can be used at any depth — including inside an array's `items.properties`.
+
+#### Limitations
+
+- **CSV export drops collection values.** `EventsExportView` walks the top-level schema property order, so a collection appears as a single column (e.g. `livestock_killed_array`). To populate that cell, the V1 path goes through `schema_utils.extract_from_list` (`das/utils/schema_utils.py`), which only understands two list-item shapes: primitives, and choice items shaped like `{"name": ..., "value": ...}`. An item whose keys are the collection's own properties (e.g. `{"Animal Name": "elephant", "Number": 3}`) matches neither — it is counted as unparseable, a warning is logged (`extract_from_list cannot parse N value(s)...`), and the cell comes out empty. The only "array" type that exports cleanly under V1 is a multi-select of choices, which gets semicolon-joined.
+- **No dedicated UI controls.** The V1 `definition` section has no equivalent of V2's `COLLECTION` field type. The frontend falls back to a generic array renderer, so add/remove ergonomics and layout options are limited.
+- **Validation surface.** Collections multiply the cost of the V1 validation pain points (no pre-render validation, runtime template resolution); errors inside nested items can be harder to trace.
+
+For new event types that need repeating groups, prefer V2's `COLLECTION` field type — see [EventType V2 Documentation](./eventtype_v2.md#collection-fields).
+
 ## Definition Section
 The Definition section controls how the UI renders the form fields. It uses a custom JSON format to specify:
 - Field ordering and grouping
