@@ -401,7 +401,25 @@ class Source(TenantModelMixin, TimestampedModel):
         ]
 
     def __str__(self):
-        return f"{self.manufacturer_id} ({self.provider.provider_key})"
+        # __str__ must stay total and query-free. Instances loaded with a
+        # simplified query (e.g. .only("id")) defer manufacturer_id / provider_id;
+        # touching the provider relation would then fan out an extra query — or
+        # raise RelatedObjectDoesNotExist when provider_id is unset — so fall back
+        # to whatever is already loaded.
+        deferred = self.get_deferred_fields()
+        label = str(self.pk) if "manufacturer_id" in deferred else str(self.manufacturer_id)
+        if "provider_id" in deferred or self.provider_id is None:
+            return label
+        # provider_id is set but the SourceProvider may be missing from the current
+        # tenant — TenantForeignKey scopes the lookup, and rows whose provider_id
+        # points across tenants (or to a deleted provider) raise here. Keep
+        # rendering so admin pages don't 500 on orphaned FKs.
+        # SourceProvider.DoesNotExist also catches Source.provider.RelatedObjectDoesNotExist,
+        # which is a subclass raised when provider_id is None despite the explicit guard above.
+        try:
+            return f"{label} ({self.provider.provider_key})"
+        except SourceProvider.DoesNotExist:
+            return f"{label} (provider {self.provider_id} unavailable)"
 
     def observations(self):
         queryset = Observation.objects.filter(source=self)
