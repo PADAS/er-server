@@ -12,10 +12,13 @@ Operator → Field Type Compatibility:
 - IS_NOT_CONTAINED_BY: Multi-Select
 """
 
+import copy
 import json
 from pathlib import Path
 
 import pytest
+
+from rest_framework.serializers import ValidationError
 
 from activity.schemas.eventtype_meta_schemas import main_event_type_schema
 from activity.serializers.fields.json_schema import JSONSchemaField
@@ -193,3 +196,36 @@ class TestIsNotContainedByCondition:
         result = schema_field.to_internal_value(schema)
         assert result is not None
         assert isinstance(result, dict)
+
+
+# =============================================================================
+# Logical Operator Tests (allOf / anyOf in the if clause)
+# =============================================================================
+
+
+class TestLogicalOperators:
+    """Tests for allOf (AND) and anyOf (OR) logic in the if clause of conditional sections."""
+
+    def test_valid_anyof_conditions(self, schema_field):
+        """Valid schema using anyOf (OR) in the if clause with two CONTAINS conditions on different fields."""
+        schema = load_fixture("anyof_two_contains_text_fields")
+        result = schema_field.to_internal_value(schema)
+        assert result is not None
+        assert isinstance(result, dict)
+
+    def test_valid_allof_multiple_conditions(self, schema_field):
+        """Valid schema using allOf (AND) in the if clause with two CONTAINS conditions on different fields."""
+        schema = load_fixture("allof_two_contains_text_fields")
+        result = schema_field.to_internal_value(schema)
+        assert result is not None
+        assert isinstance(result, dict)
+
+    def test_invalid_if_clause_with_unknown_key(self, schema_field):
+        """Schema where the if clause uses an unknown key (neither allOf nor anyOf) is rejected."""
+        schema = copy.deepcopy(load_fixture("contains_text_field"))
+        if_clause = schema["json"]["allOf"][0]["if"]
+        conditions = if_clause.pop("allOf")
+        if_clause["conditions"] = conditions
+
+        with pytest.raises(ValidationError):
+            schema_field.to_internal_value(schema)

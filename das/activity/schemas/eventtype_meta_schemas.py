@@ -100,7 +100,7 @@ choice_list_field_json_schema_any_of_schema = {
         "properties": {
             "$ref": {
                 "type": "string",
-                "oneOf": [
+                "anyOf": [
                     {"pattern": r"^/api/v2\.0/schemas/choices\.json\?field=[^&]+$"},
                     {"pattern": r"^/api/v2\.0/schemas/event_types\.json(\?category=[^&]+)?$"},
                     {"pattern": r"^/api/v2\.0/schemas/spatial_features\.json(\?feature_set=[^&]+)?$"},
@@ -1284,7 +1284,7 @@ section_ui_schema = {
         "conditions": {
             "type": "array",
             "items": {
-                "oneOf": [
+                "anyOf": [
                     contains_condition_ui_schema,
                     is_empty_condition_ui_schema,
                     is_not_empty_condition_ui_schema,
@@ -1355,6 +1355,20 @@ ui_schema = {
 
 # JSON
 
+section_conditions_schema = {
+    "type": "array",
+    "items": {
+        "anyOf": [
+            contains_condition_json_schema,
+            is_empty_condition_json_schema,
+            is_not_empty_condition_json_schema,
+            is_exactly_condition_json_schema,
+            is_contained_by_condition_json_schema,
+            is_not_contained_by_condition_json_schema,
+        ]
+    },
+}
+
 json_field_schema = {
     "type": "object",
     "title": "JSON schema",
@@ -1367,23 +1381,18 @@ json_field_schema = {
                 "properties": {
                     "if": {
                         "type": "object",
-                        "properties": {
-                            "allOf": {
-                                "type": "array",
-                                "items": {
-                                    "anyOf": [
-                                        contains_condition_json_schema,
-                                        is_empty_condition_json_schema,
-                                        is_not_empty_condition_json_schema,
-                                        is_exactly_condition_json_schema,
-                                        is_contained_by_condition_json_schema,
-                                        is_not_contained_by_condition_json_schema,
-                                    ]
-                                },
-                            }
-                        },
-                        "required": ["allOf"],
-                        "additionalProperties": False,
+                        "anyOf": [
+                            {
+                                "properties": {"allOf": section_conditions_schema},
+                                "required": ["allOf"],
+                                "additionalProperties": False,
+                            },
+                            {
+                                "properties": {"anyOf": section_conditions_schema},
+                                "required": ["anyOf"],
+                                "additionalProperties": False,
+                            },
+                        ],
                     },
                     "then": {
                         "type": "object",
