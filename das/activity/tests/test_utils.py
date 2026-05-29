@@ -48,17 +48,28 @@ class TestSchemaUtils:
         assert display == "Heisenberg"
 
     @pytest.mark.parametrize(
-        ("mocked_date", "expected_display"),
+        "value",
         (
-            ("2022-10-28T19:00:00.000Z", "2022-10-28 12:00"),
-            ("2022-01-25T20:00:00.000Z", "2022-01-25 12:00"),
-            ("2022-10-Z", "2022-10-Z"),
-            ("-27.151221,-101", "-27.151221,-101"),
+            "2022-10-28T19:00:00.000Z",
+            "2022-01-25T20:00:00.000Z",
+            "2022-10-Z",
+            "-27.151221,-101",
         ),
     )
-    def test_extract_from_dict_or_string_function_date_string_parsing(self, mocked_date, expected_display):
+    def test_date_like_string_without_schema_format_is_not_converted(self, value):
         schema_item = OrderedDict([("type", "string"), ("title", "Time when shot was heard")])
+        _, display = extract_from_dict_or_string(schema_item, value)
+        assert display == value
 
-        _, display = extract_from_dict_or_string(schema_item, mocked_date)
-
+    @pytest.mark.parametrize(
+        ("value", "expected_display", "format_value"),
+        (
+            ("2022-10-28T19:00:00.000Z", "2022-10-28 12:00", "date-time"),
+            ("2022-01-25T20:00:00.000Z", "2022-01-25 12:00", "date-time"),
+            ("2022-10-28T19:00:00.000Z", "2022-10-28 12:00", "date"),
+        ),
+    )
+    def test_date_string_with_schema_format_is_converted(self, value, expected_display, format_value):
+        schema_item = OrderedDict([("type", "string"), ("title", "Time when shot was heard"), ("format", format_value)])
+        _, display = extract_from_dict_or_string(schema_item, value)
         assert display == expected_display
