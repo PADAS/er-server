@@ -38,7 +38,7 @@ from django.contrib.contenttypes.models import ContentType
 from django.contrib.gis.db import models
 from django.contrib.gis.db import models as dbmodels
 from django.contrib.gis.geos import LineString, Point, Polygon
-from django.contrib.postgres.fields import DateTimeRangeField, jsonb
+from django.contrib.postgres.fields import DateTimeRangeField
 from django.contrib.postgres.fields.hstore import KeyTransform
 from django.core.exceptions import ObjectDoesNotExist, ValidationError
 from django.db import connection, connections, transaction
@@ -59,6 +59,7 @@ from django.db.models import (
     When,
 )
 from django.db.models.constraints import UniqueConstraint
+from django.db.models.fields.json import KeyTransform as JSONKeyTransform
 from django.db.models.functions import Greatest
 from django.db.utils import IntegrityError
 from django.utils.functional import cached_property
@@ -1521,8 +1522,8 @@ class SubjectSourceQuerySet(models.QuerySet, FilterMixin):
     def by_two_way_messaging_enabled(self):
         return (
             self.annotate(
-                two_way_messaging=jsonb.KeyTransform("two_way_messaging", "source__provider__additional"),
-                source_two_way_messaging=jsonb.KeyTransform("two_way_messaging", "source__additional"),
+                two_way_messaging=JSONKeyTransform("two_way_messaging", "source__provider__additional"),
+                source_two_way_messaging=JSONKeyTransform("two_way_messaging", "source__additional"),
             )
             .exclude(
                 Q(two_way_messaging__isnull=True)

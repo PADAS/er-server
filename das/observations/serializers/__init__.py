@@ -10,8 +10,8 @@ from rest_framework_gis.serializers import GeoFeatureModelListSerializer
 
 from django.contrib.auth import get_user_model
 from django.contrib.gis.geos import Point
-from django.contrib.postgres.fields import jsonb
 from django.db.models import Q
+from django.db.models.fields.json import KeyTransform
 from django.urls import reverse
 from rest_framework import serializers
 from rest_framework.fields import DateTimeField
@@ -602,8 +602,8 @@ def get_subjectsources_with_2way_msg(subject):
     subject_sources = (
         models.SubjectSource.objects.filter(subject=subject)
         .annotate(
-            two_way_messaging=jsonb.KeyTransform("two_way_messaging", "source__provider__additional"),
-            source_two_way_messaging=jsonb.KeyTransform("two_way_messaging", "source__additional"),
+            two_way_messaging=KeyTransform("two_way_messaging", "source__provider__additional"),
+            source_two_way_messaging=KeyTransform("two_way_messaging", "source__additional"),
         )
         .exclude(Q(two_way_messaging__isnull=True) | Q(two_way_messaging=False) | condition)
     )
