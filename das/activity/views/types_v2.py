@@ -29,7 +29,11 @@ from activity.serializers.event_types_v2 import (
 )
 from activity.views.events.utils import AllowedCategoriesMixin
 from core.utils import is_uuid
-from schemas.format_serializers import OUTPUT_FORMAT_ONE_OF, output_format_override
+from schemas.format_serializers import (
+    OUTPUT_FORMAT_ONE_OF,
+    OUTPUT_FORMATS,
+    output_format_override,
+)
 from schemas.view_mixins import DynamicSchemaDataMixin, validate_output_format
 from utils.drf import StandardResultsSetPagination
 from utils.json import DirectBrowsableAPIRenderer, DirectJSONRenderer, parse_bool
@@ -166,7 +170,7 @@ class EventTypesViewSet(EtagListRetrieveModelMixin, AllowedCategoriesMixin, Dyna
                     "Ignored when pre_render is false."
                 ),
                 type=OpenApiTypes.STR,
-                enum=sorted(["enum", "oneOf"]),
+                enum=sorted(OUTPUT_FORMATS),
                 location=OpenApiParameter.QUERY,
                 required=False,
             ),
@@ -225,7 +229,7 @@ class EventTypesViewSet(EtagListRetrieveModelMixin, AllowedCategoriesMixin, Dyna
                     "Ignored when pre_render is false."
                 ),
                 type=OpenApiTypes.STR,
-                enum=sorted(["enum", "oneOf"]),
+                enum=sorted(OUTPUT_FORMATS),
                 location=OpenApiParameter.QUERY,
                 required=False,
             ),
