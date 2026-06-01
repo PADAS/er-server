@@ -4,9 +4,9 @@ from datetime import datetime, timedelta, timezone
 import dateutil.parser as dp
 
 from django.conf import settings
-from django.contrib.postgres.fields import jsonb
 from django.core.cache import cache
 from django.db.models import Q
+from django.db.models.fields.json import KeyTransform
 
 from observations.models import SourceProvider
 from utils.tenant.cache import MultitenantRedisClient, remove_cache_key_prefix
@@ -120,7 +120,7 @@ def is_2way_messaging_active():
     two_way_msg = cache.get(SOURCE_PROVIDER_2WAY_MSG_KEY)
     if two_way_msg is None:
         source_provider = (
-            SourceProvider.objects.annotate(two_way_message=jsonb.KeyTransform("two_way_messaging", "additional"))
+            SourceProvider.objects.annotate(two_way_message=KeyTransform("two_way_messaging", "additional"))
             .exclude(Q(two_way_message__isnull=True) | Q(two_way_message=False))
             .exists()
         )
