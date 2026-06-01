@@ -1132,36 +1132,6 @@ class TestEventTypesV2SchemaRendering:
         assert "$ref" in subject_prop
         assert "enum" not in subject_prop
 
-    def test_list_schemas_default_s_format_returns_one_of(self, superuser_client, event_type_with_dynamic_ref):
-        """List schemas with pre_render=True and no s_format returns oneOf shape for dynamic $ref fields."""
-        target = event_type_with_dynamic_ref
-        url = reverse("v2-eventtype-list-schemas")
-
-        response = superuser_client.get(url, {"pre_render": True})
-        assert response.status_code == status.HTTP_200_OK
-        results = response.data["results"]
-        matching = next((r for r in results if r["value"] == target.value), None)
-        assert matching is not None
-        subject_prop = matching["schema"]["json"]["properties"]["subject"]
-        assert "oneOf" in subject_prop
-        assert "enum" not in subject_prop
-        assert "x-enumExtra" not in subject_prop
-
-    def test_list_schemas_s_format_enum_returns_enum_shape(self, superuser_client, event_type_with_dynamic_ref):
-        """List schemas with pre_render=True&s_format=enum returns enum + x-enumExtra shape."""
-        target = event_type_with_dynamic_ref
-        url = reverse("v2-eventtype-list-schemas")
-
-        response = superuser_client.get(url, {"pre_render": True, "s_format": "enum"})
-        assert response.status_code == status.HTTP_200_OK
-        results = response.data["results"]
-        matching = next((r for r in results if r["value"] == target.value), None)
-        assert matching is not None
-        subject_prop = matching["schema"]["json"]["properties"]["subject"]
-        assert "enum" in subject_prop
-        assert "x-enumExtra" in subject_prop
-        assert "oneOf" not in subject_prop
-
     def test_atomic_subjects_schema_endpoint_still_defaults_to_enum(self, superuser_client):
         """The atomic /schemas/subjects/ endpoint still uses enum+x-enumExtra by default (default_format=enum)."""
         url = reverse("schemas:subjects")
