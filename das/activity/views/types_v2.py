@@ -29,7 +29,8 @@ from activity.serializers.event_types_v2 import (
 )
 from activity.views.events.utils import AllowedCategoriesMixin
 from core.utils import is_uuid
-from schemas.view_mixins import DynamicSchemaDataMixin
+from schemas.format_serializers import OUTPUT_FORMAT_ONE_OF, output_format_override
+from schemas.view_mixins import DynamicSchemaDataMixin, validate_output_format
 from utils.drf import StandardResultsSetPagination
 from utils.json import DirectBrowsableAPIRenderer, DirectJSONRenderer, parse_bool
 from utils.views import EtagListRetrieveModelMixin
@@ -147,6 +148,30 @@ class EventTypesViewSet(EtagListRetrieveModelMixin, AllowedCategoriesMixin, Dyna
         # If no dependencies, proceed with standard deletion which returns 204
         return super().destroy(request, *args, **kwargs)
 
+    @extend_schema(
+        parameters=[
+            OpenApiParameter(
+                name="pre_render",
+                description="When true, dereference $ref entries and render dynamic schema fragments inline.",
+                type=OpenApiTypes.BOOL,
+                location=OpenApiParameter.QUERY,
+                required=False,
+            ),
+            OpenApiParameter(
+                name="s_format",
+                description=(
+                    "Output shape for choice fields when pre_render=true. "
+                    "Defaults to 'oneOf' for backward compatibility with v2.x mobile clients. "
+                    "Use 'enum' to get the enum + x-enumExtra shape. "
+                    "Ignored when pre_render is false."
+                ),
+                type=OpenApiTypes.STR,
+                enum=sorted(["enum", "oneOf"]),
+                location=OpenApiParameter.QUERY,
+                required=False,
+            ),
+        ]
+    )
     @action(
         methods=["get"],
         detail=False,
@@ -163,7 +188,9 @@ class EventTypesViewSet(EtagListRetrieveModelMixin, AllowedCategoriesMixin, Dyna
         pre_render = parse_bool(request.query_params.get("pre_render", False))
 
         if pre_render:
-            schema_results = [schema_service.get_rendered_schema(event_type, request) for event_type in queryset]
+            output_format = validate_output_format(request.query_params.get("s_format") or OUTPUT_FORMAT_ONE_OF)
+            with output_format_override(output_format):
+                schema_results = [schema_service.get_rendered_schema(event_type, request) for event_type in queryset]
         else:
             schema_results = [schema_service.get_raw_schema(event_type) for event_type in queryset]
 
@@ -180,6 +207,30 @@ class EventTypesViewSet(EtagListRetrieveModelMixin, AllowedCategoriesMixin, Dyna
         return Response(response_data, status=response_status)
 
     # pylint: disable=unused-argument
+    @extend_schema(
+        parameters=[
+            OpenApiParameter(
+                name="pre_render",
+                description="When true, dereference $ref entries and render dynamic schema fragments inline.",
+                type=OpenApiTypes.BOOL,
+                location=OpenApiParameter.QUERY,
+                required=False,
+            ),
+            OpenApiParameter(
+                name="s_format",
+                description=(
+                    "Output shape for choice fields when pre_render=true. "
+                    "Defaults to 'oneOf' for backward compatibility with v2.x mobile clients. "
+                    "Use 'enum' to get the enum + x-enumExtra shape. "
+                    "Ignored when pre_render is false."
+                ),
+                type=OpenApiTypes.STR,
+                enum=sorted(["enum", "oneOf"]),
+                location=OpenApiParameter.QUERY,
+                required=False,
+            ),
+        ]
+    )
     @action(
         methods=["get"],
         detail=True,
@@ -195,7 +246,9 @@ class EventTypesViewSet(EtagListRetrieveModelMixin, AllowedCategoriesMixin, Dyna
         pre_render = parse_bool(request.query_params.get("pre_render", False))
 
         if pre_render:
-            schema_result = schema_service.get_rendered_schema(event_type, request)
+            output_format = validate_output_format(request.query_params.get("s_format") or OUTPUT_FORMAT_ONE_OF)
+            with output_format_override(output_format):
+                schema_result = schema_service.get_rendered_schema(event_type, request)
         else:
             schema_result = schema_service.get_raw_schema(event_type)
 
