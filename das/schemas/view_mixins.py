@@ -20,7 +20,16 @@ from utils.drf import sorted_query_parameters_to_string
 from utils.json import DirectBrowsableAPIRenderer, DirectJSONRenderer
 
 # Re-export for existing importers (e.g. ``spectacular_extensions``, tests).
-__all__ = ["ENUM_EXTRA_KEY", "DynamicSchemaDataMixin", "DynamicSchemaFromSourceView"]
+__all__ = ["ENUM_EXTRA_KEY", "DynamicSchemaDataMixin", "DynamicSchemaFromSourceView", "validate_output_format"]
+
+
+def validate_output_format(output_format: str) -> str:
+    """Validate an ``s_format`` value against OUTPUT_FORMATS (raises DRF ValidationError -> 400)."""
+    if output_format not in OUTPUT_FORMATS:
+        raise ValidationError(
+            {"s_format": f"Unsupported value: {output_format!r}. Allowed: {', '.join(sorted(OUTPUT_FORMATS))}."}
+        )
+    return output_format
 
 
 class DynamicSchemaDataMixin:
@@ -198,12 +207,7 @@ class DynamicSchemaFromSourceView(APIView):
         if override := get_output_format_override():
             return override
         query_params = self.get_query_params(request)
-        output_format = query_params.get("s_format") or self.default_format
-        if output_format not in OUTPUT_FORMATS:
-            raise ValidationError(
-                {"s_format": f"Unsupported value: {output_format!r}. Allowed: {', '.join(sorted(OUTPUT_FORMATS))}."}
-            )
-        return output_format
+        return validate_output_format(query_params.get("s_format") or self.default_format)
 
     def get_data_from_source_view(self, request: Request) -> List[Dict[str, Any]]:
         """
