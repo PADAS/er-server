@@ -2,13 +2,14 @@
 Tests for Auth0BackendForStaffUsers authentication backend.
 """
 
-from unittest.mock import Mock
+from unittest.mock import Mock, patch
 
 import pytest
 
 from django.test import RequestFactory
 
 from accounts.backends import Auth0BackendForStaffUsers
+from accounts.models import User
 
 
 @pytest.fixture
@@ -103,6 +104,17 @@ class TestAuth0BackendForStaffUsersAuthenticate:
 
         assert result is None
 
+    def test_multiple_users_with_same_auth0_id_returns_none(self, auth0_backend, mock_request, mock_oauth2_token):
+        """Test that MultipleObjectsReturned is handled gracefully.
+
+        Guards against a data integrity issue where multiple active users share the same
+        auth0_id. Without this handling, the exception would bubble up as a 500 error.
+        """
+        with patch("accounts.backends.User.objects.get", side_effect=User.MultipleObjectsReturned):
+            result = auth0_backend.authenticate(mock_request, token=mock_oauth2_token)
+
+        assert result is None
+
     def test_authentication_with_no_token(self, auth0_backend, mock_request):
         """Test authentication with no token provided."""
         result = auth0_backend.authenticate(mock_request, token=None)
@@ -131,6 +143,30 @@ class TestAuth0BackendForStaffUsersAuthenticate:
         result = auth0_backend.authenticate(mock_request, token=token)
 
         assert result == das_staff_user_with_auth0_id
+
+    @pytest.mark.parametrize(
+        "missing_sub",
+        [
+            pytest.param(None, id="sub_is_none"),
+            pytest.param("", id="sub_is_empty_string"),
+        ],
+    )
+    def test_missing_sub_claim_returns_none(self, auth0_backend, mock_request, missing_sub):
+        """Test that a token without a valid sub claim is rejected.
+
+        With the org_id check removed, we must fail closed on missing sub to
+        prevent User.objects.get(auth0_id=None) from matching an unlinked user.
+        """
+        token = Mock()
+        token.get.return_value = {
+            "sub": missing_sub,
+            "email": "staff@example.com",
+            "name": "Staff User",
+        }
+
+        result = auth0_backend.authenticate(mock_request, token=token)
+
+        assert result is None
 
 
 @pytest.mark.django_db

@@ -408,12 +408,23 @@ class Auth0JWTAuthentication(BaseAuthentication):
 
         try:
             token: JWTAccessTokenClaims = self.resource_protector.validate_request(scopes=None, request=request)
-            auth0_subject = token.get("sub")
+        except Exception:
+            logger.exception("Auth0 JWT validation failed")
+            raise AuthenticationFailed()
 
+        auth0_subject = token.get("sub")
+        if not auth0_subject:
+            logger.warning("Auth0 JWT missing sub claim")
+            raise AuthenticationFailed()
+
+        try:
             user = User.objects.get(auth0_id=auth0_subject, is_active=True)
             return user, None
-        except Exception as e:
-            logger.debug("Auth0 authentication failed: %s", e)
+        except User.DoesNotExist:
+            logger.warning("Could not retrieve an active user with auth0_id %s", auth0_subject)
+            raise AuthenticationFailed()
+        except User.MultipleObjectsReturned:
+            logger.error("Multiple active users found with auth0_id %s", auth0_subject)
             raise AuthenticationFailed()
 
     def authenticate_header(self, request):
@@ -455,8 +466,12 @@ class Auth0BackendForStaffUsers(BaseBackend):
         try:
             user_info = token.get("userinfo")
             auth0_id = user_info.get("sub")
-        except Exception as ex:
-            logger.exception("Error occurred authenticating a staff user!\n%s", ex)
+        except Exception:
+            logger.exception("Error occurred authenticating a staff user!")
+            return None
+
+        if not auth0_id:
+            logger.warning("Auth0 staff token missing sub claim in userinfo")
             return None
 
         try:
@@ -472,6 +487,9 @@ class Auth0BackendForStaffUsers(BaseBackend):
                 return None
         except User.DoesNotExist:
             logger.warning("Could not retrieve an active staff user with auth0_id %s", auth0_id)
+            return None
+        except User.MultipleObjectsReturned:
+            logger.error("Multiple active users found with auth0_id %s", auth0_id)
             return None
 
     def get_user(self, user_id) -> User | None:

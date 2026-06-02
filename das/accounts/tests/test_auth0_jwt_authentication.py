@@ -12,6 +12,7 @@ from django.test import RequestFactory
 from rest_framework.exceptions import APIException, AuthenticationFailed
 
 from accounts.backends import Auth0JWTAuthentication
+from accounts.models import User
 from factories import AccessTokenFactory
 
 AccessToken = get_access_token_model()
@@ -101,6 +102,18 @@ class TestAuth0JWTAuthentication:
 
         with pytest.raises(AuthenticationFailed):
             Auth0JWTAuthentication().authenticate(api_request_for_test)
+
+    def test_multiple_users_with_same_auth0_id_raises_authentication_failed(
+        self, mock_tenant_settings, api_request_for_test, mock_auth0_validator
+    ):
+        """Test that MultipleObjectsReturned raises AuthenticationFailed.
+
+        Guards against a data integrity issue where multiple active users share the same
+        auth0_id. Without this handling, the exception would bubble up as a 500 error.
+        """
+        with patch("accounts.backends.User.objects.get", side_effect=User.MultipleObjectsReturned):
+            with pytest.raises(AuthenticationFailed):
+                Auth0JWTAuthentication().authenticate(api_request_for_test)
 
     def test_inactive_user_raises_authentication_failed(
         self, mock_tenant_settings, api_request_for_test, mock_auth0_validator, das_user_with_auth0_id_for_test
@@ -197,6 +210,26 @@ class TestAuth0JWTAuthentication:
 
         with pytest.raises(AuthenticationFailed):
             Auth0JWTAuthentication().authenticate(request)
+
+    @pytest.mark.parametrize(
+        "missing_sub",
+        [
+            pytest.param(None, id="sub_is_none"),
+            pytest.param("", id="sub_is_empty_string"),
+        ],
+    )
+    def test_missing_sub_claim_raises_authentication_failed(
+        self, missing_sub, api_request_for_test, mock_auth0_validator, mock_relevant_token_claims
+    ):
+        """Test that a JWT without a valid sub claim is rejected.
+
+        With the org_id check removed, we must fail closed on missing sub to
+        prevent User.objects.get(auth0_id=None) from matching an unlinked user.
+        """
+        mock_auth0_validator.authenticate_token.return_value = mock_relevant_token_claims(sub=missing_sub)
+
+        with pytest.raises(AuthenticationFailed):
+            Auth0JWTAuthentication().authenticate(api_request_for_test)
 
     def test_keyword_is_token(self, api_request_for_test, das_user_with_auth0_id_for_test, mock_auth0_validator):
         """Test that our keyword is Token."""
