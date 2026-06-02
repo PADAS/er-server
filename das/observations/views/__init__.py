@@ -7,6 +7,7 @@ from datetime import datetime, timedelta, timezone
 from zoneinfo import ZoneInfo
 
 import dateutil.parser
+from django_filters import rest_framework as drf_filters
 from kombu import exceptions
 
 from django.contrib.postgres.aggregates import StringAgg
@@ -39,7 +40,11 @@ from core.view_utils import AsyncDeleteObjectMixin
 from das_server import celery
 from das_server.views import CustomSchema
 from observations import kmlutils
-from observations.filters import SubjectObjectPermissionsFilter, create_gp_filter_class
+from observations.filters import (
+    SourceFilterSet,
+    SubjectObjectPermissionsFilter,
+    create_gp_filter_class,
+)
 from observations.mixins import TwoWaySubjectSourceMixin
 from observations.models import (
     GPX_FILES_FOLDER,
@@ -651,25 +656,11 @@ class SourcesView(
     serializer_class = SourceSerializer
     permission_classes = (StandardObjectPermissions,)
     pagination_class = StandardResultsSetPagination
-
-    lookup_fields = {
-        "manufacturer_id": "manufacturer_id__in",
-        "provider_key": "provider__provider_key__in",
-        "provider": "provider__provider_key__in",
-        "id": "id__in",
-    }
+    filter_backends = (drf_filters.DjangoFilterBackend,)
+    filterset_class = SourceFilterSet
 
     def get_queryset(self):
-        queryset = Source.objects.all()
-
-        filter = {}
-        for fn, fld in self.lookup_fields.items():
-            if fn in self.request.query_params:
-                filter[fld] = parse_comma(self.request.query_params.get(fn))
-        if filter:
-            queryset = queryset.filter(**filter)
-
-        return queryset.order_by("id")
+        return Source.objects.all().order_by("id")
 
     def get_serializer_context(self):
         context = super().get_serializer_context()

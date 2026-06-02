@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import logging
 import uuid
 from datetime import timedelta
@@ -11,10 +13,11 @@ from rest_framework.exceptions import NotFound, PermissionDenied
 from rest_framework.filters import BaseFilterBackend
 
 from accounts.models.permissionset import PermissionSet
-from observations.models import ObservationSegment, Subject
+from observations.models import ObservationSegment, Source, Subject
 from observations.utils import VIEW_SUBJECT_PERMS, check_valid_date_string
 from utils.gis import bbox_from_string
 from utils.json import parse_bool
+from utils.json_field_filters import JSONFieldFilterSetMixin
 
 logger = logging.getLogger(__name__)
 
@@ -395,3 +398,71 @@ class ObservationsFilter(BaseFilterBackend):
                 queryset = queryset.filter(location__within=geometry)
 
         return queryset
+
+
+# Concrete IN filter classes for the Source FilterSet.  ``BaseInFilter`` is a
+# mixin that must be combined with a concrete filter class via multiple
+# inheritance — it cannot be instantiated directly.
+class CharInFilter(filters.BaseInFilter, filters.CharFilter):
+    pass
+
+
+class UUIDInFilter(filters.BaseInFilter, filters.UUIDFilter):
+    pass
+
+
+class SourceFilterSet(JSONFieldFilterSetMixin, filters.FilterSet):
+    """FilterSet for the Source model.
+
+    Provides:
+
+    * Comma-list IN filters for ``manufacturer_id``, ``provider_key`` /
+      ``provider`` (aliases for ``provider__provider_key__in``), ``id``, and
+      ``source_type``.
+    * Exact JSON-field filters on the ``additional`` JSONB column (``?additional.species=lion``, ``?additional.gender=female``).
+
+    ``provider`` is an alias for ``provider_key`` kept for backwards
+    compatibility with v1 clients.  Both target ``provider__provider_key__in``.
+    """
+
+    id = UUIDInFilter(
+        field_name="id",
+        lookup_expr="in",
+        label="Filter by one or more source UUIDs (comma-separated).",
+    )
+    manufacturer_id = CharInFilter(
+        field_name="manufacturer_id",
+        lookup_expr="in",
+        label="Filter by one or more manufacturer IDs (comma-separated).",
+    )
+    provider_key = CharInFilter(
+        field_name="provider__provider_key",
+        lookup_expr="in",
+        label="Filter by one or more provider keys (comma-separated).",
+    )
+    # ``provider`` is a backwards-compatible alias that targets the same field.
+    provider = CharInFilter(
+        field_name="provider__provider_key",
+        lookup_expr="in",
+        label="Alias for provider_key. Filter by one or more provider keys (comma-separated).",
+    )
+    source_type = CharInFilter(
+        field_name="source_type",
+        lookup_expr="in",
+        label="Filter by one or more source types (comma-separated, e.g. tracking-device,trap).",
+    )
+
+    # Exposes ``additional`` JSONB properties.
+    json_field_filters: dict[str, dict] = {
+        "additional": {
+            "field": "additional",
+            "properties": {
+                "species": {"type": "string"},
+                "gender": {"type": "string"},
+            },
+        },
+    }
+
+    class Meta:
+        model = Source
+        fields = ["manufacturer_id", "provider_key", "provider", "id", "source_type"]
