@@ -26,13 +26,12 @@ def das_user_with_auth0_id_for_test(user):
 
 
 @pytest.fixture
-def mock_relevant_token_claims(das_user_with_auth0_id_for_test, mock_tenant_settings):
+def mock_relevant_token_claims(das_user_with_auth0_id_for_test):
     """Factory for creating JWT claims with configurable values."""
 
     def _create_claims(**overrides):
         default_claims = {
             "sub": das_user_with_auth0_id_for_test.auth0_id,
-            "org_id": mock_tenant_settings.feature_flags.idp_org_id,
         }
         default_claims.update(overrides)
         return default_claims
@@ -57,7 +56,6 @@ def mock_tenant_settings():
     with patch("accounts.backends.get_tenant_settings") as mock_settings:
         mock = Mock()
         mock.feature_flags.require_idp = True
-        mock.feature_flags.idp_org_id = "org_123456789"
         mock_settings.return_value = mock
         yield mock
 
@@ -114,14 +112,32 @@ class TestAuth0JWTAuthentication:
         with pytest.raises(AuthenticationFailed):
             Auth0JWTAuthentication().authenticate(api_request_for_test)
 
-    def test_org_id_mismatch_raises_authentication_failed(
-        self, mock_tenant_settings, api_request_for_test, mock_auth0_validator, mock_relevant_token_claims
+    @pytest.mark.parametrize(
+        "org_id_override",
+        [
+            pytest.param("org_some_value", id="with_org_id"),
+            pytest.param(None, id="without_org_id"),
+        ],
+    )
+    def test_authenticates_regardless_of_org_id_claim(
+        self,
+        org_id_override,
+        api_request_for_test,
+        das_user_with_auth0_id_for_test,
+        mock_auth0_validator,
+        mock_relevant_token_claims,
     ):
-        """Test that organization ID mismatch raises AuthenticationFailed."""
-        mock_auth0_validator.authenticate_token.return_value = mock_relevant_token_claims(org_id="org_different")
+        """Test that authentication succeeds whether or not the JWT carries an org_id claim."""
+        if org_id_override is not None:
+            mock_auth0_validator.authenticate_token.return_value = mock_relevant_token_claims(org_id=org_id_override)
+        else:
+            mock_auth0_validator.authenticate_token.return_value = mock_relevant_token_claims()
 
-        with pytest.raises(AuthenticationFailed):
-            Auth0JWTAuthentication().authenticate(api_request_for_test)
+        result = Auth0JWTAuthentication().authenticate(api_request_for_test)
+
+        assert result is not None
+        assert result[0] == das_user_with_auth0_id_for_test
+        assert result[1] is None
 
     def test_no_authorization_header_returns_anonymous_user_when_idp_required(self):
         """Test that when require_idp=True but no Authorization header, should return AnonymousUser."""

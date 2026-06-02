@@ -315,7 +315,6 @@ class Auth0JWTAuthentication(BaseAuthentication):
     - Only activates when the tenant feature flag 'require_idp' is True
     - Uses the Auth0JWTBearerTokenValidator to validate JWT tokens
     - Maps Auth0 subject IDs to EarthRanger users via the auth0_id field
-    - Validates that the Auth0 organization matches the tenant's idp_org_id
     """
 
     def __init__(self):
@@ -381,7 +380,6 @@ class Auth0JWTAuthentication(BaseAuthentication):
                     "Auth0 authentication skipped because require_idp is False for tenant %s", tenant_settings.domain
                 )
                 return None
-            expected_org_id = tenant_settings.feature_flags.idp_org_id
             allowed_oauth2_client_ids = list(getattr(settings, "IDP_OAUTH2_CLIENT_IDS_ALLOWLIST", []) or [])
         except Exception as ex:
             logger.error("Cannot resolve tenant settings, so failing closed.\n%s", ex)
@@ -411,13 +409,6 @@ class Auth0JWTAuthentication(BaseAuthentication):
         try:
             token: JWTAccessTokenClaims = self.resource_protector.validate_request(scopes=None, request=request)
             auth0_subject = token.get("sub")
-
-            auth0_org_id = token.get("org_id")
-            if auth0_org_id != expected_org_id:
-                logger.debug(
-                    "Auth0 org_id mismatch: token has '%s', tenant expects '%s'", auth0_org_id, expected_org_id
-                )
-                raise AuthenticationFailed()
 
             user = User.objects.get(auth0_id=auth0_subject, is_active=True)
             return user, None
