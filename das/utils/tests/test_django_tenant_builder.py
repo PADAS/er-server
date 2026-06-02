@@ -51,6 +51,26 @@ class TestTenantSettingsLoadedFromDjango:
         assert tenant_settings.feature_flags.kml_export is True
         assert tenant_settings.feature_flags.tableau_enabled is True
 
+    @override_settings(RELEASE_TOGGLES={"community_input_admin_enabled": True})
+    def test_release_toggles_setting_seeds_release_toggles(self):
+        tenant_settings = DjangoSettingsTenantBuilder.__wrapped__().build()
+
+        assert tenant_settings.release_toggles == {"community_input_admin_enabled": True}
+
+    @override_settings(RELEASE_TOGGLES={})
+    def test_release_toggles_default_empty_when_unset(self):
+        tenant_settings = DjangoSettingsTenantBuilder.__wrapped__().build()
+
+        assert tenant_settings.release_toggles == {}
+
+    def test_release_toggles_default_empty_when_setting_missing(self, monkeypatch):
+        with override_settings():
+            monkeypatch.delattr(settings, "RELEASE_TOGGLES", raising=False)
+
+            tenant_settings = DjangoSettingsTenantBuilder.__wrapped__().build()
+
+            assert tenant_settings.release_toggles == {}
+
     @override_settings(ALERTS_ENABLED="1", DAILY_REPORT_ENABLED="1", EXPORT_KML_ENABLED="1", TABLEAU_ENABLED="1")
     def test_django_settings_load_successfully_with_missing_optional_settings(self, monkeypatch):
         with override_settings():

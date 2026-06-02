@@ -381,7 +381,10 @@ def extract_from_dict_or_string(schema_item, value, event=None):
             if subject.exists() and not subject.first().is_active:
                 display = subject.first().name
 
-    if isinstance(value, str):
+    if isinstance(value, str) and (
+        schema_item.get("format") in ("date", "date-time")
+        or "date-time-picker" in schema_item.get("fieldHtmlClass", "")
+    ):
         if looks_like_date(value_string=value):
             display = change_format_date_string(value)
 
@@ -417,21 +420,45 @@ def is_uuid(record):
         return False
 
 
-def extract_from_definition(schema_item, definition, key, eventdetail_value, extracted_value, display, event=None):
-    for definition_item in flatten_definition_items(definition):
-        if isinstance(definition_item, dict) and (
-            schema_item.get("key") == definition_item.get("key") or key == definition_item.get("key")
-        ):
-            if definition_item.get("type") == "checkboxes":
-                extracted_value, display = handle_checkboxes_in_fieldsets(
-                    definition_item, eventdetail_value, event=event
-                )
-            return definition_item.get("title"), extracted_value, display
+def extract_from_definition(
+    schema_item: dict,
+    definition: list,
+    key: str,
+    eventdetail_value,
+    extracted_value,
+    display,
+    event=None,
+    matched_definition_item: dict | None = None,
+) -> tuple:
+    item = matched_definition_item
+    if item is None:
+        for definition_item in flatten_definition_items(definition):
+            if isinstance(definition_item, dict) and (
+                schema_item.get("key") == definition_item.get("key") or key == definition_item.get("key")
+            ):
+                item = definition_item
+                break
+    if item is not None:
+        if item.get("type") == "checkboxes":
+            extracted_value, display = handle_checkboxes_in_fieldsets(item, eventdetail_value, event=event)
+        return item.get("title"), extracted_value, display
     title = schema_item.get("title") or key
     return title, extracted_value, display
 
 
-def extractor(schema_item, definition, key, eventdetail_value, event=None):
+def extractor(schema_item: dict, definition: list, key: str, eventdetail_value, event=None) -> tuple:
+    item_key = schema_item.get("key") or key
+    # Index by "key" only; definition items without "key" are structural (fieldsets, etc.)
+    # and cannot be matched to a schema property. The fallback in extract_from_definition
+    # also uses schema_item.get("key"), so the same items would be skipped there.
+    definition_items = {
+        item["key"]: item for item in flatten_definition_items(definition) if isinstance(item, dict) and "key" in item
+    }
+    matched = definition_items.get(item_key)
+
+    if matched and "fieldHtmlClass" in matched:
+        schema_item = {**schema_item, "fieldHtmlClass": matched["fieldHtmlClass"]}
+
     # Determine how the value should appear.
     if isinstance(eventdetail_value, list):
         extracted_value, display = extract_from_list(eventdetail_value, schema_item, event=event)
@@ -442,7 +469,14 @@ def extractor(schema_item, definition, key, eventdetail_value, event=None):
     if "title" in schema_item:
         if extracted_value == display and all(is_uuid(data) for data in str(display).split(";")):
             return extract_from_definition(
-                schema_item, definition, key, eventdetail_value, extracted_value, display, event=event
+                schema_item,
+                definition,
+                key,
+                eventdetail_value,
+                extracted_value,
+                display,
+                event=event,
+                matched_definition_item=matched,
             )
         return schema_item["title"], extracted_value, display
 
@@ -451,7 +485,14 @@ def extractor(schema_item, definition, key, eventdetail_value, event=None):
         return key, extracted_value, display
 
     return extract_from_definition(
-        schema_item, definition, key, eventdetail_value, extracted_value, display, event=event
+        schema_item,
+        definition,
+        key,
+        eventdetail_value,
+        extracted_value,
+        display,
+        event=event,
+        matched_definition_item=matched,
     )
 
 

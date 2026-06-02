@@ -96,5 +96,6 @@
       "statusMessage": null,
       "updatedAt": ""
     }
-  }
+  },
+  "releaseToggles": {}
 }

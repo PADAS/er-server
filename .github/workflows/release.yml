@@ -240,3 +240,45 @@ jobs:
     secrets:
       ARGOCD_AUTH_TOKEN: ${{ secrets.ARGOCD_AUTH_TOKEN }}
       ARGOCD_APPS_SSH_KEY: ${{ secrets.ARGOCD_APPS_SSH_KEY }}
+
+  # Legacy kubectl deployments.
+  # Constant infra (project_id, bastion_host/instance/zone) is defaulted in the
+  # reusable workflow. Deployment set lives in the LEGACY_DEPLOYMENTS repo var.
+  deploy-dev-legacy:
+    needs: [config, deploy-stage]
+    uses: PADAS/serca-pipelines/.github/workflows/_deploy_legacy_kubectl.yml@main
+    with:
+      environment: "legacy"
+      image_repository: "europe-west3-docker.pkg.dev/serca-artifact-registry/earthranger/das-server"
+      image_tag: ${{ needs.config.outputs.image-tag }}
+      deployments: ${{ vars.LEGACY_DEPLOYMENTS }}
+      cluster_name: "das-dev"
+      cluster_zone: "us-west1-a"
+      tenants: ${{ vars.LEGACY_TENANTS_DEV }}
+      service_account: ${{ vars.LEGACY_DEPLOY_SERVICE_ACCOUNT }}
+
+  # Split the single LEGACY_TENANTS_PROD list into parallel chunks.
+  legacy-prod-split:
+    needs: [config, deploy-dev-legacy]
+    uses: PADAS/serca-pipelines/.github/workflows/_split-list.yml@main
+    with:
+      list: ${{ vars.LEGACY_TENANTS_PROD }}
+      groups: 3
+
+  deploy-prod-legacy:
+    needs: [config, legacy-prod-split]
+    strategy:
+      max-parallel: 3
+      fail-fast: false
+      matrix:
+        chunk: ${{ fromJson(needs.legacy-prod-split.outputs.chunks) }}
+    uses: PADAS/serca-pipelines/.github/workflows/_deploy_legacy_kubectl.yml@main
+    with:
+      environment: "legacy"
+      image_repository: "europe-west3-docker.pkg.dev/serca-artifact-registry/earthranger/das-server"
+      image_tag: ${{ needs.config.outputs.image-tag }}
+      deployments: ${{ vars.LEGACY_DEPLOYMENTS }}
+      cluster_name: "das-prod1"
+      cluster_zone: "europe-west3-a"
+      tenants: ${{ matrix.chunk }}
+      service_account: ${{ vars.LEGACY_DEPLOY_SERVICE_ACCOUNT }}

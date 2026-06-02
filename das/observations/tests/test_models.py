@@ -954,3 +954,63 @@ class TestEscapeProviderName:
     def test_escape_provider_name(self, input_name, expected_output):
         """Test that provider names are correctly escaped to URL-safe keys."""
         assert escape_provider_name(input_name) == expected_output
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("tenant_settings", "das_tenant_monkeypatch")
+class TestSourceStr:
+    """Source.__str__ must stay total: it has to render even when the provider
+    relation is unavailable. This happens on the Subject admin change page, where
+    SubjectSourceInline's source ModelChoiceField calls label_from_instance ->
+    str(source) for every option, and a Source row with a null provider_id would
+    otherwise raise RelatedObjectDoesNotExist and 500 the whole page. It must also
+    stay query-free for instances loaded with a simplified query (e.g. .only("id"))."""
+
+    def test_includes_manufacturer_and_provider_key_when_fully_loaded(self):
+        from factories import SourceFactory
+
+        source = SourceFactory()
+        assert str(source) == f"{source.manufacturer_id} ({source.provider.provider_key})"
+
+    def test_does_not_raise_when_provider_is_unset(self, django_assert_num_queries):
+        # Reproduces the admin 500: a Source whose provider_id is None. Accessing
+        # self.provider would raise Source.provider.RelatedObjectDoesNotExist.
+        from factories import SourceFactory
+
+        source = SourceFactory()
+        source.provider = None  # clears provider_id and the cached relation
+        with django_assert_num_queries(0):
+            label = str(source)
+        assert label == str(source.manufacturer_id)
+
+    def test_does_not_query_or_raise_for_id_only_instance(self, django_assert_num_queries):
+        from factories import SourceFactory
+
+        source = SourceFactory()
+        # Reload with only the primary key; manufacturer_id and provider_id are deferred.
+        id_only = Source.objects.only("id").get(pk=source.pk)
+        with django_assert_num_queries(0):
+            label = str(id_only)
+        assert label == str(source.pk)
+
+    def test_does_not_raise_when_provider_id_points_to_missing_provider(self):
+        # Reproduces the production failure: provider_id is set, but no
+        # SourceProvider row matches under the current tenant scope (either
+        # because it lives in another tenant or because it was deleted via raw
+        # SQL despite the on_delete=PROTECT constraint). Accessing self.provider
+        # raises Source.provider.RelatedObjectDoesNotExist; __str__ must swallow
+        # it so the Subject admin form keeps rendering.
+        import uuid
+
+        from factories import SourceFactory
+
+        source = SourceFactory()
+        orphan_provider_id = uuid.uuid4()
+        # Bypass save() and the FK constraint: TenantModelMixin.save() would set
+        # the tenant and the descriptor would reject an unknown provider object.
+        # We're simulating the row state, not creating it through the ORM.
+        Source.objects.filter(pk=source.pk).update(provider_id=orphan_provider_id)
+        source.refresh_from_db()
+
+        label = str(source)
+        assert label == f"{source.manufacturer_id} (provider {orphan_provider_id} unavailable)"
