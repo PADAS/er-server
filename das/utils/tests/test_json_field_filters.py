@@ -236,10 +236,10 @@ class TestJSONFieldFilterSetMixinFilterQueryset:
 
     def test_last_wins_on_repeated_param(self):
         """QueryDict.get returns the last value; mixin must not add special multi-value logic."""
+        from django.http import QueryDict
+
         qs = _make_qs()
-        # Simulate a QueryDict that returns the last submitted value for .get(),
-        # as a real django.http.QueryDict would.
-        data: dict[str, str] = {"data.species": "cheetah"}
+        data = QueryDict("data.species=lion&data.species=cheetah")
         self._run(data=data, qs=qs)
         filter_kwargs = qs.filter.call_args[1]
         assert filter_kwargs["_jsonfilter_data_species__exact"] == "cheetah"
