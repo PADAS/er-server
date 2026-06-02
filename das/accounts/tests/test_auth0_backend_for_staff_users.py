@@ -2,7 +2,7 @@
 Tests for Auth0BackendForStaffUsers authentication backend.
 """
 
-from unittest.mock import Mock, patch
+from unittest.mock import Mock
 
 import pytest
 
@@ -32,7 +32,6 @@ def mock_oauth2_token():
         "sub": "auth0|123456789",
         "email": "staff@example.com",
         "name": "Staff User",
-        "org_id": "org_123456789",
     }
 
     return token
@@ -66,17 +65,6 @@ def das_inactive_staff_user_with_auth0_id(user):
     user.is_active = False
     user.save()
     return user
-
-
-@pytest.fixture(autouse=True)
-def mock_tenant_settings():
-    """Mock tenant settings with default feature flags."""
-    with patch("accounts.backends.get_tenant_settings") as mock_settings:
-        mock = Mock()
-        mock.feature_flags.require_idp = True
-        mock.feature_flags.idp_org_id = "org_123456789"
-        mock_settings.return_value = mock
-        yield mock
 
 
 @pytest.mark.django_db
@@ -121,14 +109,28 @@ class TestAuth0BackendForStaffUsersAuthenticate:
 
         assert result is None
 
-    def test_authentication_fails_when_org_id_mismatch(
-        self, auth0_backend, mock_request, mock_oauth2_token, das_staff_user_with_auth0_id, mock_tenant_settings
+    @pytest.mark.parametrize(
+        "org_id_claim",
+        [
+            pytest.param({"org_id": "org_some_value"}, id="with_org_id"),
+            pytest.param({}, id="without_org_id"),
+        ],
+    )
+    def test_authenticates_regardless_of_org_id_claim(
+        self, auth0_backend, mock_request, das_staff_user_with_auth0_id, org_id_claim
     ):
-        """Test authentication fails when token has org id for different DAS tenant."""
-        mock_tenant_settings.feature_flags.idp_org_id = "org_999999999"
-        result = auth0_backend.authenticate(mock_request, token=mock_oauth2_token)
+        """Test authentication succeeds whether or not the token carries an org_id claim."""
+        token = Mock()
+        token.get.return_value = {
+            "sub": "auth0|123456789",
+            "email": "staff@example.com",
+            "name": "Staff User",
+            **org_id_claim,
+        }
 
-        assert result is None
+        result = auth0_backend.authenticate(mock_request, token=token)
+
+        assert result == das_staff_user_with_auth0_id
 
 
 @pytest.mark.django_db

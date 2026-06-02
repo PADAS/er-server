@@ -452,23 +452,11 @@ class Auth0BackendForStaffUsers(BaseBackend):
         if token is None:
             return None
 
-        tenant_settings = get_tenant_settings()
-        expected_org_id = tenant_settings.feature_flags.idp_org_id
-
         try:
             user_info = token.get("userinfo")
             auth0_id = user_info.get("sub")
-            auth0_org_id = user_info.get("org_id")
         except Exception as ex:
             logger.exception("Error occurred authenticating a staff user!\n%s", ex)
-            return None
-
-        if expected_org_id != auth0_org_id:
-            logger.warning(
-                "When attempting to authenticate a staff user, received token with org_id %s rather than expected org_id %s for this tenant",
-                auth0_org_id,
-                expected_org_id,
-            )
             return None
 
         try:
