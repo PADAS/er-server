@@ -522,3 +522,31 @@ class TestExtractFromList:
         with caplog.at_level(logging.WARNING, logger="utils.schema_utils"):
             schema_utils.extract_from_list(items)
         assert not caplog.records
+
+
+class TestExtractFromDictOrString:
+    def test_date_like_string_without_schema_format_is_not_converted(self):
+        schema_item = {"type": "string", "title": "Version"}
+        _value, display = schema_utils.extract_from_dict_or_string(schema_item, "2026-05-30-03")
+        assert display == "2026-05-30-03"
+
+    def test_date_string_with_field_html_class_is_converted(self):
+        schema_item = {"type": "string", "title": "Time of Arrest", "fieldHtmlClass": "date-time-picker json-schema"}
+        _value, display = schema_utils.extract_from_dict_or_string(schema_item, "2026-05-30T10:00:00.000Z")
+        assert display == "2026-05-30 03:00"
+
+    def test_extractor_converts_date_when_field_html_class_only_in_definition(self):
+        schema_item = {"type": "string", "title": "Time of Arrest"}
+        definition = [{"key": "arrest_time", "fieldHtmlClass": "date-time-picker json-schema"}]
+        _title, _value, display = schema_utils.extractor(
+            schema_item, definition, "arrest_time", "2026-05-30T10:00:00.000Z"
+        )
+        assert display == "2026-05-30 03:00"
+
+    def test_extract_from_definition_fallback_walks_definition_when_no_matched_item(self):
+        schema_item = {"type": "string"}
+        definition = [{"key": "incident_time", "title": "Time of Incident"}]
+        title, value, display = schema_utils.extract_from_definition(
+            schema_item, definition, "incident_time", "raw", "raw", "raw"
+        )
+        assert title == "Time of Incident"

@@ -14,7 +14,8 @@ Welcome to the EarthRanger engineering team. This documentation covers everythin
 - [Architecture Overview](architecture.md) - System architecture resources
 - [ER Server Code](er-server-code.md) - Django project structure
 - [Multi-Tenancy](multi-tenancy.md) - How multi-tenancy works in EarthRanger
-- [Feature Flags](feature-flags.md) - In-process feature toggle mechanism
+- [Settings & Configuration](settings.md) - Which settings file a new setting belongs in
+- [Feature Flags](feature-flags.md) - Per-tenant release toggles, global overrides, and admin gating patterns
 
 ## Coding Standards
 
