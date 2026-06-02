@@ -1,20 +1,19 @@
-from django.utils.timezone import get_default_timezone_name
-from django.contrib.admin.templatetags.admin_modify import *
-from django.contrib.admin.templatetags.admin_modify import \
-    submit_row as original_submit_row
-from django.contrib.admin.sites import site as default_site
-from django.contrib.admin import ModelAdmin
+from django import forms
 from django.conf import settings
 from django.contrib import admin
-from django import forms
-
+from django.contrib.admin import ModelAdmin
+from django.contrib.admin.sites import site as default_site
+from django.contrib.admin.templatetags.admin_modify import *
+from django.contrib.admin.templatetags.admin_modify import (
+    submit_row as original_submit_row,
+)
 from django.contrib.admin.utils import display_for_field, lookup_field
 from django.core.exceptions import ObjectDoesNotExist
 from django.db.models.fields.related import ManyToManyRel
 from django.template.defaultfilters import linebreaksbr
-from django.utils.html import conditional_escape
-from django import forms
 from django.utils import formats, timezone
+from django.utils.html import conditional_escape
+from django.utils.timezone import get_default_timezone_name
 
 
 def timezone_used():
@@ -25,20 +24,20 @@ def timezone_used():
 TIMEZONE_USED = timezone_used()
 
 
-@register.inclusion_tag('admin/choices_submit_line.html', takes_context=True)
+@register.inclusion_tag("admin/choices_submit_line.html", takes_context=True)
 def submit_row(context):
     ctx = original_submit_row(context)
-    if ctx['opts'].model_name == 'gpxtrackfile':
-        ctx['show_popclose'] = True
-        ctx['show_save_and_add_another'] = ctx['show_save']
+    if ctx["opts"].model_name == "gpxtrackfile":
+        ctx["show_popclose"] = True
+        ctx["show_save_and_add_another"] = ctx["show_save"]
 
-    if ctx['opts'].model_name == 'choice':
-        ctx.update({'addchoices': True})
+    if ctx["opts"].model_name == "choice":
+        ctx.update({"addchoices": True})
 
-    if ctx['opts'].model_name == 'refreshrecreateeventdetailview':
-        ctx['show_save_and_continue'] = False
-        ctx['show_save'] = False
-        ctx['show_close'] = True
+    if ctx["opts"].model_name == "refreshrecreateeventdetailview":
+        ctx["show_save_and_continue"] = False
+        ctx["show_save"] = False
+        ctx["show_close"] = True
     return ctx
 
 
@@ -64,6 +63,42 @@ class AdminFeatureFlag:
             return admin_class
 
 
+class ReleaseToggledAdminMixin:
+    """Hides a ModelAdmin from a tenant when its release toggle is off.
+
+    Subclasses set ``release_toggle`` to the name of an entry in
+    ``RELEASE_TOGGLES`` (e.g. ``"community_input_admin_enabled"``). The toggle
+    is resolved per request via ``get_release_toggle``, so it honours the
+    toggle's ``global_override`` — set that to ``True`` to expose the admin for
+    every tenant at once. This is the sole gate for the admin; no
+    Django-settings kill switch is needed in front of it.
+    """
+
+    release_toggle: str = ""
+
+    def _release_toggle_on(self) -> bool:
+        from utils.tenant.release_toggles import get_release_toggle
+
+        if not self.release_toggle:
+            return False
+        return bool(get_release_toggle(self.release_toggle))
+
+    def has_module_permission(self, request):
+        return self._release_toggle_on() and super().has_module_permission(request)
+
+    def has_view_permission(self, request, obj=None):
+        return self._release_toggle_on() and super().has_view_permission(request, obj)
+
+    def has_add_permission(self, request):
+        return self._release_toggle_on() and super().has_add_permission(request)
+
+    def has_change_permission(self, request, obj=None):
+        return self._release_toggle_on() and super().has_change_permission(request, obj)
+
+    def has_delete_permission(self, request, obj=None):
+        return self._release_toggle_on() and super().has_delete_permission(request, obj)
+
+
 class AdminReadonlyField(admin.helpers.AdminReadonlyField):
 
     def display_form_field(self, field):
@@ -74,9 +109,10 @@ class AdminReadonlyField(admin.helpers.AdminReadonlyField):
         return value if value else self.empty_value_display
 
     def contents(self):
-        if self.model_admin.opts.model_name in ['patrolsegment', 'patrol']:
+        if self.model_admin.opts.model_name in ["patrolsegment", "patrol"]:
             from django.contrib.admin.templatetags.admin_list import _boolean_icon
-            field, obj, model_admin = self.field['field'], self.form.instance, self.model_admin
+
+            field, obj, model_admin = self.field["field"], self.form.instance, self.model_admin
             try:
                 f, attr, value = lookup_field(field, obj, model_admin)
             except (AttributeError, ValueError, ObjectDoesNotExist):
@@ -86,10 +122,10 @@ class AdminReadonlyField(admin.helpers.AdminReadonlyField):
                     widget = self.form[field].field.widget
                     # This isn't elegant but suffices for contrib.auth's
                     # ReadOnlyPasswordHashWidget.
-                    if getattr(widget, 'read_only', False):
+                    if getattr(widget, "read_only", False):
                         return widget.render(field, value)
                 if f is None:
-                    if getattr(attr, 'boolean', False):
+                    if getattr(attr, "boolean", False):
                         result_repr = _boolean_icon(value)
                     else:
                         if hasattr(value, "__html__"):
