@@ -315,7 +315,6 @@ class Auth0JWTAuthentication(BaseAuthentication):
     - Only activates when the tenant feature flag 'require_idp' is True
     - Uses the Auth0JWTBearerTokenValidator to validate JWT tokens
     - Maps Auth0 subject IDs to EarthRanger users via the auth0_id field
-    - Validates that the Auth0 organization matches the tenant's idp_org_id
     """
 
     def __init__(self):
@@ -381,7 +380,6 @@ class Auth0JWTAuthentication(BaseAuthentication):
                     "Auth0 authentication skipped because require_idp is False for tenant %s", tenant_settings.domain
                 )
                 return None
-            expected_org_id = tenant_settings.feature_flags.idp_org_id
             allowed_oauth2_client_ids = list(getattr(settings, "IDP_OAUTH2_CLIENT_IDS_ALLOWLIST", []) or [])
         except Exception as ex:
             logger.error("Cannot resolve tenant settings, so failing closed.\n%s", ex)
@@ -410,19 +408,23 @@ class Auth0JWTAuthentication(BaseAuthentication):
 
         try:
             token: JWTAccessTokenClaims = self.resource_protector.validate_request(scopes=None, request=request)
-            auth0_subject = token.get("sub")
+        except Exception:
+            logger.exception("Auth0 JWT validation failed")
+            raise AuthenticationFailed()
 
-            auth0_org_id = token.get("org_id")
-            if auth0_org_id != expected_org_id:
-                logger.debug(
-                    "Auth0 org_id mismatch: token has '%s', tenant expects '%s'", auth0_org_id, expected_org_id
-                )
-                raise AuthenticationFailed()
+        auth0_subject = token.get("sub")
+        if not auth0_subject:
+            logger.warning("Auth0 JWT missing sub claim")
+            raise AuthenticationFailed()
 
+        try:
             user = User.objects.get(auth0_id=auth0_subject, is_active=True)
             return user, None
-        except Exception as e:
-            logger.debug("Auth0 authentication failed: %s", e)
+        except User.DoesNotExist:
+            logger.warning("Could not retrieve an active user with auth0_id %s", auth0_subject)
+            raise AuthenticationFailed()
+        except User.MultipleObjectsReturned:
+            logger.error("Multiple active users found with auth0_id %s", auth0_subject)
             raise AuthenticationFailed()
 
     def authenticate_header(self, request):
@@ -461,23 +463,15 @@ class Auth0BackendForStaffUsers(BaseBackend):
         if token is None:
             return None
 
-        tenant_settings = get_tenant_settings()
-        expected_org_id = tenant_settings.feature_flags.idp_org_id
-
         try:
             user_info = token.get("userinfo")
             auth0_id = user_info.get("sub")
-            auth0_org_id = user_info.get("org_id")
-        except Exception as ex:
-            logger.exception("Error occurred authenticating a staff user!\n%s", ex)
+        except Exception:
+            logger.exception("Error occurred authenticating a staff user!")
             return None
 
-        if expected_org_id != auth0_org_id:
-            logger.warning(
-                "When attempting to authenticate a staff user, received token with org_id %s rather than expected org_id %s for this tenant",
-                auth0_org_id,
-                expected_org_id,
-            )
+        if not auth0_id:
+            logger.warning("Auth0 staff token missing sub claim in userinfo")
             return None
 
         try:
@@ -493,6 +487,9 @@ class Auth0BackendForStaffUsers(BaseBackend):
                 return None
         except User.DoesNotExist:
             logger.warning("Could not retrieve an active staff user with auth0_id %s", auth0_id)
+            return None
+        except User.MultipleObjectsReturned:
+            logger.error("Multiple active users found with auth0_id %s", auth0_id)
             return None
 
     def get_user(self, user_id) -> User | None:
