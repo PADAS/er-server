@@ -466,3 +466,64 @@ class SourceFilterSet(JSONFieldFilterSetMixin, filters.FilterSet):
     class Meta:
         model = Source
         fields = ["manufacturer_id", "provider_key", "provider", "id", "source_type"]
+
+
+class SubjectFilterSet(JSONFieldFilterSetMixin, filters.FilterSet):
+    """FilterSet for the Subject model.
+
+    Provides exact-match filters for:
+
+    * ``common_name`` — filters by the ``common_name_id`` FK column directly
+      (``CommonName.value`` is the model's primary key, so this lookup
+      compares the FK column against the value string, e.g. ``black_rhino``,
+      with no JOIN to the ``CommonName`` table).  This matches both the v1
+      ``common_name_id`` criteria and the string emitted by
+      ``SubjectSerializer`` for the ``common_name`` field.
+    * ``subject_type`` — traverses ``subject_subtype__subject_type__value``
+      (e.g. ``vehicle``) to match the read-only ``subject_type`` field in
+      the serializer response.
+    * ``additional.sex``, ``additional.species``, ``additional.age``,
+      ``additional.gender`` — exact JSONB key lookups via
+      ``JSONFieldFilterSetMixin``.  All four are declared as ``"type":
+      "string"`` so ``KeyTextTransform`` is used and a JSON numeric value
+      such as ``{"age": 5}`` will be matched by ``?additional.age=5``
+      (the cast casts the query-param string; the JSONB value is extracted
+      as text, so the comparison succeeds).
+
+    This FilterSet is applied in phase 1 of ``SubjectsView.get_queryset``
+    (before the ``distinct("id").order_by("id")`` + phase-2 ``union``),
+    because phase-2 builds a ``QuerySet.union()`` which cannot be
+    ``.filter()``/``.annotate()``-ed.  ``DjangoFilterBackend`` cannot be
+    used for this reason.
+    """
+
+    common_name = filters.CharFilter(
+        field_name="common_name",
+        lookup_expr="exact",
+        label="Filter by common name value (exact). Example: black_rhino",
+    )
+    subject_type = filters.CharFilter(
+        field_name="subject_subtype__subject_type__value",
+        lookup_expr="exact",
+        label="Filter by parent subject type value (exact). Example: vehicle",
+    )
+
+    # Exposes ``additional`` JSONB properties.  All four are declared as
+    # ``"type": "string"`` so ``KeyTextTransform`` extracts them as text —
+    # a JSONB numeric value (e.g. ``{"age": 5}``) is matched by the string
+    # ``"5"`` via text extraction.
+    json_field_filters: dict[str, dict] = {
+        "additional": {
+            "field": "additional",
+            "properties": {
+                "sex": {"type": "string"},
+                "species": {"type": "string"},
+                "age": {"type": "string"},
+                "gender": {"type": "string"},
+            },
+        },
+    }
+
+    class Meta:
+        model = Subject
+        fields = ["common_name", "subject_type"]

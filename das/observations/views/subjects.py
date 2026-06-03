@@ -22,7 +22,7 @@ from rest_framework.generics import (
 )
 from rest_framework.response import Response
 
-from observations.filters import create_gp_filter_class
+from observations.filters import SubjectFilterSet, create_gp_filter_class
 from observations.mixins import TwoWaySubjectSourceMixin
 from observations.models import SourceGroup, Subject, SubjectGroup, SubjectSource
 from observations.permissions import SubjectModelPermissions
@@ -163,6 +163,57 @@ SUBJECTS_LIST_PARAMS = [
         type=OpenApiTypes.STR,
         required=False,
     ),
+    OpenApiParameter(
+        name="common_name",
+        location=OpenApiParameter.QUERY,
+        description=(
+            "Filter subjects by common name value (exact match). "
+            "Example: black_rhino. Matches the common_name field in the response."
+        ),
+        type=OpenApiTypes.STR,
+        required=False,
+    ),
+    OpenApiParameter(
+        name="subject_type",
+        location=OpenApiParameter.QUERY,
+        description=(
+            "Filter subjects by parent subject type value (exact match). "
+            "Example: vehicle. Matches the subject_type field in the response."
+        ),
+        type=OpenApiTypes.STR,
+        required=False,
+    ),
+    OpenApiParameter(
+        name="additional.sex",
+        location=OpenApiParameter.QUERY,
+        description="Filter subjects by sex stored in the additional JSONB column (exact match). Example: female.",
+        type=OpenApiTypes.STR,
+        required=False,
+    ),
+    OpenApiParameter(
+        name="additional.species",
+        location=OpenApiParameter.QUERY,
+        description="Filter subjects by species stored in the additional JSONB column (exact match). Example: lion.",
+        type=OpenApiTypes.STR,
+        required=False,
+    ),
+    OpenApiParameter(
+        name="additional.age",
+        location=OpenApiParameter.QUERY,
+        description=(
+            "Filter subjects by age stored in the additional JSONB column (exact match, string comparison). "
+            'A numeric JSONB value such as {"age": 5} is matched by ?additional.age=5.'
+        ),
+        type=OpenApiTypes.STR,
+        required=False,
+    ),
+    OpenApiParameter(
+        name="additional.gender",
+        location=OpenApiParameter.QUERY,
+        description="Filter subjects by gender stored in the additional JSONB column (exact match). Example: male.",
+        type=OpenApiTypes.STR,
+        required=False,
+    ),
 ]
 
 
@@ -254,6 +305,13 @@ class SubjectsView(ListCreateAPIView, TwoWaySubjectSourceMixin, DynamicSchemaDat
         filtered_queryset = self.filter_on_subject_subtype(filtered_queryset, user, query_params)
         filtered_queryset = self.filter_on_dates(filtered_queryset, user, query_params)
         filtered_queryset = check_to_include_inactive_subjects(self.request, filtered_queryset)
+
+        # Apply the new additive FilterSet (common_name, subject_type, additional.*).
+        # NOTE: DjangoFilterBackend cannot be used here because phase 2 (below)
+        # builds a QuerySet.union() which cannot be .filter()/.annotate()-ed after
+        # the fact.  Instead we apply SubjectFilterSet manually in phase 1, before
+        # the union, so phase 2's id__in re-query inherits the narrowing.
+        filtered_queryset = self.filter_on_subject_filterset(filtered_queryset, query_params)
 
         # Get the IDs of filtered subjects
         filtered_queryset = filtered_queryset.distinct("id").order_by("id")
@@ -388,6 +446,18 @@ class SubjectsView(ListCreateAPIView, TwoWaySubjectSourceMixin, DynamicSchemaDat
             queryset = queryset.filter(subject_subtype__value__in=subtype_values_list)
 
         return queryset
+
+    def filter_on_subject_filterset(self, queryset: QuerySet, query_params) -> QuerySet:
+        """Apply ``SubjectFilterSet`` to *queryset* in phase 1.
+
+        Handles ``common_name``, ``subject_type``, and the ``additional.*``
+        JSONB params (``sex``, ``species``, ``age``, ``gender``).  The
+        FilterSet is instantiated with the raw query-param dict so that
+        ``JSONFieldFilterSetMixin.filter_queryset`` can read dotted keys such
+        as ``additional.species`` that are not expressible as Python class
+        attributes.
+        """
+        return SubjectFilterSet(query_params, queryset=queryset, request=self.request).qs
 
     def filter_on_location(self, queryset, user, query_params, position_updated_since, updated_since, updated_until):
         # Apply bbox filter if present
