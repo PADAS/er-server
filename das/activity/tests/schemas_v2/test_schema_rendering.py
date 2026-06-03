@@ -307,10 +307,12 @@ def test_not_resolved_reference_is_replaced_by_empty_object():
     schema = {"$id": f"{BASE_URL}/unknown_ref.json", "$ref": missing_schema_uri}
     output = renderer.dereference_schema(schema)
 
-    # The code tries to fetch, fails, so it replaces the $ref with an empty object
+    # The code tries to fetch, fails, so it replaces the $ref with an empty schema.
+    # An empty oneOf list is invalid JSON Schema; the spec-valid representation uses
+    # a boolean-false subschema so nothing validates while keeping the oneOf marker.
     assert "$ref" not in output
     assert "oneOf" in output
-    assert len(output["oneOf"]) == 0
+    assert output["oneOf"] == [False]
     assert "type" in output
     assert output["type"] == "string"
 
@@ -722,3 +724,17 @@ def test_fragment_circular_reference():
     # Verify all schemas were fetched exactly once
     assert call_counts[f"{BASE_URL}/FragmentB.json"] == 1, "FragmentB should be fetched once"
     assert call_counts.get(f"{BASE_URL}/FragmentA.json", 0) == 0, "FragmentA shouldn't be fetched"
+
+
+class TestTempEmptySchema:
+    """temp_empty_schema must emit a spec-valid oneOf with a boolean-false subschema."""
+
+    def test_temp_empty_schema_one_of_is_false_subschema(self) -> None:
+        renderer, _ = call_count_schema_renderer()
+        result = renderer.temp_empty_schema()
+        assert result["oneOf"] == [False]
+
+    def test_temp_empty_schema_one_of_is_not_empty_list(self) -> None:
+        renderer, _ = call_count_schema_renderer()
+        result = renderer.temp_empty_schema()
+        assert result["oneOf"] != []
