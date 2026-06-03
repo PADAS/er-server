@@ -14,6 +14,45 @@ from schemas.format_serializers import (
 )
 
 
+class TestFormatSerializersEmptyOptions:
+    """Empty mapped_items must emit spec-valid JSON Schema (no empty enum/oneOf)."""
+
+    def test_serialize_enum_fragment_empty_drops_enum_key(self) -> None:
+        schema: dict = {}
+        serialize_enum_fragment(schema, [])
+        assert "enum" not in schema
+
+    def test_serialize_enum_fragment_empty_keeps_x_enum_extra_as_empty_dict(self) -> None:
+        schema: dict = {}
+        serialize_enum_fragment(schema, [])
+        assert schema[ENUM_EXTRA_KEY] == {}
+
+    def test_serialize_enum_fragment_empty_adds_not_nothing_validates(self) -> None:
+        schema: dict = {}
+        serialize_enum_fragment(schema, [])
+        assert schema["not"] == {}
+
+    def test_serialize_one_of_fragment_empty_emits_false_subschema(self) -> None:
+        schema: dict = {}
+        serialize_one_of_fragment(schema, [])
+        assert schema["oneOf"] == [False]
+
+    def test_serialize_enum_fragment_non_empty_unchanged(self) -> None:
+        """Non-empty path must still emit enum + x-enumExtra (no regression)."""
+        schema: dict = {}
+        serialize_enum_fragment(schema, [{"value": "a", "label": "A"}])
+        assert schema["enum"] == ["a"]
+        assert schema[ENUM_EXTRA_KEY] == {"a": {"display": "A"}}
+        assert "not" not in schema
+
+    def test_serialize_one_of_fragment_non_empty_unchanged(self) -> None:
+        """Non-empty path must still emit a list of branch objects (no regression)."""
+        schema: dict = {}
+        serialize_one_of_fragment(schema, [{"value": "a", "label": "A"}])
+        assert schema["oneOf"] == [{"const": "a", "title": "A"}]
+        assert schema["oneOf"] != [False]
+
+
 class TestFormatSerializers:
     def test_serialize_enum_fragment_preserves_row_order_and_duplicate_values(self) -> None:
         """Non-unique values: every row appears in ``enum``; ``x-enumExtra`` keys last row's metadata."""

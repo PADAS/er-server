@@ -40,8 +40,15 @@ def serialize_enum_fragment(schema: dict[str, Any], mapped_items: list[MappedIte
             entry[key] = val
         enum_values.append(value)
         enum_extra[value] = entry
-    schema["enum"] = enum_values
-    schema[ENUM_EXTRA_KEY] = enum_extra
+    if not enum_values:
+        # An empty enum list is invalid JSON Schema. Drop the enum key entirely,
+        # keep x-enumExtra as an empty object (preserves the alerting choice marker),
+        # and add "not: {}" so nothing validates.
+        schema[ENUM_EXTRA_KEY] = {}
+        schema["not"] = {}
+    else:
+        schema["enum"] = enum_values
+        schema[ENUM_EXTRA_KEY] = enum_extra
 
 
 def serialize_one_of_fragment(schema: dict[str, Any], mapped_items: list[MappedItem]) -> None:
@@ -58,7 +65,13 @@ def serialize_one_of_fragment(schema: dict[str, Any], mapped_items: list[MappedI
             else:
                 branch[f"x-{key}"] = val
         branches.append(branch)
-    schema["oneOf"] = branches
+    if not branches:
+        # An empty oneOf list is invalid JSON Schema. Use a boolean-false subschema,
+        # which is valid and means "nothing validates", while keeping the oneOf marker
+        # so the alerting choice-marker detection still fires.
+        schema["oneOf"] = [False]
+    else:
+        schema["oneOf"] = branches
 
 
 SCHEMA_FRAGMENT_SERIALIZERS: dict[str, SchemaFragmentSerializer] = {
