@@ -518,6 +518,7 @@ CACHES = {
 
 
 # the address to send notification emails from
+# FROM_EMAIL is used by the inreach send message and the send KML link by email
 FROM_EMAIL = "notifications@pamdas.org"
 DEFAULT_FROM_EMAIL = "notifications@earthranger.com"
 # Used by password reset email
@@ -833,6 +834,13 @@ TMS_API = {
     "API_VERSION": env.str("TMS_API_VERSION", "v1.0"),
     "API_KEY": env.str("TMS_API_KEY", "secret"),
 }
+
+# Local-dev seed for the per-tenant release-toggle registry (utils/tenant/release_toggles.py).
+# In production these arrive in the tenant payload's `releaseToggles` block from TMS; locally
+# the DjangoSettingsTenantBuilder seeds `release_toggles` from this JSON so a developer can flip
+# a registered toggle from .env, e.g.:
+#   RELEASE_TOGGLES={"community_input_admin_enabled": true}
+RELEASE_TOGGLES = env.json("RELEASE_TOGGLES", default={})
 
 TENANT_DOCUMENT_CACHE = {
     "CLIENT": "utils.persistent.RedisStorage",

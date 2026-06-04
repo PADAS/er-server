@@ -39,7 +39,7 @@ When in doubt, ask: "Could I lift this file into a separate Python package and `
 
 ## Key Technologies
 
-- Django 3.2
+- Django 4.2 (LTS)
 - Django REST Framework (for API development)
 - Python 3.10
 - pytest for unit testing

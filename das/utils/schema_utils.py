@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import copy
 import html
 import json
@@ -6,6 +8,7 @@ import re
 import typing
 import uuid
 from collections import OrderedDict
+from typing import Any
 
 import dateutil.parser as dateparser
 import jsonschema
@@ -378,7 +381,10 @@ def extract_from_dict_or_string(schema_item, value, event=None):
             if subject.exists() and not subject.first().is_active:
                 display = subject.first().name
 
-    if isinstance(value, str):
+    if isinstance(value, str) and (
+        schema_item.get("format") in ("date", "date-time")
+        or "date-time-picker" in schema_item.get("fieldHtmlClass", "")
+    ):
         if looks_like_date(value_string=value):
             display = change_format_date_string(value)
 
@@ -414,21 +420,45 @@ def is_uuid(record):
         return False
 
 
-def extract_from_definition(schema_item, definition, key, eventdetail_value, extracted_value, display, event=None):
-    for definition_item in flatten_definition_items(definition):
-        if isinstance(definition_item, dict) and (
-            schema_item.get("key") == definition_item.get("key") or key == definition_item.get("key")
-        ):
-            if definition_item.get("type") == "checkboxes":
-                extracted_value, display = handle_checkboxes_in_fieldsets(
-                    definition_item, eventdetail_value, event=event
-                )
-            return definition_item.get("title"), extracted_value, display
+def extract_from_definition(
+    schema_item: dict,
+    definition: list,
+    key: str,
+    eventdetail_value,
+    extracted_value,
+    display,
+    event=None,
+    matched_definition_item: dict | None = None,
+) -> tuple:
+    item = matched_definition_item
+    if item is None:
+        for definition_item in flatten_definition_items(definition):
+            if isinstance(definition_item, dict) and (
+                schema_item.get("key") == definition_item.get("key") or key == definition_item.get("key")
+            ):
+                item = definition_item
+                break
+    if item is not None:
+        if item.get("type") == "checkboxes":
+            extracted_value, display = handle_checkboxes_in_fieldsets(item, eventdetail_value, event=event)
+        return item.get("title"), extracted_value, display
     title = schema_item.get("title") or key
     return title, extracted_value, display
 
 
-def extractor(schema_item, definition, key, eventdetail_value, event=None):
+def extractor(schema_item: dict, definition: list, key: str, eventdetail_value, event=None) -> tuple:
+    item_key = schema_item.get("key") or key
+    # Index by "key" only; definition items without "key" are structural (fieldsets, etc.)
+    # and cannot be matched to a schema property. The fallback in extract_from_definition
+    # also uses schema_item.get("key"), so the same items would be skipped there.
+    definition_items = {
+        item["key"]: item for item in flatten_definition_items(definition) if isinstance(item, dict) and "key" in item
+    }
+    matched = definition_items.get(item_key)
+
+    if matched and "fieldHtmlClass" in matched:
+        schema_item = {**schema_item, "fieldHtmlClass": matched["fieldHtmlClass"]}
+
     # Determine how the value should appear.
     if isinstance(eventdetail_value, list):
         extracted_value, display = extract_from_list(eventdetail_value, schema_item, event=event)
@@ -439,7 +469,14 @@ def extractor(schema_item, definition, key, eventdetail_value, event=None):
     if "title" in schema_item:
         if extracted_value == display and all(is_uuid(data) for data in str(display).split(";")):
             return extract_from_definition(
-                schema_item, definition, key, eventdetail_value, extracted_value, display, event=event
+                schema_item,
+                definition,
+                key,
+                eventdetail_value,
+                extracted_value,
+                display,
+                event=event,
+                matched_definition_item=matched,
             )
         return schema_item["title"], extracted_value, display
 
@@ -448,7 +485,14 @@ def extractor(schema_item, definition, key, eventdetail_value, event=None):
         return key, extracted_value, display
 
     return extract_from_definition(
-        schema_item, definition, key, eventdetail_value, extracted_value, display, event=event
+        schema_item,
+        definition,
+        key,
+        eventdetail_value,
+        extracted_value,
+        display,
+        event=event,
+        matched_definition_item=matched,
     )
 
 
@@ -563,9 +607,13 @@ def property_keys_order_as_dict(schema):
     return OrderedDict()
 
 
-def detail_resolver(schema, key, value, event=None):
-    properties = get_resolved_v1v2_properties(schema)
-
+def detail_resolver(
+    properties: dict[str, Any],
+    schema: dict[str, Any],
+    key: str,
+    value: Any,
+    event: Any | None = None,
+) -> tuple[str, Any, Any] | None:
     if key in properties:
         schema_item = properties[key]
         return extractor(schema_item, schema.get("definition", []), key, value, event=event)
@@ -583,10 +631,11 @@ def generate_details(event, schema):
 
     event_details = event_details.data.get("event_details", {})
 
+    properties = get_resolved_v1v2_properties(schema)
     definition_order = dict(definition_keys(schema.get("definition", [])))
 
     for k, v in event_details.items():
-        resolved_details = detail_resolver(schema, k, v, event=event)
+        resolved_details = detail_resolver(properties, schema, k, v, event=event)
         if resolved_details:
             value = resolved_details[1]
             yield {
@@ -597,9 +646,10 @@ def generate_details(event, schema):
 
 
 def get_display_values_for_event_details(event_details, schema, event=None):
+    properties = get_resolved_v1v2_properties(schema)
     ret = {}
     for k, v in event_details.items():
-        resolved_details = detail_resolver(schema, k, v, event=event)
+        resolved_details = detail_resolver(properties, schema, k, v, event=event)
 
         logger.debug(f"Resolved details for {k} {v} = {resolved_details}")
         if resolved_details:
@@ -854,12 +904,13 @@ def schema_property_choices(schema, rendered_schema):
             yield SchemaChoiceProperty(prop_name, props, field_name, lookup)
 
 
-def get_resolved_v1v2_properties(schema):
+def get_resolved_v1v2_properties(schema: dict[str, Any]) -> dict[str, Any]:
     """
     Resolve schema properties from either legacy or new schema structure.
 
     Legacy format: schema["schema"]["properties"]
-    New format: schema["json"]["properties"]
+    New format: schema["json"]["properties"], merged with any schema["json"]["allOf"][*]["then"]["properties"]
+              so that fields in conditional sections are included alongside top-level fields.
 
     Args:
         schema (dict): The schema dictionary
@@ -871,7 +922,19 @@ def get_resolved_v1v2_properties(schema):
     if "schema" in schema and "properties" in schema["schema"]:
         return schema["schema"]["properties"]
     elif "json" in schema and "properties" in schema["json"]:
-        return schema["json"]["properties"]
+        all_of = schema["json"].get("allOf", [])
+        if not all_of:
+            return schema["json"]["properties"]
+        # allOf.then.properties are merged on top of the base properties.
+        # If a conditional section redeclares a top-level key, the conditional
+        # definition wins (last-wins). Nested allOf and else branches are not
+        # traversed — current schemas do not use them.
+        properties = dict(schema["json"]["properties"])
+        for condition in all_of:
+            then_props = condition.get("then", {}).get("properties", {})
+            if then_props:
+                properties.update(then_props)
+        return properties
     else:
         logger.warning("Schema properties not found in expected structure.")
         return {}

@@ -1021,9 +1021,9 @@ class TestEventTypesV2SchemaRendering:
 
         assert response.status_code == status.HTTP_200_OK
 
-    def test_get_event_type_schema_with_dynamic_reference(self, superuser_client, cat1_cat2_event_types):
-        """Test rendering a schema that references a dynamic schema endpoint"""
-        # Setup an event type with a schema that references a dynamic schema
+    @pytest.fixture
+    def event_type_with_dynamic_ref(self, cat1_cat2_event_types):
+        """Event type whose schema has a $ref pointing at the subjects dynamic-schema endpoint."""
         target = cat1_cat2_event_types[0]
         subjects_schema_url = reverse("schemas:subjects")
         target.schema = json.dumps(
@@ -1037,20 +1037,27 @@ class TestEventTypesV2SchemaRendering:
             }
         )
         target.save()
+        return target
 
+    def test_get_event_type_schema_with_dynamic_reference(self, superuser_client, event_type_with_dynamic_ref):
+        """Default (no s_format) pre_render=True yields oneOf shape (backward compat with v2.x clients)."""
+        target = event_type_with_dynamic_ref
         url = reverse("v2-eventtype-retrieve-schema", kwargs={"eventtype_value": target.value})
-        # Test with pre_render=True
+
+        # Default (no s_format): must return oneOf, NOT enum/x-enumExtra
         response = superuser_client.get(url, {"pre_render": True})
         assert response.status_code == status.HTTP_200_OK
         assert "json" in response.data
         rendered_schema = response.data["json"]
         assert "properties" in rendered_schema
         assert "subject" in rendered_schema["properties"]
-        assert "$ref" not in rendered_schema["properties"]["subject"]
-        assert "enum" in rendered_schema["properties"]["subject"]
-        assert "x-enumExtra" in rendered_schema["properties"]["subject"]
+        subject_prop = rendered_schema["properties"]["subject"]
+        assert "$ref" not in subject_prop
+        assert "oneOf" in subject_prop
+        assert "enum" not in subject_prop
+        assert "x-enumExtra" not in subject_prop
 
-        # Test with pre_render=False
+        # Test with pre_render=False — $ref stays, no rendering
         response = superuser_client.get(url, {"pre_render": False})
         assert response.status_code == status.HTTP_200_OK
         assert "json" in response.data
@@ -1059,7 +1066,7 @@ class TestEventTypesV2SchemaRendering:
         assert "$ref" in rendered_schema["properties"]["subject"]
         assert "enum" not in rendered_schema["properties"]["subject"]
 
-        # Test with pre_render=None (default)
+        # Test with pre_render=None (default) — raw, no rendering
         response = superuser_client.get(url)
         assert response.status_code == status.HTTP_200_OK
         assert "json" in response.data
@@ -1067,6 +1074,74 @@ class TestEventTypesV2SchemaRendering:
         assert "properties" in rendered_schema
         assert "$ref" in rendered_schema["properties"]["subject"]
         assert "enum" not in rendered_schema["properties"]["subject"]
+
+    def test_retrieve_schema_default_s_format_returns_one_of(self, superuser_client, event_type_with_dynamic_ref):
+        """pre_render=True with no s_format defaults to oneOf shape."""
+        target = event_type_with_dynamic_ref
+        url = reverse("v2-eventtype-retrieve-schema", kwargs={"eventtype_value": target.value})
+
+        response = superuser_client.get(url, {"pre_render": True})
+        assert response.status_code == status.HTTP_200_OK
+        subject_prop = response.data["json"]["properties"]["subject"]
+        assert "oneOf" in subject_prop
+        assert "enum" not in subject_prop
+        assert "x-enumExtra" not in subject_prop
+
+    def test_retrieve_schema_s_format_one_of_explicit(self, superuser_client, event_type_with_dynamic_ref):
+        """pre_render=True&s_format=oneOf returns oneOf shape explicitly."""
+        target = event_type_with_dynamic_ref
+        url = reverse("v2-eventtype-retrieve-schema", kwargs={"eventtype_value": target.value})
+
+        response = superuser_client.get(url, {"pre_render": True, "s_format": "oneOf"})
+        assert response.status_code == status.HTTP_200_OK
+        subject_prop = response.data["json"]["properties"]["subject"]
+        assert "oneOf" in subject_prop
+        assert "enum" not in subject_prop
+        assert "x-enumExtra" not in subject_prop
+
+    def test_retrieve_schema_s_format_enum_returns_enum_shape(
+        self, superuser_client, event_type_with_dynamic_ref, subject
+    ):
+        """pre_render=True&s_format=enum returns enum + x-enumExtra shape."""
+        target = event_type_with_dynamic_ref
+        url = reverse("v2-eventtype-retrieve-schema", kwargs={"eventtype_value": target.value})
+
+        response = superuser_client.get(url, {"pre_render": True, "s_format": "enum"})
+        assert response.status_code == status.HTTP_200_OK
+        subject_prop = response.data["json"]["properties"]["subject"]
+        assert "$ref" not in subject_prop
+        assert "enum" in subject_prop
+        assert "x-enumExtra" in subject_prop
+        assert "oneOf" not in subject_prop
+
+    def test_retrieve_schema_s_format_bogus_returns_400(self, superuser_client, event_type_with_dynamic_ref):
+        """pre_render=True&s_format=bogus returns 400 with s_format key in error body."""
+        target = event_type_with_dynamic_ref
+        url = reverse("v2-eventtype-retrieve-schema", kwargs={"eventtype_value": target.value})
+
+        response = superuser_client.get(url, {"pre_render": True, "s_format": "bogus"})
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+        assert "s_format" in response.data
+
+    def test_retrieve_schema_s_format_ignored_when_not_pre_render(self, superuser_client, event_type_with_dynamic_ref):
+        """pre_render=False&s_format=enum is a no-op — $ref is preserved, status 200."""
+        target = event_type_with_dynamic_ref
+        url = reverse("v2-eventtype-retrieve-schema", kwargs={"eventtype_value": target.value})
+
+        response = superuser_client.get(url, {"pre_render": False, "s_format": "enum"})
+        assert response.status_code == status.HTTP_200_OK
+        subject_prop = response.data["json"]["properties"]["subject"]
+        assert "$ref" in subject_prop
+        assert "enum" not in subject_prop
+
+    def test_atomic_subjects_schema_endpoint_still_defaults_to_enum(self, superuser_client, subject):
+        """The atomic /schemas/subjects/ endpoint still uses enum+x-enumExtra by default (default_format=enum)."""
+        url = reverse("schemas:subjects")
+        response = superuser_client.get(url)
+        assert response.status_code == status.HTTP_200_OK
+        assert "enum" in response.data
+        assert "x-enumExtra" in response.data
+        assert "oneOf" not in response.data
 
 
 @pytest.mark.django_db

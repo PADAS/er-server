@@ -9,6 +9,7 @@ import pytest
 from django.test import RequestFactory
 
 from accounts.backends import Auth0BackendForStaffUsers
+from accounts.models import User
 
 
 @pytest.fixture
@@ -32,7 +33,6 @@ def mock_oauth2_token():
         "sub": "auth0|123456789",
         "email": "staff@example.com",
         "name": "Staff User",
-        "org_id": "org_123456789",
     }
 
     return token
@@ -66,17 +66,6 @@ def das_inactive_staff_user_with_auth0_id(user):
     user.is_active = False
     user.save()
     return user
-
-
-@pytest.fixture(autouse=True)
-def mock_tenant_settings():
-    """Mock tenant settings with default feature flags."""
-    with patch("accounts.backends.get_tenant_settings") as mock_settings:
-        mock = Mock()
-        mock.feature_flags.require_idp = True
-        mock.feature_flags.idp_org_id = "org_123456789"
-        mock_settings.return_value = mock
-        yield mock
 
 
 @pytest.mark.django_db
@@ -115,18 +104,67 @@ class TestAuth0BackendForStaffUsersAuthenticate:
 
         assert result is None
 
+    def test_multiple_users_with_same_auth0_id_returns_none(self, auth0_backend, mock_request, mock_oauth2_token):
+        """Test that MultipleObjectsReturned is handled gracefully.
+
+        Guards against a data integrity issue where multiple active users share the same
+        auth0_id. Without this handling, the exception would bubble up as a 500 error.
+        """
+        with patch("accounts.backends.User.objects.get", side_effect=User.MultipleObjectsReturned):
+            result = auth0_backend.authenticate(mock_request, token=mock_oauth2_token)
+
+        assert result is None
+
     def test_authentication_with_no_token(self, auth0_backend, mock_request):
         """Test authentication with no token provided."""
         result = auth0_backend.authenticate(mock_request, token=None)
 
         assert result is None
 
-    def test_authentication_fails_when_org_id_mismatch(
-        self, auth0_backend, mock_request, mock_oauth2_token, das_staff_user_with_auth0_id, mock_tenant_settings
+    @pytest.mark.parametrize(
+        "org_id_claim",
+        [
+            pytest.param({"org_id": "org_some_value"}, id="with_org_id"),
+            pytest.param({}, id="without_org_id"),
+        ],
+    )
+    def test_authenticates_regardless_of_org_id_claim(
+        self, auth0_backend, mock_request, das_staff_user_with_auth0_id, org_id_claim
     ):
-        """Test authentication fails when token has org id for different DAS tenant."""
-        mock_tenant_settings.feature_flags.idp_org_id = "org_999999999"
-        result = auth0_backend.authenticate(mock_request, token=mock_oauth2_token)
+        """Test authentication succeeds whether or not the token carries an org_id claim."""
+        token = Mock()
+        token.get.return_value = {
+            "sub": "auth0|123456789",
+            "email": "staff@example.com",
+            "name": "Staff User",
+            **org_id_claim,
+        }
+
+        result = auth0_backend.authenticate(mock_request, token=token)
+
+        assert result == das_staff_user_with_auth0_id
+
+    @pytest.mark.parametrize(
+        "missing_sub",
+        [
+            pytest.param(None, id="sub_is_none"),
+            pytest.param("", id="sub_is_empty_string"),
+        ],
+    )
+    def test_missing_sub_claim_returns_none(self, auth0_backend, mock_request, missing_sub):
+        """Test that a token without a valid sub claim is rejected.
+
+        With the org_id check removed, we must fail closed on missing sub to
+        prevent User.objects.get(auth0_id=None) from matching an unlinked user.
+        """
+        token = Mock()
+        token.get.return_value = {
+            "sub": missing_sub,
+            "email": "staff@example.com",
+            "name": "Staff User",
+        }
+
+        result = auth0_backend.authenticate(mock_request, token=token)
 
         assert result is None
 

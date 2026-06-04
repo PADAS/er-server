@@ -76,20 +76,28 @@ private key and paste it's contents in this form (be sure to use the JSON format
 """
 
 
-def check_geofence_groups_have_only_one_type_feature(
-    request, obj, field_names: Tuple[str, ...], geo_types: List[str]
-) -> None:
+def warn_if_no_supported_features(request, obj, field_names: Tuple[str, ...], geo_types: List[str]) -> None:
+    """Warn when a feature group contains no geometries of a supported type.
+
+    Unsupported geometry types (e.g. point markers in a geofence group) are
+    silently ignored at analysis time, so a mixed group is fine. Only warn when
+    the group has no supported features at all, which would produce no results.
+    """
     if not request.POST:
         lower_geo_types = [geo_type.lower() for geo_type in geo_types]
         for field_name in field_names:
             field = getattr(obj, field_name, None)
-            if field and not all(
-                feature.feature_geometry.geom_type.lower() in lower_geo_types for feature in field.features.all()
+            if not field:
+                continue
+            features = list(field.features.all())
+            if features and not any(
+                feature.feature_geometry.geom_type.lower() in lower_geo_types for feature in features
             ):
                 messages.add_message(
                     request=request,
                     level=messages.WARNING,
-                    message=f"The field '{field_name}' contains invalid geometries. Please ensure all features in this group are of type(s) '{geo_types}'.",
+                    message=f"The group assigned to '{field_name}' contains no supported geometries "
+                    f"(supported types: {geo_types}). All features will be ignored during analysis.",
                 )
 
 
@@ -207,7 +215,7 @@ class FeatureProximityAnalyzerAdmin(BaseModelAdminMixin):
     )
 
     def get_form(self, request, obj=None, **kwargs):
-        check_geofence_groups_have_only_one_type_feature(
+        warn_if_no_supported_features(
             request=request,
             obj=obj,
             field_names=("proximal_features",),
@@ -332,7 +340,7 @@ class GeofenceSubjectAnalyzerAdmin(BaseModelAdminMixin):
     )
 
     def get_form(self, request, obj=None, **kwargs):
-        check_geofence_groups_have_only_one_type_feature(
+        warn_if_no_supported_features(
             request=request,
             obj=obj,
             field_names=(

@@ -333,6 +333,164 @@ class TestDynamicChoices:
         ) == json.loads(names_list)
 
 
+class TestGetResolvedV1V2Properties:
+    """Tests for get_resolved_v1v2_properties covering V1 legacy, V2 flat, and V2 conditional schemas."""
+
+    V1_SCHEMA = {
+        "schema": {
+            "properties": {
+                "field_a": {"type": "string", "title": "Field A"},
+                "field_b": {"type": "string", "title": "Field B"},
+            }
+        }
+    }
+
+    V2_FLAT_SCHEMA = {
+        "json": {
+            "properties": {
+                "top_field": {"type": "string", "title": "Top Field"},
+            }
+        }
+    }
+
+    V2_CONDITIONAL_SCHEMA = {
+        "json": {
+            "properties": {
+                "status": {"type": "string", "title": "Status"},
+            },
+            "allOf": [
+                {
+                    "if": {"properties": {"status": {"const": "active"}}},
+                    "then": {
+                        "properties": {
+                            "conditional_field": {"type": "string", "title": "Conditional Field"},
+                        }
+                    },
+                }
+            ],
+        }
+    }
+
+    V2_MULTI_ALLOF_SCHEMA = {
+        "json": {
+            "properties": {
+                "status": {"type": "string", "title": "Status"},
+            },
+            "allOf": [
+                {
+                    "then": {
+                        "properties": {
+                            "cond_field_1": {"type": "string", "title": "Cond Field 1"},
+                        }
+                    }
+                },
+                {
+                    "then": {
+                        "properties": {
+                            "cond_field_2": {"type": "string", "title": "Cond Field 2"},
+                        }
+                    }
+                },
+            ],
+        }
+    }
+
+    V2_ALLOF_NO_THEN_SCHEMA = {
+        "json": {
+            "properties": {
+                "top_field": {"type": "string", "title": "Top Field"},
+            },
+            "allOf": [
+                {"if": {"properties": {"top_field": {"const": "x"}}}},
+            ],
+        }
+    }
+
+    def test_v1_legacy_schema_returns_schema_properties(self):
+        result = schema_utils.get_resolved_v1v2_properties(self.V1_SCHEMA)
+        assert set(result.keys()) == {"field_a", "field_b"}
+
+    def test_v2_flat_schema_returns_json_properties(self):
+        result = schema_utils.get_resolved_v1v2_properties(self.V2_FLAT_SCHEMA)
+        assert set(result.keys()) == {"top_field"}
+
+    def test_v2_conditional_schema_includes_allof_then_properties(self):
+        result = schema_utils.get_resolved_v1v2_properties(self.V2_CONDITIONAL_SCHEMA)
+        assert "status" in result
+        assert "conditional_field" in result
+        assert result["conditional_field"]["title"] == "Conditional Field"
+
+    def test_v2_conditional_schema_does_not_mutate_original(self):
+        original_keys = set(self.V2_CONDITIONAL_SCHEMA["json"]["properties"].keys())
+        schema_utils.get_resolved_v1v2_properties(self.V2_CONDITIONAL_SCHEMA)
+        assert set(self.V2_CONDITIONAL_SCHEMA["json"]["properties"].keys()) == original_keys
+
+    def test_v2_multiple_allof_entries_all_merged(self):
+        result = schema_utils.get_resolved_v1v2_properties(self.V2_MULTI_ALLOF_SCHEMA)
+        assert "status" in result
+        assert "cond_field_1" in result
+        assert "cond_field_2" in result
+
+    def test_v2_allof_entry_without_then_is_skipped(self):
+        result = schema_utils.get_resolved_v1v2_properties(self.V2_ALLOF_NO_THEN_SCHEMA)
+        assert set(result.keys()) == {"top_field"}
+
+    def test_empty_schema_returns_empty_dict(self):
+        result = schema_utils.get_resolved_v1v2_properties({})
+        assert result == {}
+
+    def test_property_keys_order_includes_conditional_fields(self):
+        result = schema_utils.property_keys_order_as_dict(self.V2_CONDITIONAL_SCHEMA)
+        assert "status" in result
+        assert "conditional_field" in result
+
+    def test_detail_resolver_resolves_conditional_field(self):
+        properties = schema_utils.get_resolved_v1v2_properties(self.V2_CONDITIONAL_SCHEMA)
+        result = schema_utils.detail_resolver(properties, self.V2_CONDITIONAL_SCHEMA, "conditional_field", "hello")
+        assert result is not None
+
+    def test_detail_resolver_returns_none_for_unknown_field(self):
+        properties = schema_utils.get_resolved_v1v2_properties(self.V2_CONDITIONAL_SCHEMA)
+        result = schema_utils.detail_resolver(properties, self.V2_CONDITIONAL_SCHEMA, "nonexistent_field", "hello")
+        assert result is None
+
+    def test_get_display_value_header_for_key_resolves_conditional_field_title(self):
+        result = schema_utils.get_display_value_header_for_key(self.V2_CONDITIONAL_SCHEMA, "conditional_field")
+        assert result == "Conditional Field"
+
+    @pytest.mark.parametrize(
+        "schema,expected_title",
+        [
+            pytest.param(
+                {
+                    "json": {
+                        "properties": {
+                            "foo": {"title": "Top Foo"},
+                        },
+                        "allOf": [
+                            {
+                                "then": {
+                                    "properties": {
+                                        "foo": {"title": "Conditional Foo"},
+                                    }
+                                }
+                            }
+                        ],
+                    }
+                },
+                "Conditional Foo",
+                id="allOf_then_overrides_top_level",
+            ),
+        ],
+    )
+    def test_conditional_property_overrides_top_level_with_same_key(self, schema, expected_title):
+        result = schema_utils.get_resolved_v1v2_properties(schema)
+        assert result["foo"]["title"] == expected_title
+        # Verify original schema is not mutated
+        assert schema_utils.get_resolved_v1v2_properties(schema)["foo"]["title"] == expected_title
+        assert schema["json"]["properties"]["foo"]["title"] == "Top Foo"
+
+
 class TestExtractFromList:
     """extract_from_list must not include the full items list in each warning.
 
@@ -364,3 +522,31 @@ class TestExtractFromList:
         with caplog.at_level(logging.WARNING, logger="utils.schema_utils"):
             schema_utils.extract_from_list(items)
         assert not caplog.records
+
+
+class TestExtractFromDictOrString:
+    def test_date_like_string_without_schema_format_is_not_converted(self):
+        schema_item = {"type": "string", "title": "Version"}
+        _value, display = schema_utils.extract_from_dict_or_string(schema_item, "2026-05-30-03")
+        assert display == "2026-05-30-03"
+
+    def test_date_string_with_field_html_class_is_converted(self):
+        schema_item = {"type": "string", "title": "Time of Arrest", "fieldHtmlClass": "date-time-picker json-schema"}
+        _value, display = schema_utils.extract_from_dict_or_string(schema_item, "2026-05-30T10:00:00.000Z")
+        assert display == "2026-05-30 03:00"
+
+    def test_extractor_converts_date_when_field_html_class_only_in_definition(self):
+        schema_item = {"type": "string", "title": "Time of Arrest"}
+        definition = [{"key": "arrest_time", "fieldHtmlClass": "date-time-picker json-schema"}]
+        _title, _value, display = schema_utils.extractor(
+            schema_item, definition, "arrest_time", "2026-05-30T10:00:00.000Z"
+        )
+        assert display == "2026-05-30 03:00"
+
+    def test_extract_from_definition_fallback_walks_definition_when_no_matched_item(self):
+        schema_item = {"type": "string"}
+        definition = [{"key": "incident_time", "title": "Time of Incident"}]
+        title, value, display = schema_utils.extract_from_definition(
+            schema_item, definition, "incident_time", "raw", "raw", "raw"
+        )
+        assert title == "Time of Incident"
