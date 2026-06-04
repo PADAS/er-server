@@ -5,7 +5,14 @@ import pytest
 from faker import Faker
 
 from django.contrib.gis import geos
-from django.contrib.gis.geos import LineString, MultiLineString, MultiPoint, Point
+from django.contrib.gis.geos import (
+    LineString,
+    MultiLineString,
+    MultiPoint,
+    MultiPolygon,
+    Point,
+    Polygon,
+)
 from django.urls import reverse
 
 import mapping.views as views
@@ -235,6 +242,41 @@ class TestSpatialFeatureGroup:
         return sfgs
 
     @pytest.fixture()
+    def spatial_feature_group_point_only(self):
+        features = [
+            SpatialFeatureFactory(
+                name=self.fake.name(),
+                feature_geometry=MultiPoint(Point(-122.3286437817934, 47.58949410579475)),
+            )
+        ]
+        sfgs = SpatialFeatureGroupStaticFactory(name=self.fake.name())
+        sfgs.features.add(*features)
+        return sfgs
+
+    @pytest.fixture()
+    def spatial_feature_group_mixed_geofence_types(self):
+        """Group with linestring, polygon, and point features — valid for geofence; points are ignored."""
+        features = [
+            SpatialFeatureFactory(
+                name=self.fake.name(),
+                feature_geometry=MultiLineString(LineString((-122.3286437817934, 47.58949410579475), (-122.4, 47.7))),
+            ),
+            SpatialFeatureFactory(
+                name=self.fake.name(),
+                feature_geometry=MultiPolygon(
+                    Polygon(((-122.3, 47.6), (-122.4, 47.6), (-122.4, 47.7), (-122.3, 47.7), (-122.3, 47.6)))
+                ),
+            ),
+            SpatialFeatureFactory(
+                name=self.fake.name(),
+                feature_geometry=MultiPoint(Point(-122.3286437817934, 47.58949410579475)),
+            ),
+        ]
+        sfgs = SpatialFeatureGroupStaticFactory(name=self.fake.name())
+        sfgs.features.add(*features)
+        return sfgs
+
+    @pytest.fixture()
     def spatial_feature_group_linestring_only(self):
         features = [
             SpatialFeatureFactory(
@@ -261,14 +303,14 @@ class TestSpatialFeatureGroup:
         groups = SpatialFeatureGroupStatic.objects.by_spatial_type(["MULTILINESTRING"])
         assert spatial_feature_group_mixed_geometry not in groups
 
-    def test_geofencesubjectanalyzerform_is_invalid_when_a_non_linestring_in_critical_geofence_group(
-        self, spatial_feature_group_mixed_geometry, spatial_feature_group_linestring_only, django_assert_num_queries
+    def test_geofencesubjectanalyzerform_is_invalid_when_unsupported_geometry_type_in_critical_geofence_group(
+        self, spatial_feature_group_point_only, spatial_feature_group_linestring_only, django_assert_num_queries
     ):
         with django_assert_num_queries(3):
             form = GeofenceSubjectAnalyzerForm(
                 {
-                    "critical_geofence_group": spatial_feature_group_mixed_geometry.pk,
-                    "warning_geofence_group": spatial_feature_group_mixed_geometry.pk,
+                    "critical_geofence_group": spatial_feature_group_point_only.pk,
+                    "warning_geofence_group": spatial_feature_group_point_only.pk,
                     "containment_regions": spatial_feature_group_linestring_only.pk,
                 }
             )
@@ -276,6 +318,18 @@ class TestSpatialFeatureGroup:
             assert set(["critical_geofence_group", "warning_geofence_group", "containment_regions"]).issubset(
                 form.errors.keys()
             )
+
+    def test_geofencesubjectanalyzerform_accepts_group_with_mixed_geofence_types(
+        self, spatial_feature_group_mixed_geofence_types
+    ):
+        form = GeofenceSubjectAnalyzerForm(
+            {
+                "critical_geofence_group": spatial_feature_group_mixed_geofence_types.pk,
+                "warning_geofence_group": spatial_feature_group_mixed_geofence_types.pk,
+            }
+        )
+        assert "critical_geofence_group" not in form.errors
+        assert "warning_geofence_group" not in form.errors
 
 
 @pytest.mark.django_db
