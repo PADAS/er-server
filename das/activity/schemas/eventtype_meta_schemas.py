@@ -104,9 +104,11 @@ choice_list_field_json_schema_any_of_schema = {
                     {"pattern": r"^/api/v2\.0/schemas/choices\.json\?field=[^&]+$"},
                     {"pattern": r"^/api/v2\.0/schemas/event_types\.json(\?category=[^&]+)?$"},
                     {"pattern": r"^/api/v2\.0/schemas/spatial_features\.json(\?feature_set=[^&]+)?$"},
-                    {"pattern": r"^/api/v2\.0/schemas/sources\.json$"},
                     {
-                        "pattern": r"^/api/v2\.0/schemas/subjects\.json(\?(additional__[^=&]+|common_name|common_name_search|group_name|subject_group|subject_subtypes)=[^&]+(&(additional__[^=&]+|common_name|common_name_search|group_name|subject_group|subject_subtypes)=[^&]+)*)?$"
+                        "pattern": r"^/api/v2\.0/schemas/sources\.json(\?(additional\.species|additional\.gender|manufacturer_id|provider_key|provider|source_type|id)=[^&]+(&(additional\.species|additional\.gender|manufacturer_id|provider_key|provider|source_type|id)=[^&]+)*)?$"
+                    },
+                    {
+                        "pattern": r"^/api/v2\.0/schemas/subjects\.json(\?(additional\.species|additional\.gender|additional\.sex|additional\.age|common_name|subject_subtypes|subject_group|subject_type|name|id)=[^&]+(&(additional\.species|additional\.gender|additional\.sex|additional\.age|common_name|subject_subtypes|subject_group|subject_type|name|id)=[^&]+)*)?$"
                     },
                     {"pattern": r"^/api/v2\.0/schemas/users\.json$"},
                 ],
