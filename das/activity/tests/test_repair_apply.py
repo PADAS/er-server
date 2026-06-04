@@ -1,20 +1,19 @@
-"""Tests for the V2 schema repair apply layer + the staged data migration."""
+"""Tests for the V2 schema repair apply layer.
+
+The migration smoke-test that exercised ``repair_v2_collection_schemas()``
+was moved out of this file together with the repair migration (it now lives
+on the develop branch). On this hotfix branch the ``0202`` migration is a
+no-op, so this file no longer imports it.
+"""
 
 from __future__ import annotations
 
-import importlib
 import json
 from dataclasses import dataclass
 from typing import Any
 from unittest.mock import MagicMock, patch
 from uuid import uuid4
 
-import pytest
-
-from django.apps import apps as django_apps
-from django.db import connection
-
-from activity.models import EventType
 from activity.schemas.migration import repair_apply
 from activity.schemas.migration.repair import RepairStrategy
 from activity.schemas.migration.repair_apply import (
@@ -30,14 +29,7 @@ from activity.schemas.migration.repair_apply import (
     attempt_repair,
 )
 from activity.schemas.ops.revision_history import EventTypeRevisionHistory
-from factories import EventTypeFactory
 from revision.manager import ACTION_ADDED, ACTION_UPDATED
-
-# Django migration modules start with a digit so they cannot be imported via
-# ``from ... import`` syntax. Use importlib to grab the function directly.
-_migration_module = importlib.import_module("activity.migrations.0202_repair_v2_collection_schemas")
-run_repair_migration = _migration_module.repair_v2_collection_schemas
-
 
 # ── Test stubs ────────────────────────────────────────────────────────────
 
@@ -329,98 +321,6 @@ class TestAttemptRepairReconstructFromJson:
         assert outcome.action == ERROR_REPAIR
         assert any("leftColumn" in e for e in outcome.errors)
         assert outcome.new_schema_text is None
-
-
-# ── Migration smoke test ──────────────────────────────────────────────────
-
-
-@pytest.mark.django_db
-@pytest.mark.usefixtures("tenant_settings", "das_tenant_monkeypatch")
-class TestMigrationSmoke:
-    """End-to-end test: invoke repair_v2_collection_schemas() and confirm
-    REBUILD_FROM_V1 EventTypes get their schema replaced by the (mocked)
-    transform output, while SKIP_USER_EDITED EventTypes are left alone.
-
-    Lifecycle note
-    --------------
-    These tests cover the one-shot data migration ``0200``. They exist to
-    guard against accidental regressions in the apply helper that could
-    break a re-run while the migration is still in flight to all
-    environments. Once the migration has been confirmed applied across
-    every production tenant (track via the structured-log dashboard
-    filtered by ``error_category=repair``), this class can be removed
-    along with the import of ``run_repair_migration`` at the top of the
-    file. Until then, the cost of keeping these tests is negligible and
-    the safety they provide is real.
-    """
-
-    def _migrate(self, value: str, post_migration_edit: bool = False) -> EventType:
-        et = EventTypeFactory.create(
-            value=value,
-            schema=_v1_text(value),
-            version=EventType.VersionChoices.VERSION_1,
-        )
-        et.schema = _v2_text(value)
-        et.version = EventType.VersionChoices.VERSION_2
-        et.save()
-        if post_migration_edit:
-            et.schema = _v2_text(f"{value}_edited")
-            et.save()
-        return et
-
-    def test_migration_applies_rebuild_from_v1_and_skips_user_edited(self):
-        rebuild_et = self._migrate("smoke_rebuild")
-        user_edited_et = self._migrate("smoke_user_edited", post_migration_edit=True)
-
-        new_v2 = {
-            "json": {"properties": {"smoke_rebuild": {"type": "string"}}},
-            "ui": {"fields": {"smoke_rebuild": {}}},
-        }
-        new_v2_text = json.dumps(new_v2, indent=2)
-
-        with (
-            patch.object(repair_apply, "transform_schema", return_value=new_v2),
-            patch.object(repair_apply, "preprocess_template_vars", side_effect=lambda x: x),
-            patch.object(repair_apply, "LogCollector", side_effect=lambda *_a, **_kw: _StubCollector()),
-            patch.object(repair_apply, "REPAIR_V2_AVAILABLE", False),
-        ):
-            with connection.schema_editor() as schema_editor:
-                run_repair_migration(django_apps, schema_editor)
-
-        rebuild_et.refresh_from_db()
-        user_edited_et.refresh_from_db()
-        assert rebuild_et.schema == new_v2_text
-        # SKIP_USER_EDITED EventType's user-edited schema must be
-        # preserved verbatim.
-        assert user_edited_et.schema == _v2_text("smoke_user_edited_edited")
-
-    def test_migration_continues_after_per_event_type_exception(self):
-        good_et = self._migrate("smoke_good")
-        bad_et = self._migrate("smoke_bad")
-
-        new_v2 = {"json": {}, "ui": {"fields": {}}}
-
-        def transform_side_effect(v1, _logger):
-            properties = (v1 or {}).get("schema", {}).get("properties", {})
-            if "smoke_bad" in properties:
-                raise RuntimeError("simulated transform crash")
-            return new_v2
-
-        with (
-            patch.object(repair_apply, "transform_schema", side_effect=transform_side_effect),
-            patch.object(repair_apply, "preprocess_template_vars", side_effect=lambda x: x),
-            patch.object(repair_apply, "LogCollector", side_effect=lambda *_a, **_kw: _StubCollector()),
-            patch.object(repair_apply, "REPAIR_V2_AVAILABLE", False),
-        ):
-            with connection.schema_editor() as schema_editor:
-                # Must not raise even though one EventType's transform crashes.
-                run_repair_migration(django_apps, schema_editor)
-
-        good_et.refresh_from_db()
-        bad_et.refresh_from_db()
-        assert good_et.schema == json.dumps(new_v2, indent=2)
-        # Bad EventType keeps its original V2 schema (transform error logged + skipped).
-        assert bad_et.schema == _v2_text("smoke_bad")
 
 
 # ── Test helpers ──────────────────────────────────────────────────────────
