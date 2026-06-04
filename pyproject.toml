@@ -61,7 +61,7 @@ dependencies = [
     "drf-extra-fields==3.7.0",
     "drf-spectacular==0.28.0",
     "drf-spectacular-sidecar==2025.6.1",
-    "event-type-schema-migration-tool>=0.1.5",
+    "event-type-schema-migration-tool==0.1.4.1",
     "eventlet==0.40.3",
     "fastkml[lxml]==1.3.0",
     "fonttools>=4.60.2",  # transitive via pillow 12.x; pinned here to prevent resolver from picking an incompatible version
