@@ -120,37 +120,11 @@ choice_list_field_json_schema_any_of_schema = {
     "minItems": 1,
 }
 
-resolved_choice_list_field_json_schema_any_of_schema = {
-    "type": "array",
-    "items": {
-        "type": "object",
-        "properties": {
-            "description": {"type": "string"},
-            "enum": {"type": "array", "items": {"type": "string"}},
-            "title": {"type": "string"},
-            "type": {"type": "string"},
-            "x-enumExtra": {
-                "type": "object",
-                "additionalProperties": {
-                    "type": "object",
-                },
-            },
-        },
-        "required": ["enum", "title", "type", "x-enumExtra"],
-    },
-    "minItems": 1,
-}
-
 single_choice_list_field_json_schema = {
     "type": "object",
     "title": "Single Choice List field JSON schema",
     "properties": {
-        "anyOf": {
-            "anyOf": [
-                choice_list_field_json_schema_any_of_schema,
-                resolved_choice_list_field_json_schema_any_of_schema,
-            ]
-        },
+        "anyOf": choice_list_field_json_schema_any_of_schema,
         "deprecated": {"type": "boolean"},
         "description": {"type": "string"},
         "title": {"type": "string", "maxLength": FIELD_TITLE_MAX_LENGTH},
@@ -169,12 +143,7 @@ multiple_choice_list_field_json_schema = {
         "items": {
             "type": "object",
             "properties": {
-                "anyOf": {
-                    "anyOf": [
-                        choice_list_field_json_schema_any_of_schema,
-                        resolved_choice_list_field_json_schema_any_of_schema,
-                    ]
-                },
+                "anyOf": choice_list_field_json_schema_any_of_schema,
                 "type": {"const": "string"},
             },
             "required": ["anyOf", "type"],

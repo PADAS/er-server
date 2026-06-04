@@ -42,8 +42,6 @@ class TestJsonSchemaFieldBasics:
             "valid_text_field_format_email_schema",
             "valid_text_field_pattern_schema",
             "valid_location_field_schema",
-            "valid_rendered_choice_field_schema",
-            "valid_rendered_multiple_choice_field_schema",
         ],
         indirect=True,
     )
