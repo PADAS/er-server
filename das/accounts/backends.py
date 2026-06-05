@@ -27,7 +27,7 @@ logger = logging.getLogger("django.request")
 AccessToken = get_access_token_model()
 
 
-def act_as_user_in_request(user, request):
+def _act_as_user_in_request(user, request):
     profile_header = request.META.get("HTTP_USER_PROFILE", None)
     if profile_header and user and not user.is_anonymous:
         logged_in_user = user
@@ -69,7 +69,7 @@ class NoLoginOAuth2Backend(OAuth2Backend):
         if not request:
             return user
 
-        return act_as_user_in_request(user, request)
+        return _act_as_user_in_request(user, request)
 
 
 class NoLoginOAuth2Authentication(OAuth2Authentication):
@@ -97,7 +97,7 @@ class NoLoginOAuth2Authentication(OAuth2Authentication):
             logger.info("User %s tried to login with NoLogin set.", user.pk)
             raise exceptions.PermissionDenied()
 
-        user = act_as_user_in_request(user, request)
+        user = _act_as_user_in_request(user, request)
         return user, result[1]
 
 
