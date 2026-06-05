@@ -1850,7 +1850,7 @@ class SourceAdmin(BaseModelAdminMixin, ObservationsContextMixin):
                 source__id=object_id, source__subjectsource__assigned_range__contains=F("recorded_at")
             )
             .order_by("-recorded_at")
-            .values("source__manufacturer_id", "recorded_at", "location", "additional")
+            .values("id", "source__manufacturer_id", "recorded_at", "location", "additional")
         )
         extra_context = self.get_observations_context(extra_context, latest_observations, object_id)
         return super().change_view(
