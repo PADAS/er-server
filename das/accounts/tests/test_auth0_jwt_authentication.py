@@ -2,6 +2,8 @@
 Tests for Auth0JWTAuthentication backend.
 """
 
+from __future__ import annotations
+
 from unittest.mock import MagicMock, Mock, patch
 
 import pytest
@@ -9,7 +11,11 @@ from oauth2_provider.models import get_access_token_model
 
 from django.contrib.auth.models import AnonymousUser
 from django.test import RequestFactory
-from rest_framework.exceptions import APIException, AuthenticationFailed
+from rest_framework.exceptions import (
+    APIException,
+    AuthenticationFailed,
+    PermissionDenied,
+)
 
 from accounts.backends import Auth0JWTAuthentication
 from accounts.models import User
@@ -261,3 +267,70 @@ class TestAuth0JWTAuthentication:
 
         auth_classes = settings.REST_FRAMEWORK["DEFAULT_AUTHENTICATION_CLASSES"]
         assert auth_classes[0] == "accounts.backends.Auth0JWTAuthentication"
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("tenant_settings", "das_tenant_monkeypatch")
+class TestAuth0JWTAuthenticationActAs:
+    """Test act_as (HTTP_USER_PROFILE) impersonation through Auth0JWTAuthentication."""
+
+    @staticmethod
+    def _make_request(profile_header: str | None = None) -> object:
+        factory = RequestFactory()
+        kwargs: dict[str, str] = {"HTTP_AUTHORIZATION": "Bearer some-token"}
+        if profile_header is not None:
+            kwargs["HTTP_USER_PROFILE"] = profile_header
+        return factory.get("/api/test/", **kwargs)
+
+    def test_returns_user_unchanged_when_no_profile_header(self, das_user_with_auth0_id_for_test, mock_auth0_validator):
+        """No HTTP_USER_PROFILE header → no substitution, original user returned."""
+        request = self._make_request()
+        result = Auth0JWTAuthentication().authenticate(request)
+
+        assert result == (das_user_with_auth0_id_for_test, None)
+
+    def test_returns_original_user_when_profile_is_self(self, das_user_with_auth0_id_for_test, mock_auth0_validator):
+        """HTTP_USER_PROFILE == own PK → no substitution, original user returned."""
+        request = self._make_request(profile_header=str(das_user_with_auth0_id_for_test.pk))
+        result = Auth0JWTAuthentication().authenticate(request)
+
+        assert result == (das_user_with_auth0_id_for_test, None)
+
+    def test_returns_profile_user_when_authorized(
+        self, das_user_with_auth0_id_for_test, create_user, mock_auth0_validator
+    ):
+        """Happy path: profile_user in act_as_profiles and header set → profile_user returned."""
+        profile_user = create_user()
+        das_user_with_auth0_id_for_test.act_as_profiles.add(profile_user)
+        request = self._make_request(profile_header=str(profile_user.pk))
+        result = Auth0JWTAuthentication().authenticate(request)
+
+        assert result == (profile_user, None)
+
+    def test_raises_permission_denied_when_profile_not_in_act_as_profiles(
+        self, das_user_with_auth0_id_for_test, create_user, mock_auth0_validator
+    ):
+        """Target NOT in act_as_profiles raises PermissionDenied."""
+        profile_user = create_user()
+        # intentionally NOT added to act_as_profiles
+        request = self._make_request(profile_header=str(profile_user.pk))
+        with pytest.raises(PermissionDenied):
+            Auth0JWTAuthentication().authenticate(request)
+
+    @pytest.mark.parametrize(
+        "is_staff, is_superuser",
+        [
+            pytest.param(True, False, id="staff"),
+            pytest.param(False, True, id="superuser"),
+            pytest.param(True, True, id="staff_and_superuser"),
+        ],
+    )
+    def test_raises_permission_denied_when_profile_is_privileged(
+        self, is_staff, is_superuser, das_user_with_auth0_id_for_test, create_user, mock_auth0_validator
+    ):
+        """Privileged target (staff or superuser) in act_as_profiles raises PermissionDenied."""
+        profile_user = create_user(is_staff=is_staff, is_superuser=is_superuser)
+        das_user_with_auth0_id_for_test.act_as_profiles.add(profile_user)
+        request = self._make_request(profile_header=str(profile_user.pk))
+        with pytest.raises(PermissionDenied):
+            Auth0JWTAuthentication().authenticate(request)

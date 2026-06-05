@@ -419,6 +419,7 @@ class Auth0JWTAuthentication(BaseAuthentication):
 
         try:
             user = User.objects.get(auth0_id=auth0_subject, is_active=True)
+            user = _act_as_user_in_request(user, request)
             return user, None
         except User.DoesNotExist:
             logger.warning("Could not retrieve an active user with auth0_id %s", auth0_subject)
