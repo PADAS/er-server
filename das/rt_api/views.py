@@ -8,6 +8,7 @@ from django.conf import settings
 from django.db import close_old_connections
 from django.shortcuts import render
 from django.views.generic import View
+from rest_framework.exceptions import AuthenticationFailed
 
 import rt_api.pubsub_listener
 import utils.json
@@ -240,6 +241,9 @@ def create_realtime_handler(sios):
                         # Accessing .user triggers DRF's authentication workflow
                         user = drf_request.user if drf_request.user.is_authenticated else None
                         logger.debug("Request successfull auth class: %s", drf_request.successful_authenticator)
+                    except AuthenticationFailed as exc:
+                        logger.info("Socket auth rejected for sid=%s: %s", sid, exc)
+                        user = None
                     except Exception:
                         logger.exception("Error accessing user from DRF request")
                         user = None
