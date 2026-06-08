@@ -186,14 +186,20 @@ SUBJECTS_LIST_PARAMS = [
     OpenApiParameter(
         name="additional.sex",
         location=OpenApiParameter.QUERY,
-        description="Filter subjects by sex stored in the additional JSONB column (exact match). Example: female.",
+        description=(
+            "Documented example of an additional.<key> filter. "
+            "Filters subjects by sex stored in the additional JSONB column (exact match). Example: female."
+        ),
         type=OpenApiTypes.STR,
         required=False,
     ),
     OpenApiParameter(
         name="additional.species",
         location=OpenApiParameter.QUERY,
-        description="Filter subjects by species stored in the additional JSONB column (exact match). Example: lion.",
+        description=(
+            "Documented example of an additional.<key> filter. "
+            "Filters subjects by species stored in the additional JSONB column (exact match). Example: lion."
+        ),
         type=OpenApiTypes.STR,
         required=False,
     ),
@@ -201,7 +207,8 @@ SUBJECTS_LIST_PARAMS = [
         name="additional.age",
         location=OpenApiParameter.QUERY,
         description=(
-            "Filter subjects by age stored in the additional JSONB column (exact match, string comparison). "
+            "Documented example of an additional.<key> filter. "
+            "Filters subjects by age stored in the additional JSONB column (exact match, string comparison). "
             'A numeric JSONB value such as {"age": 5} is matched by ?additional.age=5.'
         ),
         type=OpenApiTypes.STR,
@@ -210,7 +217,10 @@ SUBJECTS_LIST_PARAMS = [
     OpenApiParameter(
         name="additional.gender",
         location=OpenApiParameter.QUERY,
-        description="Filter subjects by gender stored in the additional JSONB column (exact match). Example: male.",
+        description=(
+            "Documented example of an additional.<key> filter. "
+            "Filters subjects by gender stored in the additional JSONB column (exact match). Example: male."
+        ),
         type=OpenApiTypes.STR,
         required=False,
     ),
@@ -221,7 +231,13 @@ SUBJECTS_LIST_PARAMS = [
     get=extend_schema(
         parameters=SUBJECTS_LIST_PARAMS,
         summary="List subjects",
-        description="List subjects with optional filters for time, bbox, group, name, etc.",
+        description=(
+            "List subjects with optional filters for time, bbox, group, name, common_name (exact), "
+            "subject_type (exact), subject_subtypes, and subject_group. "
+            "Any additional.<key> query parameter is also accepted and matched via exact text extraction "
+            "against the additional JSONB column; sex, species, age, and gender are documented common keys "
+            "but any key present in the additional field can be used."
+        ),
     )
 )
 class SubjectsView(ListCreateAPIView, TwoWaySubjectSourceMixin, DynamicSchemaDataMixin):
@@ -450,12 +466,15 @@ class SubjectsView(ListCreateAPIView, TwoWaySubjectSourceMixin, DynamicSchemaDat
     def filter_on_subject_filterset(self, queryset: QuerySet, query_params) -> QuerySet:
         """Apply ``SubjectFilterSet`` to *queryset* in phase 1.
 
-        Handles ``common_name``, ``subject_type``, and the ``additional.*``
-        JSONB params (``sex``, ``species``, ``age``, ``gender``).  The
-        FilterSet is instantiated with the raw query-param dict so that
-        ``JSONFieldFilterSetMixin.filter_queryset`` can read dotted keys such
-        as ``additional.species`` that are not expressible as Python class
-        attributes.
+        Handles ``common_name``, ``subject_type``, and ``additional.<key>``
+        JSONB filtering.  Because ``SubjectFilterSet`` is ``open=True``, any
+        ``additional.<key>`` query parameter is accepted and matched via exact
+        text extraction against the ``additional`` JSONB column;
+        ``sex``, ``species``, ``age``, and ``gender`` are documented common
+        keys but not an exhaustive list.  The FilterSet is instantiated with
+        the raw query-param dict so that ``JSONFieldFilterSetMixin.filter_queryset``
+        can read dotted keys such as ``additional.species`` that are not
+        expressible as Python class attributes.
         """
         return SubjectFilterSet(query_params, queryset=queryset, request=self.request).qs
 
