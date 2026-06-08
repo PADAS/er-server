@@ -485,13 +485,13 @@ class SubjectFilterSet(JSONFieldFilterSetMixin, filters.FilterSet):
     * ``subject_type`` — traverses ``subject_subtype__subject_type__value``
       (e.g. ``vehicle``) to match the read-only ``subject_type`` field in
       the serializer response.
-    * ``additional.sex``, ``additional.species``, ``additional.age``,
-      ``additional.gender`` — exact JSONB key lookups via
-      ``JSONFieldFilterSetMixin``.  All four are declared as ``"type":
-      "string"`` so ``KeyTextTransform`` is used and a JSON numeric value
-      such as ``{"age": 5}`` will be matched by ``?additional.age=5``
-      (the cast casts the query-param string; the JSONB value is extracted
-      as text, so the comparison succeeds).
+    * ``additional.<key>`` — exact JSONB key lookups via
+      ``JSONFieldFilterSetMixin``.  Exact match is text-extraction
+      (type-agnostic): a JSON numeric value such as ``{"age": 5}`` is matched
+      by ``?additional.age=5``.  ``open=True`` means ANY ``additional.<key>``
+      is filterable, not just the declared ``properties``.  ``properties``
+      documents well-known keys (sex, species, age, gender) and is forward
+      metadata for the future typed-operator grammar.
 
     This FilterSet is applied in phase 1 of ``SubjectsView.get_queryset``
     (before the ``distinct("id").order_by("id")`` + phase-2 ``union``),
@@ -511,13 +511,13 @@ class SubjectFilterSet(JSONFieldFilterSetMixin, filters.FilterSet):
         label="Filter by parent subject type value (exact). Example: vehicle",
     )
 
-    # Exposes ``additional`` JSONB properties.  All four are declared as
-    # ``"type": "string"`` so ``KeyTextTransform`` extracts them as text —
-    # a JSONB numeric value (e.g. ``{"age": 5}``) is matched by the string
-    # ``"5"`` via text extraction.
+    # Exposes ``additional`` JSONB properties.
+    # open=True: any ?additional.<key> is applied via text-extraction exact match.
+    # properties: documents known keys; forward metadata for the future typed-operator PR.
     json_field_filters: dict[str, dict] = {
         "additional": {
             "field": "additional",
+            "open": True,
             "properties": {
                 "sex": {"type": "string"},
                 "species": {"type": "string"},

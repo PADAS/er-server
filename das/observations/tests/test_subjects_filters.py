@@ -10,7 +10,9 @@ Covers:
 - Combined filters AND together.
 - Real JSONB numeric value (``{"age": 5}``) matched by ``?additional.age=5``.
 - Repeated param → last-wins (QueryDict / raw URL string behaviour).
-- Unknown ``additional.*`` param silently ignored (no 400, returns unfiltered set).
+- Arbitrary (undeclared) ``additional.<key>`` filtering now that ``open=True``.
+- Nonexistent/typo'd key in open mode yields zero matches (NULL-miss), not
+  a silent ignore — a typo'd key just doesn't exist in any row's JSON.
 - No filter params → behaviour unchanged.
 - Permission scoping: a non-superuser with limited subject-group permissions
   filtering by ``common_name`` must NOT see subjects outside their permitted
@@ -346,15 +348,47 @@ class TestSubjectsViewAdditionalJsonFieldFilters:
         assert str(self.female_cheetah.id) in ids
         assert str(self.no_additional.id) in ids
 
-    def test_unknown_additional_param_is_silently_ignored(self):
-        """An undeclared ``additional.*`` param must NOT raise 400; it is silently ignored."""
-        response = self.client.get(self.url, {"additional.unknown_field": "value"})
+    def test_nonexistent_additional_key_yields_zero_matches(self):
+        """A typo'd / nonexistent additional key produces zero matches (NULL-miss).
+
+        ``SubjectFilterSet`` is ``open=True``, so any ``additional.<key>`` param
+        is applied via text-extraction exact match.  When the key does not exist
+        in any row's JSON, text extraction returns NULL, which never matches the
+        non-NULL query string.  The result is an empty queryset — NOT the full
+        unfiltered set.
+        """
+        response = self.client.get(self.url, {"additional.definitely_not_a_real_key_xyz": "value"})
         assert response.status_code == 200
         ids = _get_ids(response)
-        # No filtering applied → all fixture subjects still present.
-        assert str(self.female_lion.id) in ids
-        assert str(self.male_lion.id) in ids
-        assert str(self.no_additional.id) in ids
+        # Every fixture row lacks this key → text extraction is NULL → no match.
+        assert str(self.female_lion.id) not in ids
+        assert str(self.male_lion.id) not in ids
+        assert str(self.no_additional.id) not in ids
+
+    def test_arbitrary_undeclared_key_filters_open_mode(self):
+        """SubjectFilterSet is open=True, so any additional.<key> is applied end-to-end."""
+        subtype = self.female_lion.subject_subtype
+        das_tenant = self.female_lion.das_tenant
+
+        savanna_subject = SubjectFactory(
+            das_tenant=das_tenant,
+            subject_subtype=subtype,
+            additional={"habitat": "savanna"},
+        )
+        forest_subject = SubjectFactory(
+            das_tenant=das_tenant,
+            subject_subtype=subtype,
+            additional={"habitat": "forest"},
+        )
+
+        response = self.client.get(self.url, {"additional.habitat": "savanna"})
+        assert response.status_code == 200
+        ids = _get_ids(response)
+        assert str(savanna_subject.id) in ids
+        assert str(forest_subject.id) not in ids
+        # Existing fixtures have no 'habitat' key → NULL-miss → excluded.
+        assert str(self.female_lion.id) not in ids
+        assert str(self.no_additional.id) not in ids
 
     def test_last_wins_on_repeated_additional_species(self):
         """When ``additional.species`` is repeated, the last value wins.
