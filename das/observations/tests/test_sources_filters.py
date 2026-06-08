@@ -4,13 +4,12 @@ DB-backed integration tests for SourcesView filtering via ``SourceFilterSet``.
 Covers:
 - Comma-list IN filters: ``manufacturer_id``, ``provider_key``, ``provider``
   (alias), ``id``, ``source_type``.
-- JSON exact filters: ``additional.species``, ``additional.gender``.
+- JSON exact filters: ``additional.species``, ``additional.gender`` (declared keys).
+- Arbitrary (undeclared) ``additional.<key>`` filtering now that ``open=True``.
 - Combined JSON bridge + plain column filter in the same request.
 - Last-wins behaviour on a repeated ``additional.species`` param.
-- Injection attempt ``?additional.species.icontains=lion`` is silently ignored.
-- Unknown ``additional.*`` param is silently ignored (no 400).
-- Invalid cast (non-integer value for a future integer field) raises 400 via
-  a hand-crafted FilterSet variant — tests the mixin's cast path.
+- Nonexistent/typo'd key in open mode yields zero matches (NULL-miss), not
+  a silent ignore — a typo'd key just doesn't exist in any row's JSON.
 """
 
 from __future__ import annotations
@@ -32,7 +31,7 @@ def _get_ids(response) -> set[str]:
 
 
 # ---------------------------------------------------------------------------
-# JSON filters (additional.species, additional.gender)
+# JSON filters (additional.species, additional.gender, and open-mode arbitrary keys)
 # ---------------------------------------------------------------------------
 
 
@@ -105,24 +104,34 @@ class TestSourcesViewJsonFieldFilter:
         assert str(self.cheetah.id) in ids
         assert str(self.no_additional.id) in ids
 
-    def test_unknown_data_property_is_silently_ignored(self):
-        """An unregistered bridge property must NOT raise 400 — it is silently ignored."""
-        response = self.client.get(self.url, {"additional.unknown_field": "value"})
-        assert response.status_code == 200
-        # No filtering applied → all sources returned (at least the ones from this fixture).
-        ids = _get_ids(response)
-        assert str(self.lion_male.id) in ids
-        assert str(self.cheetah.id) in ids
+    def test_arbitrary_undeclared_key_filters_open_mode(self):
+        """SourceFilterSet is open=True, so any additional.<key> is applied end-to-end."""
+        from factories import SourceFactory as SF
 
-    def test_injection_attempt_data_species_icontains_is_ignored(self):
-        """?additional.species.icontains=lion must be silently ignored (unknown property path)."""
-        response = self.client.get(self.url, {"additional.species.icontains": "lion"})
+        provider = self.lion_male.provider
+        das_tenant = self.lion_male.das_tenant
+
+        tagged = SF(das_tenant=das_tenant, provider=provider, additional={"habitat": "savanna"})
+        untagged = SF(das_tenant=das_tenant, provider=provider, additional={"habitat": "forest"})
+
+        response = self.client.get(self.url, {"additional.habitat": "savanna"})
         assert response.status_code == 200
-        # No filtering → all fixture sources are returned.
         ids = _get_ids(response)
-        assert str(self.lion_male.id) in ids
-        assert str(self.cheetah.id) in ids
-        assert str(self.no_additional.id) in ids
+        assert str(tagged.id) in ids
+        assert str(untagged.id) not in ids
+        # Existing fixtures have no 'habitat' key → NULL-miss → excluded.
+        assert str(self.lion_male.id) not in ids
+        assert str(self.no_additional.id) not in ids
+
+    def test_nonexistent_key_in_open_mode_yields_zero_matches(self):
+        """A typo'd / nonexistent additional key produces zero matches (NULL-miss)."""
+        response = self.client.get(self.url, {"additional.definitely_not_a_real_key_xyz": "value"})
+        assert response.status_code == 200
+        ids = _get_ids(response)
+        # Every fixture row lacks this key → text extraction is NULL → no match.
+        assert str(self.lion_male.id) not in ids
+        assert str(self.cheetah.id) not in ids
+        assert str(self.no_additional.id) not in ids
 
     def test_last_wins_on_repeated_data_species(self):
         """When additional.species is repeated, the last value wins (QueryDict.get behaviour).
@@ -131,15 +140,27 @@ class TestSourcesViewJsonFieldFilter:
         multi-value param.  DRF's QueryDict returns ``"cheetah"`` for ``.get()``,
         so only cheetah sources are returned.
         """
-        # Use a raw URL string to test multi-value params.
         url = self.url + "?additional.species=lion&additional.species=cheetah"
         response = self.client.get(url)
         assert response.status_code == 200
         ids = _get_ids(response)
-        # Only cheetah wins.
         assert str(self.cheetah.id) in ids
         assert str(self.lion_male.id) not in ids
         assert str(self.lion_female.id) not in ids
+
+    def test_injection_attempt_nested_path_yields_zero_matches(self):
+        """?additional.species.icontains=lion is treated as nested key 'species'->'icontains'.
+
+        In open mode this is applied as a real (but nested) path query.  Since no row
+        has a JSON object at 'species' with an 'icontains' sub-key, text extraction
+        returns NULL and zero rows match.  It is not a silent ignore — it is a NULL-miss.
+        """
+        response = self.client.get(self.url, {"additional.species.icontains": "lion"})
+        assert response.status_code == 200
+        ids = _get_ids(response)
+        # No row has additional -> species -> icontains -> 'lion', so all are excluded.
+        assert str(self.lion_male.id) not in ids
+        assert str(self.cheetah.id) not in ids
 
 
 # ---------------------------------------------------------------------------

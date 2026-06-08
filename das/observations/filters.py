@@ -453,9 +453,12 @@ class SourceFilterSet(JSONFieldFilterSetMixin, filters.FilterSet):
     )
 
     # Exposes ``additional`` JSONB properties.
+    # open=True: any ?additional.<key> is applied via text-extraction exact match.
+    # properties: documents known keys; forward metadata for the future typed-operator PR.
     json_field_filters: dict[str, dict] = {
         "additional": {
             "field": "additional",
+            "open": True,
             "properties": {
                 "species": {"type": "string"},
                 "gender": {"type": "string"},

@@ -1,9 +1,26 @@
 import pytest
 
 from utils.db.postgresql import (
+    partman_list_partition_boundaries_query,
     partman_partition_data_proc_query,
     partman_partition_maintenance_proc_query,
 )
+
+
+def test_partman_list_partition_boundaries_query_builds_lateral_join():
+    """Returns each child partition's start time via show_partitions + show_partition_info."""
+    assert partman_list_partition_boundaries_query(schema="public", table_name="observations_observationsegment") == (
+        "SELECT info.child_start_time "
+        "FROM partman.show_partitions('public.observations_observationsegment') AS p "
+        "CROSS JOIN LATERAL partman.show_partition_info("
+        "p.partition_schemaname || '.' || p.partition_tablename) AS info;"
+    )
+
+
+def test_partman_list_partition_boundaries_query_rejects_invalid_table_name():
+    """Identifier validation is preserved, matching the sibling partman_* builders."""
+    with pytest.raises(ValueError):
+        partman_list_partition_boundaries_query(schema="public", table_name="bad; DROP TABLE x")
 
 
 def test_partman_partition_maintenance_proc_query_defaults():

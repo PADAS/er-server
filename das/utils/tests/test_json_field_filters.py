@@ -12,13 +12,9 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from rest_framework.exceptions import ValidationError
+from django.core.exceptions import ImproperlyConfigured
 
-from utils.json_field_filters import (
-    JSONFieldFilterSetMixin,
-    _build_key_transform,
-    _cast_value,
-)
+from utils.json_field_filters import JSONFieldFilterSetMixin, _build_key_transform
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -54,6 +50,9 @@ def _make_mixin_instance(json_filters: dict, data: object) -> JSONFieldFilterSet
     from ``self.__class__`` (via ``getattr(self.__class__, ...)``) and ``data``
     from ``self.data``.  Setting both here exercises the real code path without
     any patching of the method under test.
+
+    Note: ``type(...)`` triggers ``__init_subclass__``, so ``json_filters`` must be
+    structurally valid (or the call itself raises ``ImproperlyConfigured``).
     """
     stub_cls = type(
         "_StubFilterSet",
@@ -65,68 +64,12 @@ def _make_mixin_instance(json_filters: dict, data: object) -> JSONFieldFilterSet
     return instance
 
 
-# ---------------------------------------------------------------------------
-# _cast_value
-# ---------------------------------------------------------------------------
-
-
-class TestCastValue:
-    def test_string_returns_unchanged(self):
-        assert _cast_value("lion", "string", "data.species") == "lion"
-
-    def test_empty_string_is_valid(self):
-        assert _cast_value("", "string", "data.species") == ""
-
-    def test_integer_cast(self):
-        assert _cast_value("42", "integer", "data.count") == 42
-
-    def test_integer_is_not_float(self):
-        result = _cast_value("10", "integer", "data.count")
-        assert result == 10
-        assert isinstance(result, int)
-
-    def test_integer_invalid_raises_400(self):
-        with pytest.raises(ValidationError) as exc_info:
-            _cast_value("abc", "integer", "data.count")
-        assert "data.count" in exc_info.value.detail
-
-    def test_number_cast_to_float(self):
-        result = _cast_value("3.14", "number", "data.weight")
-        assert abs(result - 3.14) < 1e-9
-        assert isinstance(result, float)
-
-    def test_number_integer_string_accepted(self):
-        assert _cast_value("5", "number", "data.weight") == 5.0
-
-    def test_number_invalid_raises_400(self):
-        with pytest.raises(ValidationError) as exc_info:
-            _cast_value("not-a-float", "number", "data.weight")
-        assert "data.weight" in exc_info.value.detail
-
-    def test_boolean_true_variants(self):
-        for raw in ("true", "True", "TRUE", "tRuE"):
-            assert _cast_value(raw, "boolean", "data.active") is True
-
-    def test_boolean_false_variants(self):
-        for raw in ("false", "False", "FALSE"):
-            assert _cast_value(raw, "boolean", "data.active") is False
-
-    def test_boolean_extra_truthy_variants(self):
-        for raw in ("1", "yes", "ok", "okay"):
-            assert _cast_value(raw, "boolean", "data.active") is True
-
-    def test_boolean_extra_falsey_variants(self):
-        for raw in ("0", "no", "n"):
-            assert _cast_value(raw, "boolean", "data.active") is False
-
-    def test_boolean_invalid_raises_400(self):
-        with pytest.raises(ValidationError) as exc_info:
-            _cast_value("banana", "boolean", "data.active")
-        assert "data.active" in exc_info.value.detail
-
-    def test_unsupported_type_raises_400(self):
-        with pytest.raises(ValidationError):
-            _cast_value("x", "array", "data.tags")
+def _filter_values(qs: MagicMock) -> list:
+    """Return a flat list of all filter-kwarg *values* passed across all .filter() calls."""
+    result = []
+    for c in qs.filter.call_args_list:
+        result.extend(c[1].values())
+    return result
 
 
 # ---------------------------------------------------------------------------
@@ -135,38 +78,47 @@ class TestCastValue:
 
 
 class TestBuildKeyTransform:
-    def test_single_segment_string_uses_key_text_transform(self):
+    def test_single_segment_uses_key_text_transform(self):
         from django.db.models.fields.json import KeyTextTransform
 
-        result = _build_key_transform("additional", "species", "string")
+        result = _build_key_transform("additional", "species")
         assert isinstance(result, KeyTextTransform)
 
-    def test_single_segment_integer_uses_key_transform(self):
-        from django.db.models.fields.json import KeyTransform
-
-        result = _build_key_transform("additional", "count", "integer")
-        assert isinstance(result, KeyTransform)
-        assert not type(result).__name__ == "KeyTextTransform"
-
-    def test_nested_path_builds_chain(self):
+    def test_single_segment_always_text_regardless_of_name(self):
+        """Even a key named 'count' or 'active' uses KeyTextTransform (type-agnostic)."""
         from django.db.models.fields.json import KeyTextTransform
 
-        result = _build_key_transform("additional", "horn.length", "string")
-        # Outermost should be KeyTextTransform (string leaf)
+        assert isinstance(_build_key_transform("additional", "count"), KeyTextTransform)
+        assert isinstance(_build_key_transform("additional", "active"), KeyTextTransform)
+
+    def test_nested_path_leaf_is_key_text_transform(self):
+        from django.db.models.fields.json import KeyTextTransform
+
+        result = _build_key_transform("additional", "horn.length")
         assert isinstance(result, KeyTextTransform)
 
-    def test_nested_path_non_string_builds_key_transform_chain(self):
-        from django.db.models.fields.json import KeyTransform
+    def test_nested_path_intermediate_uses_key_transform(self):
+        """Intermediate segments use plain KeyTransform to navigate JSONB sub-objects."""
+        from django.db.models.fields.json import KeyTextTransform, KeyTransform
 
-        result = _build_key_transform("additional", "horn.length", "integer")
-        assert isinstance(result, KeyTransform)
+        result = _build_key_transform("additional", "horn.length")
+        # Leaf is KeyTextTransform; its source should be a KeyTransform (the 'horn' node).
+        assert isinstance(result, KeyTextTransform)
+        # The source is the intermediate KeyTransform wrapping the column.
+        assert isinstance(result.lhs, KeyTransform)
+
+    def test_deeply_nested_path_leaf_is_key_text_transform(self):
+        from django.db.models.fields.json import KeyTextTransform
+
+        result = _build_key_transform("col", "a.b.c")
+        assert isinstance(result, KeyTextTransform)
 
 
 # ---------------------------------------------------------------------------
-# JSONFieldFilterSetMixin.filter_queryset (unit, no DB)
+# JSONFieldFilterSetMixin.filter_queryset — closed mode (open=False, default)
 # ---------------------------------------------------------------------------
 
-JSON_FILTERS = {
+JSON_FILTERS_CLOSED = {
     "data": {
         "field": "additional",
         "properties": {
@@ -178,19 +130,13 @@ JSON_FILTERS = {
 }
 
 
-class TestJSONFieldFilterSetMixinFilterQueryset:
-    """Tests for the mixin's filter_queryset override (no real DB needed)."""
+class TestJSONFieldFilterSetMixinClosedMode:
+    """Tests for filter_queryset when open=False (the default)."""
 
     def _run(self, data: object, qs: MagicMock | None = None) -> MagicMock:
-        """Run the REAL filter_queryset on the mixin with *data* and return the queryset.
-
-        Uses ``_StubFilterSet`` (mixin + ``_NoopParent``) so the real JSON-field
-        filter logic executes while ``super().filter_queryset`` is a no-op.  No
-        patching of the method under test.
-        """
         if qs is None:
             qs = _make_qs()
-        instance = _make_mixin_instance(JSON_FILTERS, data)
+        instance = _make_mixin_instance(JSON_FILTERS_CLOSED, data)
         return instance.filter_queryset(qs)
 
     def test_no_json_filter_params_returns_queryset_unchanged(self):
@@ -203,32 +149,32 @@ class TestJSONFieldFilterSetMixinFilterQueryset:
         self._run(data={"data.species": "lion"}, qs=qs)
         qs.annotate.assert_called_once()
         qs.filter.assert_called_once()
-        filter_kwargs = qs.filter.call_args[1]
-        assert "_jsonfilter_data_species__exact" in filter_kwargs
-        assert filter_kwargs["_jsonfilter_data_species__exact"] == "lion"
+        # Value is compared as raw text (no cast).
+        assert "lion" in _filter_values(qs)
 
-    def test_integer_param_is_cast_before_filter(self):
+    def test_known_integer_key_is_compared_as_text(self):
+        """Closed mode: declared key 'count' is extracted and compared as text (no int cast)."""
         qs = _make_qs()
         self._run(data={"data.count": "7"}, qs=qs)
-        filter_kwargs = qs.filter.call_args[1]
-        assert filter_kwargs["_jsonfilter_data_count__exact"] == 7
-        assert isinstance(filter_kwargs["_jsonfilter_data_count__exact"], int)
+        qs.annotate.assert_called_once()
+        # Value is passed as-is (string), not cast to int.
+        assert "7" in _filter_values(qs)
 
-    def test_boolean_param_is_cast_before_filter(self):
+    def test_known_boolean_key_is_compared_as_text(self):
+        """Closed mode: declared key 'active' is extracted and compared as text (no bool cast)."""
         qs = _make_qs()
         self._run(data={"data.active": "true"}, qs=qs)
-        filter_kwargs = qs.filter.call_args[1]
-        assert filter_kwargs["_jsonfilter_data_active__exact"] is True
+        assert "true" in _filter_values(qs)
 
-    def test_unknown_data_param_is_silently_ignored(self):
-        """A param like data.unknown is not in declared properties — ignored, no 400."""
+    def test_undeclared_param_is_silently_ignored(self):
+        """A param like data.unknown is not in declared properties — ignored, no filter."""
         qs = _make_qs()
         self._run(data={"data.unknown": "x"}, qs=qs)
         qs.annotate.assert_not_called()
         qs.filter.assert_not_called()
 
     def test_injection_attempt_data_species_icontains_is_ignored(self):
-        """?data.species.icontains=lion must not produce a filter (key not declared)."""
+        """?data.species.icontains=lion is not a declared key — silently ignored."""
         qs = _make_qs()
         self._run(data={"data.species.icontains": "lion"}, qs=qs)
         qs.annotate.assert_not_called()
@@ -241,8 +187,8 @@ class TestJSONFieldFilterSetMixinFilterQueryset:
         qs = _make_qs()
         data = QueryDict("data.species=lion&data.species=cheetah")
         self._run(data=data, qs=qs)
-        filter_kwargs = qs.filter.call_args[1]
-        assert filter_kwargs["_jsonfilter_data_species__exact"] == "cheetah"
+        assert "cheetah" in _filter_values(qs)
+        assert "lion" not in _filter_values(qs)
 
     def test_two_params_applied_independently(self):
         """Both data.species and data.count are applied as separate annotate/filter pairs."""
@@ -250,11 +196,6 @@ class TestJSONFieldFilterSetMixinFilterQueryset:
         self._run(data={"data.species": "lion", "data.count": "3"}, qs=qs)
         assert qs.annotate.call_count == 2
         assert qs.filter.call_count == 2
-
-    def test_invalid_cast_raises_validation_error(self):
-        qs = _make_qs()
-        with pytest.raises(ValidationError):
-            self._run(data={"data.count": "not-an-int"}, qs=qs)
 
     def test_empty_config_returns_queryset_after_super(self):
         """A FilterSet with empty json_field_filters still works (no-op pass)."""
@@ -275,19 +216,194 @@ class TestJSONFieldFilterSetMixinFilterQueryset:
         instance.filter_queryset(qs)
         # Two entries → two annotate/filter pairs
         assert qs.annotate.call_count == 2
-        all_filter_kwargs = [c[1] for c in qs.filter.call_args_list]
-        keys_used = {k for kwargs in all_filter_kwargs for k in kwargs}
-        assert "_jsonfilter_data_species__exact" in keys_used
-        assert "_jsonfilter_meta_tag__exact" in keys_used
+        values = _filter_values(qs)
+        assert "lion" in values
+        assert "tracked" in values
 
-    def test_nested_property_alias_in_annotation(self):
-        """A declared property path ``horn.length`` → annotation alias ``_jsonfilter_data_horn_length``."""
+    def test_nested_property_path_applies_filter(self):
+        """A declared property path 'horn.length' is applied correctly."""
         json_filters = {
             "data": {"field": "additional", "properties": {"horn.length": {"type": "number"}}},
         }
         qs = _make_qs()
         instance = _make_mixin_instance(json_filters, {"data.horn.length": "30"})
         instance.filter_queryset(qs)
+        # Value is passed as raw text (no float cast).
+        assert "30" in _filter_values(qs)
+
+    def test_alias_is_counter_based_not_derived_from_input(self):
+        """Aliases are counter-based (_jsonfilter_N), not derived from user input."""
+        qs = _make_qs()
+        self._run(data={"data.species": "lion"}, qs=qs)
         filter_kwargs = qs.filter.call_args[1]
-        assert "_jsonfilter_data_horn_length__exact" in filter_kwargs
-        assert abs(filter_kwargs["_jsonfilter_data_horn_length__exact"] - 30.0) < 1e-9
+        # Exactly one key; its name should follow the counter pattern.
+        assert len(filter_kwargs) == 1
+        alias_key = next(iter(filter_kwargs))
+        assert alias_key.startswith("_jsonfilter_")
+        # Must NOT contain the raw field name (counter-only).
+        assert "species" not in alias_key
+        assert "__exact" in alias_key
+
+
+# ---------------------------------------------------------------------------
+# JSONFieldFilterSetMixin.filter_queryset — open mode (open=True)
+# ---------------------------------------------------------------------------
+
+JSON_FILTERS_OPEN = {
+    "additional": {
+        "field": "additional",
+        "open": True,
+        "properties": {
+            "species": {"type": "string"},
+            "gender": {"type": "string"},
+        },
+    },
+}
+
+
+class TestJSONFieldFilterSetMixinOpenMode:
+    """Tests for filter_queryset when open=True."""
+
+    def _run(self, data: object, qs: MagicMock | None = None) -> MagicMock:
+        if qs is None:
+            qs = _make_qs()
+        instance = _make_mixin_instance(JSON_FILTERS_OPEN, data)
+        return instance.filter_queryset(qs)
+
+    def test_declared_key_is_applied_via_text_extraction(self):
+        """A declared key ('species') is applied even in open mode."""
+        qs = _make_qs()
+        self._run(data={"additional.species": "lion"}, qs=qs)
+        qs.annotate.assert_called_once()
+        assert "lion" in _filter_values(qs)
+
+    def test_arbitrary_undeclared_key_is_applied(self):
+        """An undeclared key ('anykey') is applied when open=True."""
+        qs = _make_qs()
+        self._run(data={"additional.anykey": "somevalue"}, qs=qs)
+        qs.annotate.assert_called_once()
+        assert "somevalue" in _filter_values(qs)
+
+    def test_numeric_json_value_matched_by_text_representation(self):
+        """A JSON int stored as 5 is matched by the text '5' (type-agnostic)."""
+        qs = _make_qs()
+        self._run(data={"additional.age": "5"}, qs=qs)
+        assert "5" in _filter_values(qs)
+
+    def test_nested_path_in_open_mode(self):
+        """An arbitrary nested path like 'horn.length' is applied in open mode."""
+        qs = _make_qs()
+        self._run(data={"additional.horn.length": "30"}, qs=qs)
+        qs.annotate.assert_called_once()
+        assert "30" in _filter_values(qs)
+
+    def test_key_with_non_identifier_chars_does_not_crash(self):
+        """A key like 'foo-bar' (hyphen) is safe in open mode (alias is counter-based)."""
+        qs = _make_qs()
+        # Should not raise; alias is derived from counter, not from the raw key.
+        self._run(data={"additional.foo-bar": "baz"}, qs=qs)
+        qs.annotate.assert_called_once()
+        assert "baz" in _filter_values(qs)
+        # The alias key in filter kwargs must be a valid Python identifier.
+        filter_kwargs = qs.filter.call_args[1]
+        alias_key = next(iter(filter_kwargs))
+        # The alias (stripped of the __exact suffix) must be a valid Python identifier —
+        # counter-based, no raw user-input chars.
+        assert alias_key.removesuffix("__exact").isidentifier()
+        assert "foo-bar" not in alias_key
+
+    def test_malformed_path_empty_remainder_is_skipped(self):
+        """'additional.' (empty remainder) is skipped — not applied."""
+        qs = _make_qs()
+        self._run(data={"additional.": "x"}, qs=qs)
+        qs.annotate.assert_not_called()
+
+    def test_malformed_path_double_dot_is_skipped(self):
+        """'additional..x' (consecutive dots / empty segment) is skipped."""
+        qs = _make_qs()
+        self._run(data={"additional..x": "val"}, qs=qs)
+        qs.annotate.assert_not_called()
+
+    def test_no_params_no_filters(self):
+        qs = _make_qs()
+        self._run(data={}, qs=qs)
+        qs.annotate.assert_not_called()
+
+    def test_multiple_open_keys_each_produce_a_filter(self):
+        """Two arbitrary keys → two separate annotate/filter pairs."""
+        qs = _make_qs()
+        self._run(data={"additional.foo": "1", "additional.bar": "2"}, qs=qs)
+        assert qs.annotate.call_count == 2
+        assert qs.filter.call_count == 2
+        values = _filter_values(qs)
+        assert "1" in values
+        assert "2" in values
+
+    def test_aliases_are_unique_per_filter(self):
+        """Each applied filter gets a distinct alias (counter increments)."""
+        qs = _make_qs()
+        self._run(data={"additional.foo": "1", "additional.bar": "2"}, qs=qs)
+        all_aliases = []
+        for c in qs.filter.call_args_list:
+            all_aliases.extend(c[1].keys())
+        assert len(all_aliases) == len(set(all_aliases)), "Aliases must be unique across all filters"
+
+
+# ---------------------------------------------------------------------------
+# Class-time validation (__init_subclass__)
+# ---------------------------------------------------------------------------
+
+
+class TestImproperlyConfiguredValidation:
+    """Tests that malformed json_field_filters raises ImproperlyConfigured at class creation."""
+
+    def _make_bad_cls(self, json_filters: dict) -> None:
+        """Attempt to define a subclass with *json_filters*; expect ImproperlyConfigured."""
+        type("_BadFilterSet", (JSONFieldFilterSetMixin, _NoopParent), {"json_field_filters": json_filters})
+
+    def test_missing_field_raises(self):
+        with pytest.raises(ImproperlyConfigured, match="'field'"):
+            self._make_bad_cls({"data": {"properties": {}}})
+
+    def test_non_string_field_raises(self):
+        with pytest.raises(ImproperlyConfigured, match="'field'"):
+            self._make_bad_cls({"data": {"field": 123}})
+
+    def test_empty_string_field_raises(self):
+        with pytest.raises(ImproperlyConfigured, match="'field'"):
+            self._make_bad_cls({"data": {"field": ""}})
+
+    def test_open_not_bool_raises(self):
+        with pytest.raises(ImproperlyConfigured, match="'open'"):
+            self._make_bad_cls({"data": {"field": "col", "open": "yes"}})
+
+    def test_properties_not_dict_raises(self):
+        with pytest.raises(ImproperlyConfigured, match="'properties'"):
+            self._make_bad_cls({"data": {"field": "col", "properties": ["species"]}})
+
+    def test_declared_property_unknown_type_raises(self):
+        with pytest.raises(ImproperlyConfigured, match="'type'"):
+            self._make_bad_cls({"data": {"field": "col", "properties": {"name": {"type": "array"}}}})
+
+    def test_valid_config_does_not_raise(self):
+        """A well-formed config must not raise."""
+        self._make_bad_cls(
+            {
+                "additional": {
+                    "field": "additional",
+                    "open": True,
+                    "properties": {
+                        "species": {"type": "string"},
+                        "count": {"type": "integer"},
+                    },
+                }
+            }
+        )
+
+    def test_properties_omitted_is_valid(self):
+        """'properties' is optional; omitting it is valid."""
+        self._make_bad_cls({"data": {"field": "additional", "open": True}})
+
+    def test_open_omitted_is_valid(self):
+        """'open' defaults to False; omitting it is valid."""
+        self._make_bad_cls({"data": {"field": "additional", "properties": {"x": {"type": "string"}}}})

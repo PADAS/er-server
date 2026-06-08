@@ -14,10 +14,9 @@ from .postgresql import (
     execute_sql_query,
     is_postgresql_extension_installed,
     partman_get_config_query,
-    partman_list_partitions_query,
+    partman_list_partition_boundaries_query,
     partman_partition_maintenance_proc_query,
     partman_partition_maintenance_query,
-    to_fully_qualified_table_name,
 )
 
 
@@ -86,13 +85,11 @@ def run_partition_table_check(schema: str, table_name: str, logger: Logger) -> N
     Run some checks on the partition table. If it does not comply with these
     sanity checks, it logs an error message.
 
-    - Check that the default partition is empty, if not, it means that the
-      partitions are not being created properly.
-    - Check that the `infinite_time_partitions` partman config is set to True
-      (skip this check when retention is set, e.g. for tables with time-bounded retention).
     - Check that the `premake` partman config is >= 3.
-    - Check that the number of desired future partitions matches the
-      `partman.part_config` table.
+    - Check that all expected future monthly partitions exist. The expected
+      months are compared against the actual partition start times reported by
+      pg_partman (on `(year, month)` tuples), so the check does not depend on
+      the partition naming scheme and is immune to pg_partman version changes.
 
     It logs failed checks as errors which can be picked up by our monitoring
     system and dispatch alerts.
@@ -106,8 +103,8 @@ def run_partition_table_check(schema: str, table_name: str, logger: Logger) -> N
     if not is_postgresql_extension_installed(psql_extension=PSQLExtension.PG_PARTMAN, logger=logger):
         logger.info(f"`pg_partman` is not installed... skipping!")
     else:
-        result_partitions = execute_sql_query(
-            query=partman_list_partitions_query(schema=schema, table_name=table_name),
+        result_boundaries = execute_sql_query(
+            query=partman_list_partition_boundaries_query(schema=schema, table_name=table_name),
             logger=logger,
             fetch_type=FetchType.ALL_DICT,
         )
@@ -116,23 +113,23 @@ def run_partition_table_check(schema: str, table_name: str, logger: Logger) -> N
             logger=logger,
             fetch_type=FetchType.ONE_DICT,
         )
-        fully_qualified_table_name = to_fully_qualified_table_name(schema=schema, table_name=table_name)
-        # Computing the future partitions that should be have been created
-        future_partition_table_names = set()
-        already_created_partition_table_names = {
-            f"{e['partition_schemaname']}.{e['partition_tablename']}" for e in result_partitions
-        }
 
+        premake = result_partman_config["premake"]
         now = datetime.now()
 
-        for i in range(result_partman_config["premake"] - 1):
-            partition_start_date = now + relativedelta.relativedelta(months=i)
-            fully_qualified_time_partition = (
-                f"{fully_qualified_table_name}_p{partition_start_date.year:04d}_{partition_start_date.month:02d}"
-            )
-            future_partition_table_names.add(fully_qualified_time_partition)
-
-        missing_partition_table_names = future_partition_table_names.difference(already_created_partition_table_names)
+        # Compare on (year, month) tuples rather than partition names so the
+        # check is immune to pg_partman naming/version differences. We also
+        # avoid comparing datetimes directly: `child_start_time` is timezone
+        # aware while `datetime.now()` is naive.
+        expected_month_starts = {
+            (start_date.year, start_date.month)
+            for i in range(premake - 1)
+            for start_date in [now + relativedelta.relativedelta(months=i)]
+        }
+        actual_month_starts = {
+            (row["child_start_time"].year, row["child_start_time"].month) for row in result_boundaries
+        }
+        missing_month_starts = expected_month_starts.difference(actual_month_starts)
 
         # Error Messages
         errors = []
@@ -140,10 +137,11 @@ def run_partition_table_check(schema: str, table_name: str, logger: Logger) -> N
         # Prefix used to create a monitor and alert in our infrastructure
         prefix_message = "ER Partman:"
         error_partman_config_premake_small = {
-            "message": f"{prefix_message} The partman config `premake` is too small. It must be >=3 and is currently set to {result_partman_config['premake']}."
+            "message": f"{prefix_message} [{schema}.{table_name}] The partman config `premake` is too small. It must be >=3 and is currently set to {premake}."
         }
+        missing_months_readable = sorted(f"{year:04d}-{month:02d}" for year, month in missing_month_starts)
         error_missing_partitions = {
-            "message": f"{prefix_message} Missing {len(missing_partition_table_names)} partitions given the `premake` attribute set to {result_partman_config['premake']}, namely: {missing_partition_table_names}"
+            "message": f"{prefix_message} [{schema}.{table_name}] Missing {len(missing_month_starts)} partitions given the `premake` attribute set to {premake}, namely: {missing_months_readable}"
         }
 
         # Sanity checks
@@ -151,10 +149,10 @@ def run_partition_table_check(schema: str, table_name: str, logger: Logger) -> N
         # Note: infinite_time_partitions is intentionally off to avoid creating
         # partitions far into the future due to future-dated data in the default table.
 
-        if result_partman_config["premake"] < 3:
+        if premake < 3:
             errors.append(error_partman_config_premake_small)
 
-        if len(missing_partition_table_names) > 0:
+        if len(missing_month_starts) > 0:
             errors.append(error_missing_partitions)
 
         if len(errors) == 0:

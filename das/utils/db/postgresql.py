@@ -375,6 +375,38 @@ def partman_list_partitions_query(schema: str, table_name: str) -> str:
     return f"SELECT * FROM partman.show_partitions('{fully_qualified_table_name}');"
 
 
+def partman_list_partition_boundaries_query(schema: str, table_name: str) -> str:
+    """
+    Create the SQL query string returning the start time of each non-default
+    child partition of the partitioned table represented by `schema` and
+    `table_name`.
+
+    It uses pg_partman's `show_partitions` (which excludes the DEFAULT partition
+    by default) joined laterally with `show_partition_info` so a single query
+    yields the `child_start_time` (a timestamptz) for every child partition.
+    Comparing on start timestamps rather than partition names keeps callers
+    immune to pg_partman naming/version changes.
+
+    More information here:
+    https://github.com/pgpartman/pg_partman/blob/master/doc/pg_partman.md#show_partitions
+    https://github.com/pgpartman/pg_partman/blob/master/doc/pg_partman.md#show_partition_info
+
+    Args:
+        schema (str): Name of the psql schema. eg. public.
+        table_name (str): Name of the psql table to target.
+
+    Raises:
+        ValueError: If schema or table_name contain invalid characters.
+    """
+    fully_qualified_table_name = to_fully_qualified_table_name(schema=schema, table_name=table_name)
+    return (
+        "SELECT info.child_start_time "
+        f"FROM partman.show_partitions('{fully_qualified_table_name}') AS p "
+        "CROSS JOIN LATERAL partman.show_partition_info("
+        "p.partition_schemaname || '.' || p.partition_tablename) AS info;"
+    )
+
+
 def md5_over_column_query(
     schema: str,
     table_name: str,
