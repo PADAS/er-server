@@ -7,7 +7,7 @@ via the ``json_field_filters`` class attribute on a FilterSet subclass.
 
 It does not introduce a new concept on top of django-filter — it is just a small
 helper for the one thing plain ``FilterSet`` filters can't express directly: a
-query param whose name contains a dot (``data.species``), mapped onto a key
+query param whose name contains a dot (``additional.species``), mapped onto a key
 *inside* a JSON/JSONB column rather than onto a model field of its own.
 
 Usage
@@ -19,13 +19,12 @@ Declare ``json_field_filters`` on a ``FilterSet`` that also inherits this mixin:
 
     class MyFilterSet(JSONFieldFilterSetMixin, filters.FilterSet):
         json_field_filters = {
-            "data": {                            # arbitrary param prefix
-                "field": "additional",          # model JSONField column
-                "properties": {
-                    "species": {"type": "string"},
+            "additional": {           # arbitrary param prefix (also the query-param prefix)
+                "field": "additional", # model JSONField column
+                "open": True,          # allow filtering ANY additional.<key>
+                "properties": {        # optional: documents known keys; forward metadata for
+                    "species": {"type": "string"},   # future typed-operator PR
                     "gender":  {"type": "string"},
-                    "count":   {"type": "integer"},
-                    "active":  {"type": "boolean"},
                 },
             },
         }
@@ -34,169 +33,196 @@ Declare ``json_field_filters`` on a ``FilterSet`` that also inherits this mixin:
             model = MyModel
             fields = [...]
 
-Just like any ordinary ``FilterSet`` filter, each entry is named by the developer
-and points at a field (here, a JSON column via ``"field"``) with an exact lookup.
-The top-level key (``"data"`` above) is **not** a fixed or reserved keyword — it
-is simply the dict key you choose, and it becomes the query-param prefix.  Any
-name works (``meta``, ``additional``, ``details``, ``attrs``, …); it is also
-independent of the underlying column name in ``"field"`` (the ``"data"`` entry
-above maps onto the model's ``additional`` column).
+The top-level key (``"additional"`` above) is **not** a fixed or reserved keyword —
+it is simply the dict key you choose, and it becomes the query-param prefix.  Any
+name works (``meta``, ``data``, ``attrs``, …); it is also independent of the
+underlying column name in ``"field"``.
 
 Query-parameter contract
 ------------------------
-For an entry named ``"data"`` with property ``"species"`` the accepted query
-parameter is ``data.species``.  The full param name is::
+For an entry named ``"additional"`` with ``open=True``, **any** query parameter of
+the form ``additional.<key>`` is accepted and applied as a text-extraction exact
+match on the JSONB column.
 
-    {prefix}.{property_name}
+For ``open=False`` (the default), only keys declared in ``properties`` are applied;
+all other ``{prefix}.*`` params are silently ignored.
 
-e.g. ``?data.species=lion`` or ``?data.horn.length=30`` for a nested property
-declared as ``"horn.length"``.  Had the prefix been ``"meta"`` instead, the same
-property would be queried as ``?meta.species=lion``.
+Examples::
 
-Only **exact** lookups are supported and structurally guaranteed:
+    ?additional.species=lion          # single key
+    ?additional.horn.length=30        # nested path (two levels)
 
-* Filters are generated only for *declared* properties under their exact dotted
-  param name.  An attempt like ``?data.species.icontains=lion`` does not match
-  any declared key and is silently ignored by the normal django-filter unknown-
-  param handling.
-* The ORM lookup is built via ``KeyTextTransform`` / ``KeyTransform`` so that
-  individual path segments are treated as data (JSONB key names), never as
-  Django lookup expressions.
+Exact-match semantics (text extraction, type-agnostic)
+-------------------------------------------------------
+All comparisons use Postgres's ``->>`` text-extraction operator via
+``KeyTextTransform``.  Because the extracted value is always text, the filter
+value is compared as-is (the raw query-string).  This means:
 
-Mechanism used
---------------
-Python class attributes cannot contain dots, so a filter for a property like
-``"data.species"`` cannot be declared as a normal class-level ``Filter``
-instance.  Instead, ``JSONFieldFilterSetMixin`` overrides the FilterSet's
-``filter_queryset`` method.
+* A number stored as JSON ``5`` is matched by ``?prefix.age=5``.
+* A boolean stored as JSON ``true`` is matched by ``?prefix.flag=true``.
+* No type casting is attempted — there is no 400 path for "wrong type".
 
-When ``filter_queryset(queryset)`` is called by django-filter (after the normal
-form validation pass has already narrowed the queryset on the *non-JSON*
-declared filters), the mixin reads each ``json_field_filters`` entry from
-``self.data`` (the raw ``QueryDict``), applies type casting identical to what a
-``CharFilter`` / ``NumberFilter`` / ``BooleanFilter`` would do, and narrows the
-queryset using ``KeyTextTransform`` / ``KeyTransform`` exact comparisons.
+Type-agnostic text extraction was chosen deliberately: ``additional`` is a
+user/tenant-populated JSONB bag with open-ended keys and no schema enforcement.
+A key stored as a JSON integer in some rows and as a JSON string in others is
+matched consistently by the text representation in both cases.
+
+``properties`` declarations
+---------------------------
+``properties`` is **optional** and has no effect on the exact-match logic.  It is
+kept as:
+
+1. Human documentation of well-known keys for a given entry.
+2. Forward-looking metadata for a future typed-operator PR (numeric/date ordering,
+   range queries) where real types will be required.
 
 Behaviour details
 -----------------
+* **open=True / open=False**: when ``True``, any ``{prefix}.<key>`` param in the
+  request data is applied.  When ``False`` (default), only ``properties`` keys are
+  applied.
 * **Repeated param → last-wins**: ``QueryDict.get(key)`` returns the last value
   for a repeated key.  No special multi-value handling is added.
-  ``?data.species=a&data.species=b`` filters to rows where ``species == "b"``.
-* **Unknown params are silently ignored**: a param like ``?data.unknown``
-  whose ``unknown`` is not in the declared ``properties`` dict is simply skipped.
-* **Invalid cast → 400**: a value that fails to convert to its declared type
-  (e.g. ``?data.count=abc`` for ``"type": "integer"``) raises
-  ``rest_framework.exceptions.ValidationError`` which django-filter's DRF
-  integration surfaces as an HTTP 400.
+  ``?additional.species=a&additional.species=b`` filters to rows where
+  ``species == "b"`` (text).
+* **Nonexistent / typo'd key → zero matches (open mode)**: when ``open=True`` and
+  a supplied key does not exist in any row's JSON, the text extraction returns
+  ``NULL``, which never matches the non-NULL query string.  The result is an empty
+  (or zero-matching) queryset.  The key is NOT silently skipped.
+* **Unknown params silently ignored (closed mode)**: when ``open=False``, a param
+  like ``?prefix.unknown`` is simply not in the declared ``properties`` dict and is
+  skipped without error.
+* **Injection safety**: path segments (from both declared ``properties`` keys and
+  open-mode request keys) are passed as *data arguments* to
+  ``KeyTransform``/``KeyTextTransform``, never interpolated into a lookup string.
+  Django passes them as bind parameters to the DB driver, so arbitrary JSONB key
+  names cannot alter the query structure.  No reserved-lookup blocklist is needed.
+
+Class-time validation
+---------------------
+``JSONFieldFilterSetMixin`` validates each entry in ``json_field_filters`` at
+**class definition time** (via ``__init_subclass__``) and raises
+``django.core.exceptions.ImproperlyConfigured`` for:
+
+* Missing or non-string ``field``.
+* ``open`` present and not a ``bool``.
+* ``properties`` present and not a ``dict``.
+* A declared property spec whose ``type`` (if given) is not one of
+  ``{"string", "integer", "number", "boolean"}``.
+
+Open-mode request keys cannot be validated at class time (they are supplied at
+request time) — the alias-safety and injection-safety handling covers those.
 """
 
 from __future__ import annotations
 
+import itertools
 import logging
 from typing import Any, TypeAlias
 
+from django.core.exceptions import ImproperlyConfigured
 from django.db.models import QuerySet
 from django.db.models.fields.json import KeyTextTransform, KeyTransform
-from rest_framework.exceptions import ValidationError
-
-from utils.json import VALID_BOOLEAN_STRINGS, parse_bool
 
 logger = logging.getLogger(__name__)
 
 # Config for a single JSON-field filter entry as declared on a FilterSet subclass.
 _JSONFieldFilterConfig: TypeAlias = dict[str, Any]
 
-# Supported JSON scalar types.
+# Supported JSON scalar types — kept for class-time validation of declared
+# property specs (forward metadata for the future typed-operator PR).
 _SUPPORTED_TYPES: frozenset[str] = frozenset({"string", "integer", "number", "boolean"})
 
 
-def _cast_value(raw: str, declared_type: str, param_name: str) -> Any:
-    """Cast *raw* (a query-param string) to the declared scalar type.
+def _build_key_transform(column: str, property_path: str) -> KeyTextTransform:
+    """Return a ``KeyTextTransform`` expression for *property_path* inside *column*.
 
-    Raises ``ValidationError`` (HTTP 400) on cast failure.  Never raises plain
-    ``ValueError``.
-    """
-    if declared_type == "string":
-        return raw
-    if declared_type == "integer":
-        try:
-            return int(raw)
-        except (ValueError, TypeError):
-            raise ValidationError({param_name: f"Expected an integer value, got {raw!r}."})
-    if declared_type == "number":
-        try:
-            return float(raw)
-        except (ValueError, TypeError):
-            raise ValidationError({param_name: f"Expected a numeric (float) value, got {raw!r}."})
-    if declared_type == "boolean":
-        if raw.lower() not in VALID_BOOLEAN_STRINGS:
-            raise ValidationError(
-                {param_name: f"Expected a boolean value (one of {VALID_BOOLEAN_STRINGS}), got {raw!r}."}
-            )
-        return parse_bool(raw)
-    # Guard: caller should only pass declared types from _SUPPORTED_TYPES.
-    raise ValidationError({param_name: f"Unsupported type declaration {declared_type!r} in filter spec."})
+    Always uses text extraction (``->>``) at the leaf so that comparisons are
+    type-agnostic: JSON integers, booleans, and strings all round-trip to their
+    text representations and can be compared with a plain string equality check.
 
+    Nested property paths (e.g. ``"horn.length"``) are supported: intermediate
+    segments use ``KeyTransform`` (preserving the JSONB sub-object) and the
+    final segment uses ``KeyTextTransform`` (extracting as text).
 
-def _build_key_transform(column: str, property_path: str, declared_type: str) -> KeyTransform:
-    """Return a ``KeyTransform`` expression for *property_path* inside *column*.
-
-    Uses ``KeyTextTransform`` for ``"string"`` properties (extracts as text,
-    compatible with string equality checks) and ``KeyTransform`` for numeric
-    and boolean types (preserves JSON scalar types for exact matching).
-
-    Nested property paths (e.g. ``"horn.length"``) are supported: a chain of
-    ``KeyTransform`` / ``KeyTextTransform`` instances is built, one per segment.
-
-    The outermost transform wraps the innermost, resulting in the SQL equivalent
-    of ``(column->'horn'->>'length')`` for a string leaf and
-    ``(column->'horn'->'length')`` for a non-string leaf.
+    All path segments are passed as *data* to the transform constructors, never
+    interpolated into a lookup string — so arbitrary user-supplied key names are
+    injection-safe regardless of their content.
     """
     segments = property_path.split(".")
-    use_text = declared_type == "string"
 
-    # Build innermost → outermost chain.
-    # For a single segment: just one Transform applied to the column name.
-    # For multiple: each inner segment uses KeyTransform (preserves JSON type),
-    # and the outermost uses KeyTextTransform or KeyTransform according to leaf type.
     if len(segments) == 1:
-        transform_cls = KeyTextTransform if use_text else KeyTransform
-        return transform_cls(segments[0], column)
+        return KeyTextTransform(segments[0], column)
 
-    # Multiple segments: traverse with KeyTransform for all intermediate nodes;
-    # apply the correct transform at the leaf.
+    # Multiple segments: traverse intermediate nodes with KeyTransform (preserves
+    # JSONB sub-object), then extract the leaf as text.
     source: str | KeyTransform = column
     for seg in segments[:-1]:
-        source = KeyTransform(seg, source)  # type: ignore[arg-type]  # str is a valid field source
+        source = KeyTransform(seg, source)  # type: ignore[arg-type]  # str is valid as field source
 
-    leaf_cls = KeyTextTransform if use_text else KeyTransform
-    return leaf_cls(segments[-1], source)  # type: ignore[arg-type]
+    return KeyTextTransform(segments[-1], source)  # type: ignore[arg-type]
+
+
+def _validate_json_field_filters(cls_name: str, json_field_filters: dict[str, _JSONFieldFilterConfig]) -> None:
+    """Validate *json_field_filters* at class-definition time.
+
+    Raises ``ImproperlyConfigured`` on any structural problem so that
+    misconfigured FilterSet subclasses fail loudly at import time rather than
+    silently producing wrong query behaviour at request time.
+    """
+    for prefix, config in json_field_filters.items():
+        loc = f"{cls_name}.json_field_filters[{prefix!r}]"
+
+        field = config.get("field")
+        if not isinstance(field, str) or not field:
+            raise ImproperlyConfigured(f"{loc}: 'field' must be a non-empty string, got {field!r}.")
+
+        open_flag = config.get("open", False)
+        if not isinstance(open_flag, bool):
+            raise ImproperlyConfigured(f"{loc}: 'open' must be a bool, got {open_flag!r}.")
+
+        properties = config.get("properties")
+        if properties is not None:
+            if not isinstance(properties, dict):
+                raise ImproperlyConfigured(f"{loc}: 'properties' must be a dict, got {type(properties).__name__!r}.")
+            for prop_name, prop_spec in properties.items():
+                declared_type = prop_spec.get("type")
+                if declared_type is not None and declared_type not in _SUPPORTED_TYPES:
+                    raise ImproperlyConfigured(
+                        f"{loc}.properties[{prop_name!r}]: 'type' must be one of {sorted(_SUPPORTED_TYPES)}, "
+                        f"got {declared_type!r}."
+                    )
 
 
 class JSONFieldFilterSetMixin:
     """Mixin for ``django_filters.FilterSet`` subclasses that adds exact-only
-    filtering on declared JSON/JSONB column properties via ``{prefix}.{prop}``
-    query params.
+    filtering on JSON/JSONB column properties via ``{prefix}.{prop}`` query params.
+
+    See the module docstring for full semantics, the ``open`` flag, and the
+    ``properties`` metadata contract.
 
     Declare ``json_field_filters`` as a class attribute::
 
         json_field_filters = {
-            "data": {
+            "additional": {
                 "field": "additional",
+                "open": True,
                 "properties": {
                     "species": {"type": "string"},
                     "gender":  {"type": "string"},
                 },
             },
         }
-
-    The mixin overrides ``filter_queryset`` to apply these filters *after* the
-    standard django-filter declared-field pass.  All params are taken from
-    ``self.data``.
     """
 
     # Subclasses override this.
     json_field_filters: dict[str, _JSONFieldFilterConfig] = {}
+
+    def __init_subclass__(cls, **kwargs: Any) -> None:
+        super().__init_subclass__(**kwargs)
+        jff = cls.__dict__.get("json_field_filters")
+        if jff is not None:
+            _validate_json_field_filters(cls.__name__, jff)
 
     def filter_queryset(self, queryset: QuerySet) -> QuerySet:
         # Run the standard declared-filter pass first.
@@ -209,30 +235,49 @@ class JSONFieldFilterSetMixin:
         # ``self.data`` is the raw QueryDict (or dict-like) passed to the FilterSet.
         data = getattr(self, "data", {})
 
+        # Counter for collision-free, identifier-safe annotation aliases.
+        # We do NOT derive the alias from raw user input because open-mode keys
+        # can contain non-identifier characters (hyphens, spaces, unicode, etc.)
+        # and two different keys could collide after sanitisation.
+        alias_counter = itertools.count()
+
         for prefix, config in json_filters.items():
             column: str = config["field"]
+            open_mode: bool = config.get("open", False)
             properties: dict[str, dict[str, str]] = config.get("properties", {})
 
             param_prefix = f"{prefix}."
 
-            for prop_path, prop_spec in properties.items():
+            if open_mode:
+                # Scan ALL keys in self.data that start with "{prefix}.".
+                # The remainder after the prefix dot is the dotted path.
+                paths_to_apply: list[str] = []
+                for key in data.keys():
+                    if not key.startswith(param_prefix):
+                        continue
+                    remainder = key[len(param_prefix) :]
+                    # Skip empty/malformed remainders: empty string, leading/trailing
+                    # dot, consecutive dots (empty segment anywhere).
+                    if not remainder or ".." in remainder or remainder.startswith(".") or remainder.endswith("."):
+                        continue
+                    paths_to_apply.append(remainder)
+            else:
+                # Closed mode: only apply declared properties.
+                paths_to_apply = list(properties.keys())
+
+            for prop_path in paths_to_apply:
                 param_name = f"{param_prefix}{prop_path}"
                 # QueryDict.get() returns the *last* value for a repeated key.
-                # Unknown params (not in properties) are skipped automatically
-                # because we only iterate declared property keys.
                 raw_value = data.get(param_name)
                 if raw_value is None:
                     continue
 
-                declared_type = prop_spec.get("type", "string")
-                casted = _cast_value(raw_value, declared_type, param_name)
+                transform = _build_key_transform(column, prop_path)
 
-                transform = _build_key_transform(column, prop_path, declared_type)
-
-                # Annotate with a deterministic alias and filter on it.  The alias
-                # bridges the dotted param name onto a dot-free ORM identifier by
-                # replacing dots with underscores.
-                alias = f"_jsonfilter_{prefix}_{prop_path.replace('.', '_')}"
-                queryset = queryset.annotate(**{alias: transform}).filter(**{f"{alias}__exact": casted})
+                # Use a counter-based alias to avoid collisions on arbitrary
+                # user-supplied key names (open mode).  The alias is never derived
+                # from raw user input.
+                alias = f"_jsonfilter_{next(alias_counter)}"
+                queryset = queryset.annotate(**{alias: transform}).filter(**{f"{alias}__exact": raw_value})
 
         return queryset
