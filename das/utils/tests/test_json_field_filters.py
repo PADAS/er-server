@@ -407,3 +407,13 @@ class TestImproperlyConfiguredValidation:
     def test_open_omitted_is_valid(self):
         """'open' defaults to False; omitting it is valid."""
         self._make_bad_cls({"data": {"field": "additional", "properties": {"x": {"type": "string"}}}})
+
+    def test_property_spec_string_raises_improperly_configured_not_attribute_error(self):
+        """A property spec that is a plain string (not a dict) must raise ImproperlyConfigured."""
+        with pytest.raises(ImproperlyConfigured, match="spec must be a dict"):
+            self._make_bad_cls({"additional": {"field": "additional", "properties": {"sex": "string"}}})
+
+    def test_property_spec_list_raises_improperly_configured_not_attribute_error(self):
+        """A property spec that is a list (not a dict) must raise ImproperlyConfigured."""
+        with pytest.raises(ImproperlyConfigured, match="spec must be a dict"):
+            self._make_bad_cls({"additional": {"field": "additional", "properties": {"sex": []}}})

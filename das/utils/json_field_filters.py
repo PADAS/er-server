@@ -44,8 +44,8 @@ For an entry named ``"additional"`` with ``open=True``, **any** query parameter 
 the form ``additional.<key>`` is accepted and applied as a text-extraction exact
 match on the JSONB column.
 
-For ``open=False`` (the default), only keys declared in ``properties`` are applied;
-all other ``{prefix}.*`` params are silently ignored.
+For ``open=False`` (the default, *closed mode*), only keys declared in ``properties``
+are applied; all other ``{prefix}.*`` params are silently ignored (not an error).
 
 Examples::
 
@@ -117,14 +117,11 @@ request time) — the alias-safety and injection-safety handling covers those.
 from __future__ import annotations
 
 import itertools
-import logging
 from typing import Any, TypeAlias
 
 from django.core.exceptions import ImproperlyConfigured
 from django.db.models import QuerySet
 from django.db.models.fields.json import KeyTextTransform, KeyTransform
-
-logger = logging.getLogger(__name__)
 
 # Config for a single JSON-field filter entry as declared on a FilterSet subclass.
 _JSONFieldFilterConfig: TypeAlias = dict[str, Any]
@@ -186,6 +183,10 @@ def _validate_json_field_filters(cls_name: str, json_field_filters: dict[str, _J
             if not isinstance(properties, dict):
                 raise ImproperlyConfigured(f"{loc}: 'properties' must be a dict, got {type(properties).__name__!r}.")
             for prop_name, prop_spec in properties.items():
+                if not isinstance(prop_spec, dict):
+                    raise ImproperlyConfigured(
+                        f"{loc}.properties[{prop_name!r}]: spec must be a dict, got {type(prop_spec).__name__!r}."
+                    )
                 declared_type = prop_spec.get("type")
                 if declared_type is not None and declared_type not in _SUPPORTED_TYPES:
                     raise ImproperlyConfigured(
