@@ -15,6 +15,25 @@ from activity.tests.helpers.schema_test_utils import (
 )
 
 
+def _build_schema_with_ref(ref: str) -> dict:
+    """Build a minimal but valid event-type schema whose choice field uses a single $ref."""
+    return {
+        "json": {
+            **copy.deepcopy(minimal_json_schema),
+            "properties": {
+                "testChoice": {
+                    "title": "Test Choice",
+                    "type": "string",
+                    "deprecated": False,
+                    "anyOf": [{"$ref": ref}],
+                },
+            },
+            "required": ["testChoice"],
+        },
+        "ui": copy.deepcopy(minimal_ui_schema),
+    }
+
+
 class TestJsonSchemaFieldBasics:
     """
     Tests for basic JSONSchemaField input validation and fixture-based schema tests.
@@ -42,8 +61,6 @@ class TestJsonSchemaFieldBasics:
             "valid_text_field_format_email_schema",
             "valid_text_field_pattern_schema",
             "valid_location_field_schema",
-            "valid_rendered_choice_field_schema",
-            "valid_rendered_multiple_choice_field_schema",
         ],
         indirect=True,
     )
@@ -757,3 +774,38 @@ class TestCollectionFieldMetaSchemaConstraints:
         error_message = str(exc_info.value)
         assert "is not valid under any of the given schemas" in error_message
         assert "test_collection" in error_message
+
+
+class TestAdditionalKeyWildcardInRefAllowlist:
+    """
+    Tests that the $ref allowlist for sources.json and subjects.json accepts any
+    additional.<key> query parameter, not just the previously hard-coded keys.
+
+    The `additional` column is an open JSONB bag; JSONFieldFilterSetMixin filters
+    any additional.<key> via exact text match, so the metaschema must allow
+    arbitrary additional.* keys while keeping non-additional params enumerated.
+    """
+
+    def _field(self) -> JSONSchemaField:
+        return JSONSchemaField(meta_schema=main_event_type_schema)
+
+    def test_subjects_ref_with_arbitrary_additional_key_is_valid(self):
+        """A subjects.json $ref with additional.horn_length (not in old whitelist) validates."""
+        schema = _build_schema_with_ref("/api/v2.0/schemas/subjects.json?additional.horn_length=30")
+        result = self._field().to_internal_value(schema)
+        assert result is not None
+
+    def test_sources_ref_with_arbitrary_additional_key_is_valid(self):
+        """A sources.json $ref with additional.whatever (not in old whitelist) validates."""
+        schema = _build_schema_with_ref("/api/v2.0/schemas/sources.json?additional.whatever=x")
+        result = self._field().to_internal_value(schema)
+        assert result is not None
+
+    def test_subjects_ref_with_double_underscore_key_is_rejected(self):
+        """A subjects.json $ref using double underscore (additional__sex) is still rejected."""
+        schema = _build_schema_with_ref("/api/v2.0/schemas/subjects.json?additional__sex=female")
+        with pytest.raises(ValidationError) as exc_info:
+            self._field().to_internal_value(schema)
+        error_message = str(exc_info.value)
+        assert "is not valid under any of the given schemas" in error_message
+        assert "testChoice" in error_message

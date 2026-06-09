@@ -1979,28 +1979,37 @@ class PatrolFilteringQuerySet(models.QuerySet, FilterFieldMixin):
                 subjects_id = self._get_match_subjects_id(text)
                 users_id = self._get_match_user_id(text)
                 text = re.escape(text)
+                # The segment- and note-based conditions are expressed as correlated
+                # Exists() subqueries so they match a patrol at most once, instead of
+                # multiplying rows through the multi-valued reverse joins.
+                segment_text_match = Exists(
+                    PatrolSegment.objects.filter(patrol=OuterRef("pk")).filter(
+                        Q(patrol_type__display__iregex=self._get_regex_istartswith(text))
+                        | Q(leader_id__in=subjects_id, leader_content_type__model="subject")
+                        | Q(leader_id__in=users_id, leader_content_type__model="user")
+                    )
+                )
+                note_text_match = Exists(
+                    PatrolNote.objects.filter(patrol=OuterRef("pk"), text__iregex=self._get_regex_istartswith(text))
+                )
                 queryset = queryset.filter(
                     Q(serial_number_string=text)
                     | Q(title__iregex=self._get_regex_istartswith(text))
-                    | Q(patrol_segment__patrol_type__display__iregex=self._get_regex_istartswith(text))
-                    | Q(note__text__iregex=self._get_regex_istartswith(text))
-                    | Q(
-                        patrol_segment__leader_id__in=subjects_id,
-                        patrol_segment__leader_content_type__model="subject",
-                    )
-                    | Q(
-                        patrol_segment__leader_id__in=users_id,
-                        patrol_segment__leader_content_type__model="user",
-                    )
+                    | Q(segment_text_match)
+                    | Q(note_text_match)
                 )
 
         if filter.get("patrol_type"):
-            queryset = queryset.filter(Q(patrol_segment__patrol_type__id__in=filter["patrol_type"]))
+            queryset = queryset.filter(
+                Exists(PatrolSegment.objects.filter(patrol=OuterRef("pk"), patrol_type__id__in=filter["patrol_type"]))
+            )
 
         if filter.get("tracked_by"):
-            queryset = queryset.filter(Q(patrol_segment__leader_id__in=filter["tracked_by"]))
+            queryset = queryset.filter(
+                Exists(PatrolSegment.objects.filter(patrol=OuterRef("pk"), leader_id__in=filter["tracked_by"]))
+            )
 
-        return queryset.distinct()
+        return queryset
 
     def by_date_range(self, filter_param, patrols_overlap_daterange):
         queryset = self
@@ -2009,29 +2018,34 @@ class PatrolFilteringQuerySet(models.QuerySet, FilterFieldMixin):
         lower = lower or datetime.min.replace(tzinfo=timezone.utc)
         upper = upper or datetime.max.replace(tzinfo=timezone.utc)
 
+        cancel_rev_exists = Exists(
+            Patrol.revision.model.objects.filter(
+                data__state=PC_CANCELLED,
+                object_id=OuterRef("id"),
+                data__updated_at__range=(lower.isoformat(), upper.isoformat()),
+            )
+        )
+
         if patrols_overlap_daterange:
-            # Patrols whose start to end date range overlaps with date range
-            end_filter = Q(patrol_segment__time_range__endswith__gte=lower) | Q(
-                patrol_segment__time_range__endswith__isnull=True
+            # Patrols whose start to end date range overlaps with date range.
+            # The per-segment start/end conditions are evaluated inside a single
+            # correlated Exists() subquery so a patrol matches at most once.
+            end_filter = Q(time_range__endswith__gte=lower) | Q(time_range__endswith__isnull=True)
+            start_filter = Q(time_range__startswith__lte=upper) | Q(scheduled_start__lte=upper)
+            overlap_segment = Exists(
+                PatrolSegment.objects.filter(patrol=OuterRef("pk")).filter(start_filter, end_filter)
             )
-            start_filter = Q(patrol_segment__time_range__startswith__lte=upper) | Q(
-                patrol_segment__scheduled_start__lte=upper
-            )
-            q1 = queryset.filter(start_filter, end_filter).exclude(state=PC_CANCELLED)
+            q1 = Q(overlap_segment) & ~Q(state=PC_CANCELLED)
 
             # Get patrols cancelled within given range
-            q2 = queryset.annotate(
-                cancel_rev_exists=Exists(
-                    Patrol.revision.model.objects.filter(
-                        data__state=PC_CANCELLED,
-                        object_id=OuterRef("id"),
-                        data__updated_at__range=(lower.isoformat(), upper.isoformat()),
-                    )
-                )
-            ).filter(cancel_rev_exists=True)
+            q2 = Q(cancel_rev_exists=True)
 
-            q3 = queryset.filter(patrol_segment__time_range__startswith__lte=upper, state=PC_OPEN)
-            queryset = (q1 | q2 | q3).distinct()
+            open_segment = Exists(
+                PatrolSegment.objects.filter(patrol=OuterRef("pk"), time_range__startswith__lte=upper)
+            )
+            q3 = Q(open_segment) & Q(state=PC_OPEN)
+
+            queryset = queryset.annotate(cancel_rev_exists=cancel_rev_exists).filter(q1 | q2 | q3)
         else:
             # Patrols starting within date range
             upper = (
@@ -2039,110 +2053,141 @@ class PatrolFilteringQuerySet(models.QuerySet, FilterFieldMixin):
                 if upper.time() == time(0, 0)
                 else upper
             )
-            start_filter = Q(patrol_segment__time_range__startswith__range=(lower, upper)) | Q(
-                patrol_segment__scheduled_start__range=(lower, upper)
+            start_segment = Exists(
+                PatrolSegment.objects.filter(patrol=OuterRef("pk")).filter(
+                    Q(time_range__startswith__range=(lower, upper)) | Q(scheduled_start__range=(lower, upper))
+                )
             )
 
-            queryset = queryset.filter(start_filter).exclude(state=PC_CANCELLED)
+            queryset = queryset.filter(start_segment).exclude(state=PC_CANCELLED)
 
         return queryset
 
     def exclude_patrols_without_segments(self):
-        return self.exclude(patrol_segment__isnull=True)
+        return self.filter(Exists(PatrolSegment.objects.filter(patrol=OuterRef("pk"))))
 
     def by_patrol_type(self, patrol_type):
         return self.filter_field("patrol_segment__patrol_type__value", patrol_type)
 
     def by_state(self, states):
         now = datetime.now(tz=timezone.utc)
-        q1 = q2 = q3 = q4 = q5 = self.none()
+        # Each segment-based branch becomes a correlated Exists() subquery so the
+        # OR over states does not fan out into repeated patrol_segment joins.
+        state_filter = Q(pk__in=[])
 
         for state in states:
             if state == StateFilters.scheduled.value:
-                st_filter = Q(patrol_segment__time_range__startswith__gt=now) | Q(
-                    patrol_segment__scheduled_start__gt=now
+                scheduled_segment = Exists(
+                    PatrolSegment.objects.filter(patrol=OuterRef("pk")).filter(
+                        Q(time_range__startswith__gt=now) | Q(scheduled_start__gt=now)
+                    )
                 )
-                q1 = self.filter(st_filter, state=PC_OPEN)
+                state_filter |= Q(scheduled_segment) & Q(state=PC_OPEN)
 
             if state == StateFilters.active.value:
-                q2 = self.filter(Q(patrol_segment__time_range__startswith__lte=now), state=PC_OPEN)
+                active_segment = Exists(
+                    PatrolSegment.objects.filter(patrol=OuterRef("pk"), time_range__startswith__lte=now)
+                )
+                state_filter |= Q(active_segment) & Q(state=PC_OPEN)
 
             if state == PC_DONE:
-                q3 = self.filter(state=PC_DONE)
+                state_filter |= Q(state=PC_DONE)
 
             if state == StateFilters.overdue.value:
                 supposed_start = now - timedelta(minutes=30)
-                st_filter = Q(patrol_segment__time_range__startswith__isnull=True) & Q(
-                    patrol_segment__scheduled_start__lte=supposed_start
+                overdue_segment = Exists(
+                    PatrolSegment.objects.filter(
+                        patrol=OuterRef("pk"),
+                        time_range__startswith__isnull=True,
+                        scheduled_start__lte=supposed_start,
+                    )
                 )
-                q4 = self.filter(st_filter, state=PC_OPEN)
+                state_filter |= Q(overdue_segment) & Q(state=PC_OPEN)
 
             if state == PC_CANCELLED:
-                q5 = self.filter(state=PC_CANCELLED)
+                state_filter |= Q(state=PC_CANCELLED)
 
-        return (q1 | q2 | q3 | q4 | q5).distinct()
+        return self.filter(state_filter)
 
     def by_subject(self, subject):
         return self.filter_field("patrol_segment__leader_id", subject)
 
     def sort_patrols(self):
         set_time = datetime.now(tz=timezone.utc) - timedelta(minutes=30)
-        subject = Subject.objects.filter(id=OuterRef("patrol_segment__leader_id"))
 
-        overdue_q = (
-            Q(patrol_segment__scheduled_start=F("patrol_segment__scheduled_start"), state=PC_OPEN)
-            & Q(patrol_segment__time_range__startswith__isnull=True)
-            & Q(patrol_segment__scheduled_start__lt=set_time)
+        # Pull a single representative segment per patrol via correlated subqueries
+        # instead of joining the multi-valued patrol_segment relation (which both
+        # fans out the query and emits duplicate patrol rows). Segments are ordered
+        # deterministically so the chosen representative is stable.
+        segment_qs = PatrolSegment.objects.filter(patrol=OuterRef("pk")).order_by("scheduled_start", "id")
+        seg_scheduled_start = Subquery(segment_qs.values("scheduled_start")[:1])
+        seg_time_range_start = Subquery(segment_qs.values("time_range__startswith")[:1])
+        seg_leader_id = Subquery(segment_qs.values("leader_id")[:1])
+        seg_type_display = Subquery(segment_qs.values("patrol_type__display")[:1])
+        # Resolve the leader subject name inside the segment subquery (correlating the
+        # Subject lookup to the segment's own leader_id) so the outer OuterRef("pk")
+        # is not shadowed by an intermediate query level.
+        leader_name_for_segment = Subquery(Subject.objects.filter(id=OuterRef("leader_id")).values("name")[:1])
+        seg_leader_name = Subquery(segment_qs.annotate(_leader_name=leader_name_for_segment).values("_leader_name")[:1])
+
+        # Tautology Q(x=F(x)) is true only when x IS NOT NULL, matching the original
+        # join-based semantics which dropped patrols whose segment scheduled_start was null.
+        base_overdue_readyto = Q(_seg_scheduled_start=F("_seg_scheduled_start"), state=PC_OPEN) & Q(
+            _seg_time_range_start__isnull=True
         )
+        overdue_q = base_overdue_readyto & Q(_seg_scheduled_start__lt=set_time)
+        readyto_q = base_overdue_readyto & Q(_seg_scheduled_start__gte=set_time)
 
-        readyto_q = (
-            Q(patrol_segment__scheduled_start=F("patrol_segment__scheduled_start"), state=PC_OPEN)
-            & Q(patrol_segment__time_range__startswith__isnull=True)
-            & Q(patrol_segment__scheduled_start__gte=set_time)
-        )
-
-        return self.annotate(
-            start_overdue=Case(
-                When(overdue_q & Q(title=F("title")), then=F("title")),
-                When(
-                    overdue_q & Q(patrol_segment__leader_id=F("patrol_segment__leader_id")),
-                    then=Subquery(subject.values("name")),
+        return (
+            self.annotate(
+                _seg_scheduled_start=seg_scheduled_start,
+                _seg_time_range_start=seg_time_range_start,
+                _seg_leader_id=seg_leader_id,
+                _seg_type_display=seg_type_display,
+                _seg_leader_name=seg_leader_name,
+            )
+            .annotate(
+                start_overdue=Case(
+                    When(overdue_q & Q(title=F("title")), then=F("title")),
+                    When(
+                        overdue_q & Q(_seg_leader_id=F("_seg_leader_id")),
+                        then=F("_seg_leader_name"),
+                    ),
+                    When(
+                        overdue_q & Q(_seg_type_display=F("_seg_type_display")),
+                        then=F("_seg_type_display"),
+                    ),
+                    default=None,
                 ),
-                When(
-                    overdue_q & Q(patrol_segment__patrol_type__display=F("patrol_segment__patrol_type__display")),
-                    then=F("patrol_segment__patrol_type__display"),
+                readyto_start=Case(
+                    When(readyto_q & Q(title=F("title")), then=F("title")),
+                    When(
+                        readyto_q & Q(_seg_leader_id=F("_seg_leader_id")),
+                        then=F("_seg_leader_name"),
+                    ),
+                    When(
+                        readyto_q & Q(_seg_type_display=F("_seg_type_display")),
+                        then=F("_seg_type_display"),
+                    ),
+                    default=None,
                 ),
-                default=None,
-            ),
-            readyto_start=Case(
-                When(readyto_q & Q(title=F("title")), then=F("title")),
-                When(
-                    readyto_q & Q(patrol_segment__leader_id=F("patrol_segment__leader_id")),
-                    then=Subquery(subject.values("name")),
+                sort_title=Case(
+                    When(Q(title=F("title")), then=F("title")),
+                    When(Q(_seg_leader_id=F("_seg_leader_id")), then=F("_seg_leader_name")),
+                    default=F("_seg_type_display"),
                 ),
-                When(
-                    readyto_q & Q(patrol_segment__patrol_type__display=F("patrol_segment__patrol_type__display")),
-                    then=F("patrol_segment__patrol_type__display"),
+            )
+            .order_by(
+                Case(
+                    When(state=PC_OPEN, then=Value(1)),
+                    When(state=PC_DONE, then=Value(2)),
+                    When(state=PC_CANCELLED, then=Value(3)),
+                    default=Value(4),
                 ),
-                default=None,
-            ),
-            sort_title=Case(
-                When(Q(title=F("title")), then=F("title")),
-                When(
-                    Q(patrol_segment__leader_id=F("patrol_segment__leader_id")), then=Subquery(subject.values("name"))
-                ),
-                default=F("patrol_segment__patrol_type__display"),
-            ),
-        ).order_by(
-            Case(
-                When(state=PC_OPEN, then=Value(1)),
-                When(state=PC_DONE, then=Value(2)),
-                When(state=PC_CANCELLED, then=Value(3)),
-                default=Value(4),
-            ),
-            Lower("start_overdue"),
-            Lower("readyto_start"),
-            Lower("sort_title"),
+                Lower("start_overdue"),
+                Lower("readyto_start"),
+                Lower("sort_title"),
+            )
         )
 
     def _get_regex_istartswith(self, text):

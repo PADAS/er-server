@@ -32,7 +32,7 @@
                         "$ref": "/api/v2.0/schemas/subjects.json"
                     },
                     {
-                        "$ref": "/api/v2.0/schemas/subjects.json?additional__sex=female"
+                        "$ref": "/api/v2.0/schemas/subjects.json?additional.sex=female"
                     },
                     {
                         "$ref": "/api/v2.0/schemas/users.json"

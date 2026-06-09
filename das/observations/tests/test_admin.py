@@ -12,11 +12,17 @@ from factories import (
     ObservationFactory,
     ProviderFactory,
     SubjectFactory,
+    SubjectSourceFactory,
     TenantFactory,
     UserFactory,
 )
-from observations.admin import ObservationAdmin, SourceProviderAdmin, SubjectAdmin
-from observations.models import Observation, SourceProvider, Subject
+from observations.admin import (
+    ObservationAdmin,
+    SourceAdmin,
+    SourceProviderAdmin,
+    SubjectAdmin,
+)
+from observations.models import Observation, Source, SourceProvider, Subject
 
 
 @pytest.mark.django_db
@@ -205,3 +211,40 @@ class TestHistoryViewPaginatesActionList:
         assert (
             action_list.paginator.count == 0
         ), "log entries authored by users from another tenant must not appear in history_view"
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("tenant_settings", "das_tenant_monkeypatch")
+class TestSourceAdminChangeView:
+    """
+    Regression test for the bug where the Source admin change_view raised
+    NoReverseMatch because the inline observations queryset omitted the 'id'
+    field from .values(), causing the template to render an empty-string pk in
+    the admin:observations_observation_change URL.
+    """
+
+    def _make_change_request(self, superuser: object) -> object:
+        request = RequestFactory().get("/")
+        request.user = superuser
+        setattr(request, "session", {})
+        setattr(request, "_messages", FallbackStorage(request))
+        return request
+
+    def test_change_view_returns_200_when_source_has_observation_in_assigned_range(self, superuser: object) -> None:
+        subject_source = SubjectSourceFactory()
+        observation = ObservationFactory(source=subject_source.source)
+
+        admin_instance = SourceAdmin(model=Source, admin_site=admin_site)
+        request = self._make_change_request(superuser)
+
+        response = admin_instance.change_view(request, str(subject_source.source.pk))
+
+        assert response.status_code == 200
+        # Force template rendering so that NoReverseMatch (caused by an empty-string
+        # observation id in the inline URL) surfaces here rather than being swallowed
+        # by the lazy TemplateResponse.
+        rendered = response.rendered_content
+        assert str(observation.pk) in rendered, (
+            "The rendered inline must contain the real observation pk; "
+            "an empty string means 'id' was missing from .values()"
+        )

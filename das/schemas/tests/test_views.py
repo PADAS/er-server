@@ -1,6 +1,7 @@
 import pytest
 
 from django.contrib.auth import get_user_model
+from django.contrib.gis.geos import Point
 from django.urls import reverse
 from rest_framework import status
 
@@ -11,6 +12,7 @@ from factories import (
     EventCategoryFactory,
     EventTypeFactory,
     SourceFactory,
+    SpatialFeatureFactory,
     SubjectFactory,
 )
 from observations.models import SubjectGroup
@@ -27,6 +29,12 @@ def _dynamic_schema_rows(data: dict) -> list[dict]:
 @pytest.mark.django_db
 @pytest.mark.parametrize("view", ["users", "sources", "subjects", "choices", "spatial_features", "event_types"])
 def test_get_dynamic_schemas(superuser_client, view):
+    # Seed one row for each data-backed view so the schema emits a non-empty enum.
+    # (users passes via the superuser; choices/event_types are pre-seeded by fixtures.)
+    SourceFactory.create()
+    SubjectFactory.create()
+    SpatialFeatureFactory.create(feature_geometry=Point(0, 0))
+
     url = reverse(f"schemas:{view}")
     response = superuser_client.get(url)
 

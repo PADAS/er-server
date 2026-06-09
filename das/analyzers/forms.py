@@ -155,10 +155,10 @@ class GeofenceSubjectAnalyzerForm(BaseAnalyzerForm):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.fields["critical_geofence_group"].queryset = SpatialFeatureGroupStatic.objects.by_spatial_type(
-            GeofenceAnalyzerConfig.GEOFENCE_SPATIAL_TYPE
+            GeofenceAnalyzerConfig.GEOFENCE_SPATIAL_TYPE, exclusive=False
         )
         self.fields["warning_geofence_group"].queryset = SpatialFeatureGroupStatic.objects.by_spatial_type(
-            GeofenceAnalyzerConfig.GEOFENCE_SPATIAL_TYPE
+            GeofenceAnalyzerConfig.GEOFENCE_SPATIAL_TYPE, exclusive=False
         )
         self.fields["containment_regions"].queryset = SpatialFeatureGroupStatic.objects.by_spatial_type(
             GeofenceAnalyzerConfig.CONTAINMENT_REGIONS_SPATIAL_TYPE

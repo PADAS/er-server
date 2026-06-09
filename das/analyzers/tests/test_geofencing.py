@@ -8,7 +8,14 @@ import pytest
 import yaml
 from django_multitenant.utils import set_current_tenant
 
-from django.contrib.gis.geos import LineString, Point, Polygon
+from django.contrib.gis.geos import (
+    LineString,
+    MultiLineString,
+    MultiPoint,
+    MultiPolygon,
+    Point,
+    Polygon,
+)
 from django.core.files import File
 from django.core.serializers import serialize
 from django.test import TestCase, override_settings
@@ -816,3 +823,53 @@ class TestCornerClipping(TestCase):
         self.spatial_feature_group.save()
 
         self._test_corner_clipping()
+
+
+@pytest.mark.usefixtures("tenant_settings", "das_tenant_monkeypatch")
+class TestGeofenceAnalysisParamFiltering(TestCase):
+    """Tests that _create_geofence_analysis_param correctly filters features by geometry type."""
+
+    def setUp(self):
+        set_current_tenant(self.das_tenant)
+        feature_type = SpatialFeatureType.objects.get_or_create(name="test_param_filter")[0]
+
+        self.line_feat = SpatialFeature.objects.create(
+            name="line fence",
+            feature_geometry=MultiLineString(LineString((0, 0), (1, 0))),
+            feature_type=feature_type,
+        )
+        self.point_feat = SpatialFeature.objects.create(
+            name="stray point",
+            feature_geometry=MultiPoint(Point(0.5, 0.5)),
+            feature_type=feature_type,
+        )
+        self.polygon_feat = SpatialFeature.objects.create(
+            name="polygon region",
+            feature_geometry=MultiPolygon(Polygon(((0, 0), (1, 0), (1, 1), (0, 1), (0, 0)))),
+            feature_type=feature_type,
+        )
+
+        geofence_group = SpatialFeatureGroupStatic.objects.create(name="mixed geofence group")
+        geofence_group.features.add(self.line_feat, self.point_feat)
+
+        containment_group = SpatialFeatureGroupStatic.objects.create(name="mixed containment group")
+        containment_group.features.add(self.polygon_feat, self.point_feat)
+
+        sg = SubjectGroup.objects.create(name="test_param_filter_sg")
+        config = GeofenceAnalyzerConfig.objects.create(
+            name="test param filter config",
+            subject_group=sg,
+            critical_geofence_group=geofence_group,
+            containment_regions=containment_group,
+        )
+        self.analyzer = GeofenceAnalyzer(config=config, subject=None)
+
+    def test_point_features_skipped_in_geofence_group(self):
+        params = self.analyzer._create_geofence_analysis_param()
+        assert len(params.geofences) == 1
+        assert params.geofences[0].unique_id == self.line_feat.id
+
+    def test_non_polygon_features_skipped_in_containment_regions(self):
+        params = self.analyzer._create_geofence_analysis_param()
+        assert len(params.regions) == 1
+        assert params.regions[0].unique_id == self.polygon_feat.id

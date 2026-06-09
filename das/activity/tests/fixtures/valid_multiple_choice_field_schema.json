@@ -17,7 +17,7 @@
                             "$ref": "/api/v2.0/schemas/choices.json?field=animal_tags"
                         },
                         {
-                            "$ref": "/api/v2.0/schemas/subjects.json?common_name_search=lion"
+                            "$ref": "/api/v2.0/schemas/subjects.json?common_name=lion"
                         }
                     ]
                 }
