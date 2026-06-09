@@ -21,15 +21,6 @@
     "ui": {
         "fields": {
             "users": {
-                "choices": {
-                    "eventTypeCategories": [],
-                    "existingChoiceList": [],
-                    "featureCategories": [],
-                    "myDataType": "USERS",
-                    "subjectGroups": [],
-                    "subjectSubtypes": [],
-                    "type": "MY_DATA"
-                },
                 "inputType": "DROPDOWN",
                 "placeholder": "",
                 "type": "CHOICE_LIST",

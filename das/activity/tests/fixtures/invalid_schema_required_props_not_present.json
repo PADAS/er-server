@@ -2,7 +2,7 @@
     "json": {
         "$schema": "https://json-schema.org/draft/2020-12/schema",
         "type": "object",
-        "additionalProperties": false,
+        "unevaluatedProperties": false,
         "properties": {
             "what_is_the_response": {
                 "default": "",
@@ -27,17 +27,6 @@
                 "parent": "section-s0m38ZMo7h5p4cE2BC8U6"
             },
             "what_happened_patrol_activity": {
-                "choices": {
-                    "eventTypeCategories": [],
-                    "existingChoiceList": [
-                        "contactrep_patrolactivity"
-                    ],
-                    "featureCategories": [],
-                    "myDataType": "",
-                    "subjectGroups": [],
-                    "subjectSubtypes": [],
-                    "type": "EXISTING_CHOICE_LIST"
-                },
                 "inputType": "DROPDOWN",
                 "placeholder": "",
                 "type": "CHOICE_LIST",

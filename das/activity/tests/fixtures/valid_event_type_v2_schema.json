@@ -17,7 +17,7 @@
                 "type": "string",
                 "anyOf": [
                     {
-                        "$ref": "https://zoo.com/schemas/existing/contactrep_patrolactivity.json"
+                        "$ref": "/api/v2.0/schemas/choices.json?field=contactrep_patrolactivity"
                     }
                 ]
             },
@@ -28,7 +28,7 @@
                 "type": "string",
                 "anyOf": [
                     {
-                        "$ref": "https://zoo.com/schemas/existing/contactrep_whoinitiatedcontact.json"
+                        "$ref": "/api/v2.0/schemas/choices.json?field=contactrep_whoinitiatedcontact"
                     }
                 ]
             },
@@ -145,34 +145,12 @@
                 "parent": "section-s0m38ZMo7h5p4cE2BC8U6"
             },
             "what_happened_patrol_activity": {
-                "choices": {
-                    "eventTypeCategories": [],
-                    "existingChoiceList": [
-                        "contactrep_patrolactivity"
-                    ],
-                    "featureCategories": [],
-                    "myDataType": "",
-                    "subjectGroups": [],
-                    "subjectSubtypes": [],
-                    "type": "EXISTING_CHOICE_LIST"
-                },
                 "inputType": "DROPDOWN",
                 "placeholder": "",
                 "type": "CHOICE_LIST",
                 "parent": "section-s0m38ZMo7h5p4cE2BC8U6"
             },
             "who_initiated_contact": {
-                "choices": {
-                    "eventTypeCategories": [],
-                    "existingChoiceList": [
-                        "contactrep_whoinitiatedcontact"
-                    ],
-                    "featureCategories": [],
-                    "myDataType": "",
-                    "subjectGroups": [],
-                    "subjectSubtypes": [],
-                    "type": "EXISTING_CHOICE_LIST"
-                },
                 "inputType": "LIST",
                 "placeholder": "",
                 "type": "CHOICE_LIST",

@@ -334,19 +334,7 @@ class V2SchemaBuilder:
         field_type = field_config.get("type", "string")
 
         if "existing_choices" in field_config:
-            existing_choices = field_config["existing_choices"]
-            if isinstance(existing_choices, str):
-                existing_choices = [existing_choices]
             return {
-                "choices": {
-                    "eventTypeCategories": [],
-                    "existingChoiceList": existing_choices,
-                    "featureCategories": [],
-                    "myDataType": "",
-                    "subjectGroups": [],
-                    "subjectSubtypes": [],
-                    "type": "EXISTING_CHOICE_LIST",
-                },
                 "inputType": "DROPDOWN",
                 "placeholder": "",
                 "type": "CHOICE_LIST",

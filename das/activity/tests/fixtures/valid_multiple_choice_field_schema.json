@@ -14,13 +14,10 @@
                     "type": "string",
                     "anyOf": [
                         {
-                            "$ref": "http://example.com/choiceA"
+                            "$ref": "/api/v2.0/schemas/choices.json?field=animal_tags"
                         },
                         {
-                            "$ref": "/choiceB/path/to/choice-reference.json"
-                        },
-                        {
-                            "$ref": "/choiceC/path/to/choice-reference.json?param=value&param2=value2"
+                            "$ref": "/api/v2.0/schemas/subjects.json?common_name=lion"
                         }
                     ]
                 }

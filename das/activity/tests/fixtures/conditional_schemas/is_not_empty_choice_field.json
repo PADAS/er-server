@@ -80,17 +80,6 @@
   "ui": {
     "fields": {
       "priority": {
-        "choices": {
-          "eventTypeCategories": [],
-          "existingChoiceList": [
-            "firerep_status"
-          ],
-          "featureCategories": [],
-          "myDataType": "EVENT_TYPES_FROM_EVENT_CATEGORY",
-          "subjectGroups": [],
-          "subjectSubtypes": [],
-          "type": "EXISTING_CHOICE_LIST"
-        },
         "conditionalDependents": [
           "section-2"
         ],
