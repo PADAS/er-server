@@ -36,6 +36,7 @@ attachment_field_json_schema = {
     "title": "Attachment field JSON schema",
     "properties": {
         "deprecated": {"type": "boolean"},
+        "description": {"type": "string"},
         "format": {"const": "uri"},
         "title": {"type": "string", "maxLength": FIELD_TITLE_MAX_LENGTH},
         "type": {"const": "string"},
@@ -704,7 +705,7 @@ is_empty_condition_ui_schema = {
         "operator": {"const": "IS_EMPTY"},
         "value": {"const": None},
     },
-    "required": ["field", "id", "operator"],
+    "required": ["field", "id", "operator", "value"],
     "additionalProperties": False,
 }
 
@@ -826,7 +827,7 @@ is_not_empty_condition_ui_schema = {
         "operator": {"const": "IS_NOT_EMPTY"},
         "value": {"const": None},
     },
-    "required": ["field", "id", "operator"],
+    "required": ["field", "id", "operator", "value"],
     "additionalProperties": False,
 }
 
