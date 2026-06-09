@@ -342,7 +342,7 @@ class Auth0JWTAuthentication(BaseAuthentication):
     """
 
     def __init__(self):
-        self.keyword = "Token"
+        self.keyword = "Bearer"
         self.resource_protector = ResourceProtector()
         self.resource_protector.register_token_validator(Auth0JWTBearerTokenValidator())
 
