@@ -231,9 +231,9 @@ class TestAuth0JWTAuthentication:
         with pytest.raises(AuthenticationFailed):
             Auth0JWTAuthentication().authenticate(api_request_for_test)
 
-    def test_keyword_is_token(self, api_request_for_test, das_user_with_auth0_id_for_test, mock_auth0_validator):
-        """Test that our keyword is Token."""
-        assert Auth0JWTAuthentication().keyword == "Token"
+    def test_keyword_is_bearer(self, api_request_for_test, das_user_with_auth0_id_for_test, mock_auth0_validator):
+        """Test that WWW-Authenticate keyword is Bearer per RFC 6750."""
+        assert Auth0JWTAuthentication().keyword == "Bearer"
 
     def test_auth0_authentication_is_first_in_settings(self):
         """Test that Auth0JWTAuthentication is first in REST_FRAMEWORK authentication classes.
