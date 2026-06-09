@@ -44,7 +44,7 @@ from core.admin import (
     ModelAdminDisplayingManyToManyFieldMixin,
     ModelAdminHistoryViewHideSharedAdminUserRevisionsMixin,
 )
-from core.common import TIMEZONE_USED, AdminFeatureFlag, ReleaseToggledAdminMixin
+from core.common import TIMEZONE_USED, AdminFeatureFlag, PreviewFeatureAdminMixin
 from core.openlayers import OSMGeoExtendedAdmin, PropsOSMGeoAdminMixin
 from utils.features import features
 from utils.tenant import get_tenant_settings
@@ -1104,12 +1104,12 @@ class FormBuilderProxyAdmin(FormBuilderAdmin):
 
 
 @admin.register(models.CommunityInput)
-class CommunityInputAdmin(ReleaseToggledAdminMixin, ModelAdminDisplayingManyToManyFieldMixin):
-    # Gated solely by the per-tenant release toggle below (see
-    # utils/tenant/release_toggles.py). To expose it for every tenant at once,
-    # set global_override=True on the toggle rather than re-introducing a
+class CommunityInputAdmin(PreviewFeatureAdminMixin, ModelAdminDisplayingManyToManyFieldMixin):
+    # Gated solely by the per-tenant preview feature below (see
+    # utils/tenant/preview_features.py). To expose it for every tenant at once,
+    # set global_override=True on the feature rather than re-introducing a
     # Django-settings kill switch.
-    release_toggle = "community_input_admin_enabled"
+    preview_feature = "community_input_admin_enabled"
     checks_class = CustomM2MChecks
     form = CommunityInputForm
 

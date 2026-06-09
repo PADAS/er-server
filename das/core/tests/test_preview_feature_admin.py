@@ -7,11 +7,11 @@ import pytest
 
 from django.contrib.admin import ModelAdmin
 
-from core.common import ReleaseToggledAdminMixin
+from core.common import PreviewFeatureAdminMixin
 
 
-class _FakeAdmin(ReleaseToggledAdminMixin, ModelAdmin):
-    release_toggle = "community_input_admin_enabled"
+class _FakeAdmin(PreviewFeatureAdminMixin, ModelAdmin):
+    preview_feature = "community_input_admin_enabled"
 
 
 def _make_admin() -> _FakeAdmin:
@@ -20,13 +20,13 @@ def _make_admin() -> _FakeAdmin:
     return admin
 
 
-def _patch_tenant_release_toggles(release_toggles):
-    """Patch get_tenant_settings inside the registry module so the mixin sees these toggles."""
-    settings = SimpleNamespace(release_toggles=release_toggles)
-    return patch("utils.tenant.release_toggles.get_tenant_settings", return_value=settings)
+def _patch_tenant_preview_features(preview_features):
+    """Patch get_tenant_settings inside the registry module so the mixin sees these features."""
+    settings = SimpleNamespace(preview_features=preview_features)
+    return patch("utils.tenant.preview_features.get_tenant_settings", return_value=settings)
 
 
-class TestReleaseToggledAdminMixin:
+class TestPreviewFeatureAdminMixin:
     @pytest.mark.parametrize(
         "method,extra_args",
         [
@@ -37,10 +37,10 @@ class TestReleaseToggledAdminMixin:
             ("has_delete_permission", (None,)),
         ],
     )
-    def test_returns_false_when_toggle_off(self, method, extra_args):
+    def test_returns_false_when_feature_off(self, method, extra_args):
         admin = _make_admin()
         request = MagicMock()
-        with _patch_tenant_release_toggles({"community_input_admin_enabled": False}):
+        with _patch_tenant_preview_features({"community_input_admin_enabled": False}):
             assert getattr(admin, method)(request, *extra_args) is False
 
     @pytest.mark.parametrize(
@@ -53,10 +53,10 @@ class TestReleaseToggledAdminMixin:
             ("has_delete_permission", (None,)),
         ],
     )
-    def test_returns_false_when_toggle_absent_from_release_toggles(self, method, extra_args):
+    def test_returns_false_when_feature_absent_from_preview_features(self, method, extra_args):
         admin = _make_admin()
         request = MagicMock()
-        with _patch_tenant_release_toggles({}):
+        with _patch_tenant_preview_features({}):
             assert getattr(admin, method)(request, *extra_args) is False
 
     @pytest.mark.parametrize(
@@ -69,11 +69,11 @@ class TestReleaseToggledAdminMixin:
             ("has_delete_permission", (None,)),
         ],
     )
-    def test_defers_to_super_when_toggle_on(self, method, extra_args):
+    def test_defers_to_super_when_feature_on(self, method, extra_args):
         admin = _make_admin()
         request = MagicMock()
         with (
-            _patch_tenant_release_toggles({"community_input_admin_enabled": True}),
+            _patch_tenant_preview_features({"community_input_admin_enabled": True}),
             patch.object(ModelAdmin, method, return_value=True) as super_method,
         ):
             assert getattr(admin, method)(request, *extra_args) is True
@@ -89,20 +89,20 @@ class TestReleaseToggledAdminMixin:
             ("has_delete_permission", (None,)),
         ],
     )
-    def test_respects_super_denial_when_toggle_on(self, method, extra_args):
+    def test_respects_super_denial_when_feature_on(self, method, extra_args):
         admin = _make_admin()
         request = MagicMock()
         with (
-            _patch_tenant_release_toggles({"community_input_admin_enabled": True}),
+            _patch_tenant_preview_features({"community_input_admin_enabled": True}),
             patch.object(ModelAdmin, method, return_value=False),
         ):
             assert getattr(admin, method)(request, *extra_args) is False
 
-    def test_empty_release_toggle_attribute_denies(self):
-        class _NoToggleAdmin(ReleaseToggledAdminMixin, ModelAdmin):
+    def test_empty_preview_feature_attribute_denies(self):
+        class _NoFeatureAdmin(PreviewFeatureAdminMixin, ModelAdmin):
             pass
 
-        admin = _NoToggleAdmin.__new__(_NoToggleAdmin)
+        admin = _NoFeatureAdmin.__new__(_NoFeatureAdmin)
         admin.opts = SimpleNamespace(app_label="activity")
-        with _patch_tenant_release_toggles({"community_input_admin_enabled": True}):
+        with _patch_tenant_preview_features({"community_input_admin_enabled": True}):
             assert admin.has_module_permission(MagicMock()) is False

@@ -63,40 +63,42 @@ class AdminFeatureFlag:
             return admin_class
 
 
-class ReleaseToggledAdminMixin:
-    """Hides a ModelAdmin from a tenant when its release toggle is off.
+class PreviewFeatureAdminMixin:
+    """Hides a ModelAdmin from a tenant when its preview feature is off.
 
-    Subclasses set ``release_toggle`` to the name of an entry in
-    ``RELEASE_TOGGLES`` (e.g. ``"community_input_admin_enabled"``). The toggle
-    is resolved per request via ``get_release_toggle``, so it honours the
-    toggle's ``global_override`` — set that to ``True`` to expose the admin for
+    Subclasses set ``preview_feature`` to the name of an entry in
+    ``PREVIEW_FEATURES`` (e.g. ``"community_input_admin_enabled"``). The feature
+    is resolved per request via ``get_preview_feature``, so it honours the
+    feature's ``global_override`` — set that to ``True`` to expose the admin for
     every tenant at once. This is the sole gate for the admin; no
     Django-settings kill switch is needed in front of it.
+
+    See ``utils/tenant/preview_features.py`` for the ``PREVIEW_FEATURES`` registry.
     """
 
-    release_toggle: str = ""
+    preview_feature: str = ""
 
-    def _release_toggle_on(self) -> bool:
-        from utils.tenant.release_toggles import get_release_toggle
+    def _preview_feature_on(self) -> bool:
+        from utils.tenant.preview_features import get_preview_feature
 
-        if not self.release_toggle:
+        if not self.preview_feature:
             return False
-        return bool(get_release_toggle(self.release_toggle))
+        return bool(get_preview_feature(self.preview_feature))
 
     def has_module_permission(self, request):
-        return self._release_toggle_on() and super().has_module_permission(request)
+        return self._preview_feature_on() and super().has_module_permission(request)
 
     def has_view_permission(self, request, obj=None):
-        return self._release_toggle_on() and super().has_view_permission(request, obj)
+        return self._preview_feature_on() and super().has_view_permission(request, obj)
 
     def has_add_permission(self, request):
-        return self._release_toggle_on() and super().has_add_permission(request)
+        return self._preview_feature_on() and super().has_add_permission(request)
 
     def has_change_permission(self, request, obj=None):
-        return self._release_toggle_on() and super().has_change_permission(request, obj)
+        return self._preview_feature_on() and super().has_change_permission(request, obj)
 
     def has_delete_permission(self, request, obj=None):
-        return self._release_toggle_on() and super().has_delete_permission(request, obj)
+        return self._preview_feature_on() and super().has_delete_permission(request, obj)
 
 
 class AdminReadonlyField(admin.helpers.AdminReadonlyField):

@@ -175,4 +175,4 @@ class Tenant:
     env_settings: EnvironmentSettings = field(metadata=config(field_name="envSettings"))
     services: Services = field(metadata=config(field_name="services"))
     status: Optional[str] = field(metadata=config(field_name="status"), default=None)
-    release_toggles: dict = field(metadata=config(field_name="releaseToggles"), default_factory=dict)
+    preview_features: dict = field(metadata=config(field_name="previewFeatures"), default_factory=dict)

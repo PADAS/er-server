@@ -835,12 +835,12 @@ TMS_API = {
     "API_KEY": env.str("TMS_API_KEY", "secret"),
 }
 
-# Local-dev seed for the per-tenant release-toggle registry (utils/tenant/release_toggles.py).
-# In production these arrive in the tenant payload's `releaseToggles` block from TMS; locally
-# the DjangoSettingsTenantBuilder seeds `release_toggles` from this JSON so a developer can flip
-# a registered toggle from .env, e.g.:
-#   RELEASE_TOGGLES={"community_input_admin_enabled": true}
-RELEASE_TOGGLES = env.json("RELEASE_TOGGLES", default={})
+# Local-dev seed for the per-tenant preview-feature registry (utils/tenant/preview_features.py).
+# In production these arrive in the tenant payload's `previewFeatures` block from TMS; locally
+# the DjangoSettingsTenantBuilder seeds `preview_features` from this JSON so a developer can flip
+# a registered feature from .env, e.g.:
+#   PREVIEW_FEATURES={"community_input_admin_enabled": true}
+PREVIEW_FEATURES = env.json("PREVIEW_FEATURES", default={})
 
 TENANT_DOCUMENT_CACHE = {
     "CLIENT": "utils.persistent.RedisStorage",

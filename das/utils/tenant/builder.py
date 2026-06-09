@@ -42,7 +42,7 @@ class DjangoSettingsTenantBuilder:
             status=None,
             updated_at=datetime.datetime.now(tz=datetime.timezone.utc),
             url=getattr(settings, "UI_SITE_URL", None),
-            release_toggles=dict(getattr(settings, "RELEASE_TOGGLES", {}) or {}),
+            preview_features=dict(getattr(settings, "PREVIEW_FEATURES", {}) or {}),
         )
 
     def build(self) -> Tenant:
