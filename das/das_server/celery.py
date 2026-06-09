@@ -83,6 +83,8 @@ app.conf.task_routes = {
     },
     "rt_api.tasks.broadcast_service_status": {"queue": "realtime_p2"},
     "rt_api.tasks.broadcast_service_status_tenant": {"queue": "realtime_p2"},
+    "rt_api.tasks.coordinate_pending_source_obs_drain": {"queue": "realtime_p2"},
+    "rt_api.tasks.drain_pending_source_observations": {"queue": "realtime_p2"},
     "rt_api.tasks.handle_new_event": {
         "queue": "realtime_p2",
     },
@@ -190,6 +192,11 @@ app.conf.beat_schedule = {
     "service-status": {
         "task": "rt_api.tasks.broadcast_service_status",
         "schedule": timedelta(seconds=15),
+    },
+    "drain-pending-source-observations": {
+        "task": "rt_api.tasks.coordinate_pending_source_obs_drain",
+        "schedule": timedelta(seconds=settings.REALTIME_OBS_DRAIN_INTERVAL_SECONDS),
+        "options": {"expires": settings.REALTIME_OBS_DRAIN_INTERVAL_SECONDS},
     },
     "redis-status": {
         "task": "rt_api.tasks.check_redis_queues",

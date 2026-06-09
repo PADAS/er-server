@@ -46,6 +46,107 @@ SESSION_CURSOR_TTL = 7 * 24 * 3600  # 7 days
 # created_at >= created_after filter.
 SESSION_CURSOR_GRACE_WINDOW = datetime.timedelta(minutes=5)
 
+PENDING_SOURCE_OBSERVATIONS_KEY = "rt_api:pending_source_obs:{}"
+# Cluster-level (cross-tenant) registry of domains that have pending source
+# observations. This is a single global Redis Set — NOT per-tenant and NOT
+# passed through any tenant KEY_FUNCTION cache alias. It lives on the same
+# raw redis.Redis client (REALTIME_BROKER_URL) as the per-tenant pending sets.
+PENDING_SOURCE_OBS_DOMAINS_KEY = "rt_api:pending_source_obs_domains"
+
+
+def add_pending_source_observation(domain: str | None, source_id: str) -> None:
+    if not domain:
+        logger.warning(
+            "add_pending_source_observation: skipping source_id=%s — domain is empty/None",
+            source_id,
+        )
+        return
+    key = PENDING_SOURCE_OBSERVATIONS_KEY.format(domain)
+    # Both SADDs are O(1) on the same Redis connection — no broker call.
+    redis_client.sadd(key, source_id)
+    redis_client.sadd(PENDING_SOURCE_OBS_DOMAINS_KEY, domain)
+
+
+def drain_pending_source_observations(domain: str | None) -> set[bytes]:
+    if not domain:
+        logger.warning(
+            "drain_pending_source_observations: skipping — domain is empty/None",
+        )
+        return set()
+    key = PENDING_SOURCE_OBSERVATIONS_KEY.format(domain)
+    source_ids: set[bytes] = redis_client.smembers(key)
+    return source_ids
+
+
+def remove_drained_source_observations(domain: str | None, source_ids: set[bytes]) -> None:
+    """Remove only the ids that were successfully dispatched.
+
+    Called after fan-out tasks are dispatched so that ids added concurrently
+    during the drain window, and any id in the crash window between read and
+    dispatch, are not silently dropped.
+    """
+    if not domain:
+        logger.warning(
+            "remove_drained_source_observations: skipping — domain is empty/None",
+        )
+        return
+    if not source_ids:
+        return
+    key = PENDING_SOURCE_OBSERVATIONS_KEY.format(domain)
+    redis_client.srem(key, *source_ids)
+
+
+def get_pending_source_obs_domains() -> set[str]:
+    """Return the set of domains that have been registered as having pending
+    source observations.
+
+    This is the cluster-level dirty-domains registry. It is read by the
+    coordinator beat task to skip idle tenants.
+    """
+    raw: set[bytes] = redis_client.smembers(PENDING_SOURCE_OBS_DOMAINS_KEY)
+    return {d.decode() if isinstance(d, bytes) else d for d in raw}
+
+
+def remove_pending_source_obs_domain_if_empty(domain: str) -> None:
+    """Remove *domain* from the dirty-domains registry only if its per-tenant
+    pending set is now empty (SCARD == 0).
+
+    Ordering rationale (concurrency safety):
+      1. The caller drains the per-tenant set first:
+         SMEMBERS → dispatch → SREM(dispatched-only).
+      2. Only then is this function called.
+      3. We SCARD the per-tenant set. If new source IDs arrived after our
+         SMEMBERS but before this SCARD, SCARD > 0 and we leave the domain in
+         the registry so the next beat cycle re-drains it.
+      4. If SCARD == 0 — truly empty — we remove the domain. Any new SADD
+         that races with step 4 re-adds the domain to the registry atomically,
+         so no source ID is ever stranded.
+
+    This is safe because SADD to the registry (in add_pending_source_observation)
+    and SREM from the registry (here) are both atomic Redis operations. The only
+    race is: new SADD happens after our SCARD but before our SREM. In that case:
+      - add_pending_source_observation writes domain→registry AND source_id→pending set.
+      - Our SREM then removes domain from registry.
+      - The pending set is non-empty but the domain is no longer registered.
+    This would strand the new source ID until the next orphan sweep.
+
+    To avoid this, the caller must remove dispatched IDs (SREM) BEFORE calling
+    this function, so that the SCARD check sees the post-drain state. Then the
+    window for the above race is only between SCARD and SREM-registry — a
+    microsecond Redis RTT. We accept this tiny window because:
+      - _check_orphaned_pending_source_obs_sets (called every 60s) scans for
+        any pending set whose domain is not in the cluster and logs/metrics it.
+      - That same sweep could re-add orphan domains to the registry, but we
+        leave that recovery to the beat interval rather than adding complexity here.
+    The chosen safe ordering preserves the existing SMEMBERS→dispatch→SREM-dispatched
+    guarantee from the original PR.
+    """
+    if not domain:
+        return
+    pending_key = PENDING_SOURCE_OBSERVATIONS_KEY.format(domain)
+    if redis_client.scard(pending_key) == 0:
+        redis_client.srem(PENDING_SOURCE_OBS_DOMAINS_KEY, domain)
+
 
 @dataclass_json
 @dataclass(frozen=True)

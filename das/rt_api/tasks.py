@@ -7,9 +7,11 @@ from collections import namedtuple
 from functools import partial
 from uuid import UUID
 
+from celery import states as celery_states
 from celery_once.tasks import QueueOnce
 from django_multitenant.utils import get_current_tenant
 
+from django.conf import settings
 from django.db import InterfaceError, OperationalError, close_old_connections
 from rest_framework.exceptions import PermissionDenied
 from rest_framework.request import Request
@@ -44,7 +46,9 @@ from observations.views import SubjectStatusView
 from rt_api import client
 from rt_api.rest_api_interface.dummy_request import DummyRequest
 from utils.stats import update_gauge
+from utils.tenant import get_tenant_settings
 from utils.tenant.celery import OverAllTenantTask, TenantQueueOnceTask, TenantTask
+from utils.tenant.providers import get_current_cluster_domains
 
 logger = logging.getLogger(__name__)
 
@@ -259,6 +263,69 @@ def broadcast_service_status():
     if not service_status_data:
         return
     _emit_service_status(service_status_data)
+
+
+@celery.app.task(
+    base=OverAllTenantTask, once={"graceful": True, "timeout": settings.REALTIME_OBS_DRAIN_INTERVAL_SECONDS}
+)
+def drain_pending_source_observations(**kwargs) -> None:
+    """Drain pending source observations for the current tenant.
+
+    Called by the coordinator (coordinate_pending_source_obs_drain) with an
+    explicit tenant_domain so OverAllTenantTask runs this in proper tenant
+    context with per-tenant celery-once dedup.
+
+    Safe ordering:
+      1. SMEMBERS — snapshot the pending set.
+      2. dispatch handle_new_source_observation for each id.
+      3. SREM — remove only the dispatched (non-REJECTED) ids.
+      4. Remove domain from dirty registry only if the pending set is now empty.
+         New ids that arrived after step 1 keep SCARD > 0, leaving the domain
+         in the registry so the next beat cycle re-drains it.
+    """
+    domain = get_tenant_settings().domain
+    source_ids = client.drain_pending_source_observations(domain)
+    dispatched: set[bytes] = set()
+    for source_id_bytes in source_ids:
+        source_id = source_id_bytes.decode() if isinstance(source_id_bytes, bytes) else str(source_id_bytes)
+        result = handle_new_source_observation.apply_async(args=(source_id,), kwargs={"domain": domain})
+        # celery-once returns EagerResult(None, None, states.REJECTED) when the
+        # task is gracefully suppressed because a lock for this source_id is
+        # already held (task queued or running).  Only remove ids that were
+        # actually enqueued; suppressed ids stay in the pending set so the next
+        # drain cycle retries them once the lock clears.
+        if result.state != celery_states.REJECTED:
+            dispatched.add(source_id_bytes)
+    client.remove_drained_source_observations(domain, dispatched)
+    # After SREM-dispatched, conditionally remove the domain from the registry.
+    # If new ids arrived mid-cycle, SCARD > 0 and the domain stays registered.
+    client.remove_pending_source_obs_domain_if_empty(domain)
+
+
+@celery.app.task(base=QueueOnce, once={"graceful": True, "timeout": settings.REALTIME_OBS_DRAIN_INTERVAL_SECONDS})
+def coordinate_pending_source_obs_drain() -> None:
+    """Beat coordinator: dispatch per-tenant drains only for dirty domains.
+
+    Instead of fanning out to all cluster domains (which at 500 tenants/cluster
+    produces ~100 drain enqueues/sec of mostly-empty SMEMBERS noops), this task
+    reads the dirty-domains registry and dispatches drain_pending_source_observations
+    only for domains that have pending data.
+
+    This task is a plain QueueOnce (no tenant context) because it does not
+    operate on any single tenant's data — it only reads the global registry and
+    dispatches per-tenant tasks. The per-tenant drain runs in proper tenant
+    context via OverAllTenantTask's tenant_domain fan-out path.
+    """
+    dirty_domains = client.get_pending_source_obs_domains()
+    if not dirty_domains:
+        return
+
+    once_timeout = settings.REALTIME_OBS_DRAIN_INTERVAL_SECONDS
+    for domain in dirty_domains:
+        drain_pending_source_observations.apply_async(
+            kwargs={"tenant_domain": domain},
+            expires=once_timeout,
+        )
 
 
 def _subjectstatus_update_handler(subject_id, user_sids_map=None):
@@ -759,6 +826,58 @@ def sweep_orphan_socketio_queues():
     update_gauge(metric="rt_api_orphan_socketio_queues_deleted", value=deleted_keys)
 
 
+def _check_orphaned_pending_source_obs_sets() -> None:
+    """Log and metric any pending-source-obs sets whose domain is not in the cluster.
+
+    A set that exists for an unknown domain will never be drained because the
+    coordinator only dispatches to domains in the dirty-domains registry, and
+    those domains must also be valid cluster members. Surfacing these early
+    prevents a silent realtime outage for a tenant that was renamed or migrated
+    off this cluster.
+
+    Also emits the total pending-depth gauge (sum of SCARD across all sets) so
+    operators can detect when the drain beat is falling behind.
+
+    Registry self-healing: if a domain is in the dirty-domains registry but its
+    pending set is empty (e.g. due to a crash between SREM-dispatched and the
+    registry cleanup), we proactively remove it here so it does not accumulate
+    as a permanent stale entry.
+    """
+    prefix = client.PENDING_SOURCE_OBSERVATIONS_KEY.format("")
+    cluster_domains = get_current_cluster_domains()
+    orphaned_count = 0
+    total_depth = 0
+    seen_domains: set[str] = set()
+    for raw_key in client.redis_client.scan_iter(match=f"{prefix}*", count=500):
+        key_str = raw_key.decode() if isinstance(raw_key, bytes) else raw_key
+        domain = key_str[len(prefix) :]
+        seen_domains.add(domain)
+        total_depth += client.redis_client.scard(raw_key)
+        if domain not in cluster_domains:
+            orphaned_count += 1
+            logger.warning(
+                "pending-source-obs set for domain=%s is not in the cluster; "
+                "it will never drain — possible tenant removal or misconfiguration",
+                domain,
+            )
+    update_gauge(metric="rt_api_orphaned_pending_source_obs_sets", value=orphaned_count)
+    update_gauge(metric="rt_api_pending_source_obs_depth", value=total_depth)
+
+    # Sweep the dirty-domains registry for stale entries: domains that are
+    # registered but whose pending set is empty or missing. This handles the
+    # crash window between SREM-dispatched and registry cleanup in the drain task.
+    registry_domains = client.get_pending_source_obs_domains()
+    for domain in registry_domains:
+        if domain not in seen_domains:
+            # Pending set is missing/empty and domain is still in registry.
+            logger.debug(
+                "_check_orphaned_pending_source_obs_sets: removing stale registry entry for domain=%s "
+                "(pending set is empty or missing)",
+                domain,
+            )
+            client.remove_pending_source_obs_domain_if_empty(domain)
+
+
 @celery.app.task(base=QueueOnce, once={"graceful": True})
 def check_redis_queues():
     """
@@ -822,3 +941,5 @@ def check_redis_queues():
             "memory_gauge": val,
         },
     )
+
+    _check_orphaned_pending_source_obs_sets()

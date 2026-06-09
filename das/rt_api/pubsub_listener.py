@@ -3,6 +3,7 @@ from threading import Thread
 
 import utils.json as json
 from das_server import pubsub
+from rt_api import client
 from rt_api.tasks import (
     handle_delete_event,
     handle_delete_message,
@@ -11,7 +12,6 @@ from rt_api.tasks import (
     handle_new_event,
     handle_new_message,
     handle_new_patrol,
-    handle_new_source_observation,
     handle_new_subject_observation,
     handle_subjectstatus_update,
     handle_update_event,
@@ -53,11 +53,15 @@ def start(realtime_server):
                 kwargs={"domain": data.pop("domain", None)},
             )
         elif source_id := data.get("source_id"):
-            handle_new_source_observation.apply_async(
-                args=(source_id,),
-                kwargs={"domain": data.pop("domain", None)},
-                countdown=30,
-            )
+            domain = data.pop("domain", None)
+            if not domain:
+                logger.warning(
+                    "new_observation_handler: dropping source_id=%s — missing/empty domain in pubsub message",
+                    source_id,
+                )
+                return
+            client.add_pending_source_observation(domain, source_id)
+            logger.debug("Accumulating source_id=%s for domain=%s", source_id, domain)
 
     def subjectstatus_update_handler(data, message):
         logger.debug("das.subjectstatus.update %s", data)
