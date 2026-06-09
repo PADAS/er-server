@@ -7,7 +7,7 @@ import versatileimagefield.files
 from rest_framework_condition import condition
 
 from django.db import transaction
-from django.db.models import CharField, Prefetch, Q
+from django.db.models import CharField, Exists, OuterRef, Prefetch, Q
 from django.db.models.functions import Cast
 from django.db.utils import IntegrityError
 from django.http import HttpResponse
@@ -274,14 +274,23 @@ class PatrolsView(ListCreateAPIView):
         user = self.request.user
         user_model_name = user._meta.model_name
         viewable_patrol_subjects = Subject.objects.by_user_subjects_and_linked(user).values_list("id", flat=True)
-        return queryset.filter(
-            Q(patrol_segment__leader_id=None)
-            | (
-                Q(patrol_segment__leader_id__in=viewable_patrol_subjects)
-                & Q(patrol_segment__leader_content_type__model="subject")
+        # A patrol is viewable if it has a segment whose leader is null, a viewable
+        # subject, or a user. Expressed as a single correlated Exists() subquery so
+        # the multi-valued patrol_segment relation is matched at most once instead of
+        # joined repeatedly.
+        #
+        # The previous implementation used a LEFT OUTER JOIN with Q(patrol_segment__leader_id=None);
+        # that also matched patrols with NO segments at all (the join produced an all-null row).
+        # Preserve that behaviour: a patrol with no segments is viewable.
+        has_any_segment = Exists(PatrolSegment.objects.filter(patrol=OuterRef("pk")))
+        viewable_segment = Exists(
+            PatrolSegment.objects.filter(patrol=OuterRef("pk")).filter(
+                Q(leader_id=None)
+                | (Q(leader_id__in=viewable_patrol_subjects) & Q(leader_content_type__model="subject"))
+                | Q(leader_content_type__model=user_model_name)
             )
-            | Q(patrol_segment__leader_content_type__model=user_model_name)
         )
+        return queryset.filter(Q(viewable_segment) | ~Q(has_any_segment))
 
 
 class PatrolSegmentView(RetrieveUpdateDestroyAPIView):
