@@ -52,6 +52,11 @@ DEFAULT_LOGGING = {
             "propagate": False,
             "level": env.str("DJANGO_SERVER_LOGGING_LEVEL", "INFO"),
         },
+        "accounts.act_as": {
+            "handlers": ["console"],
+            "propagate": False,
+            "level": env.str("ACCOUNTS_ACT_AS_LOGGING_LEVEL", "INFO"),
+        },
         "rt_api": {
             "level": env.str("RTAPI_LOGGING_LEVEL", "WARNING"),
         },

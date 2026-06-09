@@ -23,11 +23,12 @@ from utils.tenant import get_tenant_settings
 from utils.tenant.exceptions import TenantNotFoundInLocalThreadException
 
 logger = logging.getLogger("django.request")
+act_as_logger = logging.getLogger("accounts.act_as")
 
 AccessToken = get_access_token_model()
 
 
-def act_as_user_in_request(user, request):
+def _act_as_user_in_request(user, request):
     profile_header = request.META.get("HTTP_USER_PROFILE", None)
     if profile_header and user and not user.is_anonymous:
         logged_in_user = user
@@ -37,17 +38,40 @@ def act_as_user_in_request(user, request):
             return user
 
         if 1 != logged_in_user.act_as_profiles.all().filter(pk=profile_pk).count():
-            message = "User Profile %s not found in act_as_profiles list for user %s" % (profile_pk, logged_in_user.pk)
-            logger.warning(message)
+            message = "act_as denied: profile %s not in act_as_profiles for user %s" % (profile_pk, logged_in_user.pk)
+            act_as_logger.warning(
+                message,
+                extra={
+                    "act_as_user": str(profile_pk),
+                    "authenticated_user": str(logged_in_user.pk),
+                    "reason": "not_in_act_as_profiles",
+                },
+            )
             raise exceptions.PermissionDenied(message)
 
         profile_user = User.objects.get(pk=profile_pk)
         if profile_user.is_staff or profile_user.is_superuser:
-            message = "User Profile %s is staff or superuser" % (profile_user.pk,)
-            logger.warning(message)
+            message = "act_as denied: profile %s is staff or superuser" % (profile_user.pk,)
+            act_as_logger.warning(
+                message,
+                extra={
+                    "act_as_user": str(profile_user.pk),
+                    "authenticated_user": str(logged_in_user.pk),
+                    "reason": "privileged_target",
+                },
+            )
             raise exceptions.PermissionDenied(message)
 
-        logger.debug("User %s is acting as user %s.", logged_in_user.pk, profile_user.pk)
+        act_as_logger.info(
+            "act_as: user %s is acting as user %s",
+            logged_in_user.pk,
+            profile_user.pk,
+            extra={
+                "act_as_user": str(profile_user.pk),
+                "authenticated_user": str(logged_in_user.pk),
+                "reason": "success",
+            },
+        )
         user = profile_user
     return user
 
@@ -69,7 +93,7 @@ class NoLoginOAuth2Backend(OAuth2Backend):
         if not request:
             return user
 
-        return act_as_user_in_request(user, request)
+        return _act_as_user_in_request(user, request)
 
 
 class NoLoginOAuth2Authentication(OAuth2Authentication):
@@ -97,7 +121,7 @@ class NoLoginOAuth2Authentication(OAuth2Authentication):
             logger.info("User %s tried to login with NoLogin set.", user.pk)
             raise exceptions.PermissionDenied()
 
-        user = act_as_user_in_request(user, request)
+        user = _act_as_user_in_request(user, request)
         return user, result[1]
 
 
@@ -419,6 +443,7 @@ class Auth0JWTAuthentication(BaseAuthentication):
 
         try:
             user = User.objects.get(auth0_id=auth0_subject, is_active=True)
+            user = _act_as_user_in_request(user, request)
             return user, None
         except User.DoesNotExist:
             logger.warning("Could not retrieve an active user with auth0_id %s", auth0_subject)
