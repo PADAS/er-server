@@ -1,5 +1,14 @@
 """V1 → V2 Subject filter parity tests.
 
+IMPORTANT — REMOVAL NOTICE
+---------------------------
+These tests exist **only** to validate the v1→v2 DynamicChoice schema migration.
+They become obsolete once all v1 DynamicChoice schemas in production have been
+migrated to v2 ``$ref`` schemas.  At that point the entire file (and the
+``v1_migration_parity`` marker in pytest.ini) should be deleted.
+
+Background
+----------
 For each real-world V1 DynamicChoice criteria pattern observed in production,
 verify that the equivalent V2 query parameters on the ``schemas:subjects``
 endpoint return the **same set of Subject IDs** as the raw ORM filter.
@@ -9,21 +18,34 @@ Reference: V1 applies criteria via
 where *criteria is a list of (field, value) tuples unpacked as positional args
 to Django's QuerySet.filter().
 
-Broken V1 patterns (excluded from parity tests)
-------------------------------------------------
+Excluded patterns (not ported — documented here for traceability)
+-----------------------------------------------------------------
+1. ``common_name__value__contains`` / ``common_name_search`` icontains, and the
+   whole ``TestContainsCaseSensitivity`` class — non-exact lookups, deferred to
+   a future operator-grammar PR.  Our endpoint is exact-only for ``common_name``.
+
+2. Multi-value ``common_name`` (comma list) — our ``common_name`` param is
+   single-exact; a comma-separated value is treated as a literal string.
+   (Multi-group via ``subject_group`` comma IS supported and is ported.)
+
+3. ``subject_type`` parity — ``subject_type=vehicle`` raises ``FieldError`` in V1
+   (``subject_type`` is a Python ``@property``, not a DB column), so there is
+   NO V1 behaviour to compare against.  ``subject_type`` is a NEW v2-only
+   capability covered by ``observations/tests/test_subjects_filters.py``.
+
+Broken V1 patterns (also excluded)
+-----------------------------------
 The following V1 criteria exist in production data but raise Django
 ``FieldError`` or are logically broken.  They are **not tested** here
 because those V1 schemas were never rendering correctly:
 
 - ``common_name_id__contains`` — ``FieldError: Related Field got invalid
   lookup: contains``.  FK field does not support ``contains``.
-- ``subject_type=vehicle`` — ``FieldError``.  ``subject_type`` is a Python
-  ``@property`` on Subject, not a database column.
 - ``allRhino`` — ``JSONDecodeError``.  Raw string, not a JSON list.  V1
   catches this and returns ``[]``.
 - ``subject_subtype=X, subject_subtype=Y`` (two subtypes ANDed) — Valid
   ORM but logically broken: a Subject has exactly one subtype so AND of
-  two exclusive values always returns ∅.
+  two exclusive values always returns the empty set.
 """
 
 from __future__ import annotations
@@ -44,8 +66,20 @@ from observations.models import CommonName, Subject, SubjectGroup
 def parity_dataset():
     """Create a rich dataset covering all V1 filter patterns.
 
-    Returns a dict of subject references keyed by a short label so individual
-    parametrized tests can express expected results concisely.
+    Returns a tuple ``(subjects, groups)`` where:
+    - ``subjects`` is a dict of Subject references keyed by a short label.
+    - ``groups`` is a dict of SubjectGroup references keyed by their name.
+
+    Group nesting note
+    ------------------
+    All groups in this fixture are FLAT leaf groups (no child groups).  This
+    is intentional: v1 ``groups__name=X`` is direct membership only (no nesting),
+    but our ``SubjectsView`` with a single ``subject_group`` UUID expands to
+    nested groups via ``get_nested_groups``.  By keeping groups flat,
+    direct membership == nested expansion, so the v1/v2 parity assertion holds.
+    DO NOT add child groups to any group in this fixture without updating all
+    affected parity test cases; doing so would silently invalidate the parity
+    comparison.
     """
     # --- SubjectTypes ---
     st_wildlife = SubjectTypeFactory.create(value="wildlife_pt")
@@ -154,7 +188,7 @@ def parity_dataset():
         additional={"sex": "male"},
     )
 
-    # --- Groups ---
+    # --- Groups (all FLAT — no children; see docstring above) ---
     grp_pumas = SubjectGroup.objects.create(name="Pumas_pt")
     grp_pumas.subjects.add(s["cougar1"])
 
@@ -170,10 +204,18 @@ def parity_dataset():
     grp_wr = SubjectGroup.objects.create(name="WhiteRhino_pt")
     grp_wr.subjects.add(s["wr_male"], s["wr_female"])
 
-    return s
+    groups = {
+        "Pumas_pt": grp_pumas,
+        "Subjects_pt": grp_subjects,
+        "DCS_Team_pt": grp_dcs,
+        "BlackRhino_pt": grp_rhinos,
+        "WhiteRhino_pt": grp_wr,
+    }
+
+    return s, groups
 
 
-def _v1_orm_ids(criteria: list[tuple[str, str]]) -> set[str]:
+def _v1_orm_ids(criteria: list[tuple[str, object]]) -> set[str]:
     """Simulate V1 DynamicChoice: Subject.objects.filter(*criteria).filter(is_active=True)."""
     qs = Subject.objects.filter(*criteria).filter(is_active=True)
     return {str(pk) for pk in qs.values_list("id", flat=True)}
@@ -184,11 +226,15 @@ def _v1_orm_ids(criteria: list[tuple[str, str]]) -> set[str]:
 # ---------------------------------------------------------------------------
 #
 # Each entry is:
-#   (test_id, v1_criteria, v2_query_string, expected_subject_keys)
+#   (test_id, v1_criteria, v2_query_template, expected_subject_keys)
 #
 # v1_criteria: list of (field, value) tuples passed to .filter(*criteria)
-# v2_query_string: query params appended to the endpoint URL
-# expected_subject_keys: labels from parity_dataset that should appear
+# v2_query_template: query-param string appended to the endpoint URL.
+#   For cases involving subject_group UUIDs, the template contains named
+#   placeholders like ``{Pumas_pt}`` that are resolved to group UUIDs at
+#   test runtime (not at collection time).  Non-group cases are plain strings
+#   with no placeholders and are used verbatim.
+# expected_subject_keys: labels from parity_dataset subjects that should appear.
 
 PARITY_CASES = [
     # --- Pattern 1: common_name_id exact ---
@@ -224,90 +270,86 @@ PARITY_CASES = [
         {"br_male", "br_female", "br_unknown", "wr_male", "wr_female", "rhino_calf"},
     ),
     # --- Pattern 3: subject_subtype + groups__name ---
+    # V1: groups__name=<name> (direct membership).
+    # V2: subject_group=<uuid> resolved from fixture; single UUID → nested
+    # expansion, but all groups are flat so nested == direct membership.
     (
         "subtype_and_group",
         [("subject_subtype", "cougar_pt"), ("groups__name", "Pumas_pt")],
-        "subject_subtypes=cougar_pt&group_name=Pumas_pt",
+        "subject_subtypes=cougar_pt&subject_group={Pumas_pt}",
         {"cougar1"},
     ),
     (
         "er_mobile_and_group",
         [("subject_subtype", "er_mobile_pt"), ("groups__name", "Subjects_pt")],
-        "subject_subtypes=er_mobile_pt&group_name=Subjects_pt",
+        "subject_subtypes=er_mobile_pt&subject_group={Subjects_pt}",
         {"mobile1"},
     ),
     (
         "ranger_and_group",
         [("subject_subtype", "ranger_pt"), ("groups__name", "Subjects_pt")],
-        "subject_subtypes=ranger_pt&group_name=Subjects_pt",
+        "subject_subtypes=ranger_pt&subject_group={Subjects_pt}",
         {"ranger1"},
     ),
-    # --- Pattern 4: common_name_id + additional ---
+    # --- Pattern 4: common_name_id + additional (DOT notation in v2) ---
     (
         "cn_and_additional_sex_male",
         [("common_name_id", "black_rhino_pt"), ("additional__sex", "male")],
-        "common_name=black_rhino_pt&additional__sex=male",
+        "common_name=black_rhino_pt&additional.sex=male",
         {"br_male"},
     ),
     (
         "cn_and_additional_sex_female",
         [("common_name_id", "black_rhino_pt"), ("additional__sex", "female")],
-        "common_name=black_rhino_pt&additional__sex=female",
+        "common_name=black_rhino_pt&additional.sex=female",
         {"br_female"},
     ),
     (
         "cn_and_additional_sex_unknown",
         [("common_name_id", "black_rhino_pt"), ("additional__sex", "unknown")],
-        "common_name=black_rhino_pt&additional__sex=unknown",
+        "common_name=black_rhino_pt&additional.sex=unknown",
         {"br_unknown", "rhino_calf"},
     ),
     (
         "wr_and_additional_sex_male",
         [("common_name_id", "white_rhino_pt"), ("additional__sex", "male")],
-        "common_name=white_rhino_pt&additional__sex=male",
+        "common_name=white_rhino_pt&additional.sex=male",
         {"wr_male"},
     ),
     (
         "wr_and_additional_sex_female",
         [("common_name_id", "white_rhino_pt"), ("additional__sex", "female")],
-        "common_name=white_rhino_pt&additional__sex=female",
+        "common_name=white_rhino_pt&additional.sex=female",
         {"wr_female"},
     ),
-    # --- Pattern 5: contains on common_name value (search) ---
-    # NOTE: V1 data also shows ``common_name_id__contains`` but that is an
-    # invalid Django ORM lookup (contains on a FK field).  The working V1
-    # pattern is ``common_name__value__contains``.
-    (
-        "common_name_value_contains_rhino",
-        [("common_name__value__contains", "rhino_pt")],
-        "common_name_search=rhino_pt",
-        {"br_male", "br_female", "br_unknown", "wr_male", "wr_female", "rhino_calf"},
-    ),
-    # --- Pattern 7: subject_subtype + additional ---
+    # --- Pattern 7: subject_subtype + additional (DOT notation in v2) ---
     (
         "subtype_rhino_age_calf",
         [("subject_subtype", "rhino_pt"), ("additional__age", "calf")],
-        "subject_subtypes=rhino_pt&additional__age=calf",
+        "subject_subtypes=rhino_pt&additional.age=calf",
         {"rhino_calf"},
     ),
     (
         "subtype_elephant_sex_female",
         [("subject_subtype", "elephant_pt"), ("additional__sex", "female")],
-        "subject_subtypes=elephant_pt&additional__sex=female",
+        "subject_subtypes=elephant_pt&additional.sex=female",
         {"elephant_female"},
     ),
     # --- Pattern 8: groups__name alone ---
     (
         "group_name_only",
         [("groups__name", "DCS_Team_pt")],
-        "group_name=DCS_Team_pt",
+        "subject_group={DCS_Team_pt}",
         {"ranger1"},
     ),
     # --- Pattern 9: groups__name__in (multi-group) ---
+    # V1: groups__name__in=["BlackRhino_pt", "WhiteRhino_pt"] (OR, no nesting).
+    # V2: subject_group=<uuid1>,<uuid2> — multiple UUIDs → groups__id__in (no
+    # nesting), matching v1 direct-membership semantics.
     (
         "group_name_in_multi",
         [("groups__name__in", ["BlackRhino_pt", "WhiteRhino_pt"])],
-        "group_name=BlackRhino_pt,WhiteRhino_pt",
+        "subject_group={BlackRhino_pt},{WhiteRhino_pt}",
         {"br_male", "br_female", "br_unknown", "wr_male", "wr_female"},
     ),
     # --- Pattern 10: common_name FK field (equivalent to common_name_id) ---
@@ -335,12 +377,17 @@ PARITY_CASES = [
 
 
 @pytest.mark.django_db
+@pytest.mark.v1_migration_parity
 class TestV1V2SubjectFilterParity:
     """For each production V1 criteria pattern, confirm the V2 endpoint
-    returns the same Subject IDs as the direct ORM query."""
+    returns the same Subject IDs as the direct ORM query.
+
+    This class is tagged ``v1_migration_parity`` and should be DELETED once
+    all v1 DynamicChoice schemas have been migrated to v2 ``$ref`` schemas.
+    """
 
     @pytest.mark.parametrize(
-        "test_id, v1_criteria, v2_query, expected_keys",
+        "test_id, v1_criteria, v2_query_template, expected_keys",
         PARITY_CASES,
         ids=[c[0] for c in PARITY_CASES],
     )
@@ -350,15 +397,21 @@ class TestV1V2SubjectFilterParity:
         parity_dataset,
         test_id,
         v1_criteria,
-        v2_query,
+        v2_query_template,
         expected_keys,
     ):
-        s = parity_dataset
+        s, groups = parity_dataset
+
+        # Resolve group-name placeholders → UUIDs at test runtime so that
+        # parametrize (which runs at collection time) can remain DB-free.
+        # Non-group cases have no braces and pass through unchanged.
+        group_uuids = {name: str(grp.id) for name, grp in groups.items()}
+        v2_query = v2_query_template.format(**group_uuids)
 
         # --- V1 path: raw ORM ---
         v1_ids = _v1_orm_ids(v1_criteria)
 
-        # --- V2 path: endpoint ---
+        # --- V2 path: schemas endpoint ---
         url = reverse("schemas:subjects")
         full_url = f"{url}?{v2_query}" if v2_query else url
         response = superuser_client.get(full_url)
@@ -366,8 +419,7 @@ class TestV1V2SubjectFilterParity:
         v2_ids = set(response.json()["enum"])
 
         # --- Parity assertion ---
-        # Both paths must agree on the dataset subjects.
-        # We restrict comparison to subjects from our fixture to avoid
+        # Restrict comparison to subjects from our fixture to avoid
         # pollution from other test data in --reuse-db.
         fixture_ids = {str(subj.id) for subj in s.values()}
         v1_fixture = v1_ids & fixture_ids
@@ -402,13 +454,18 @@ class TestV1V2SubjectFilterParity:
 
 
 @pytest.mark.django_db
+@pytest.mark.v1_migration_parity
 class TestIsActiveParity:
     """V1 criteria ``is_active=True`` is implicitly handled by the V2 endpoint
     which excludes inactive subjects by default (via check_to_include_inactive_subjects).
-    Passing ``?include_inactive=true`` overrides this."""
+    Passing ``?include_inactive=true`` overrides this.
+
+    This class is tagged ``v1_migration_parity`` and should be DELETED once
+    all v1 DynamicChoice schemas have been migrated to v2 ``$ref`` schemas.
+    """
 
     def test_inactive_excluded_by_default(self, superuser_client, parity_dataset):
-        s = parity_dataset
+        s, _groups = parity_dataset
         url = reverse("schemas:subjects")
         response = superuser_client.get(f"{url}?common_name=black_rhino_pt")
 
@@ -418,7 +475,7 @@ class TestIsActiveParity:
         assert str(s["br_male"].id) in consts
 
     def test_inactive_included_when_requested(self, superuser_client, parity_dataset):
-        s = parity_dataset
+        s, _groups = parity_dataset
         url = reverse("schemas:subjects")
         response = superuser_client.get(f"{url}?common_name=black_rhino_pt&include_inactive=true")
 
@@ -426,54 +483,3 @@ class TestIsActiveParity:
         consts = set(response.json()["enum"])
         assert str(s["inactive_rhino"].id) in consts
         assert str(s["br_male"].id) in consts
-
-
-# ---------------------------------------------------------------------------
-# Edge-case: case-sensitivity of contains vs icontains
-# ---------------------------------------------------------------------------
-
-
-@pytest.mark.django_db
-class TestContainsCaseSensitivity:
-    """V1 uses ``common_name__value__contains`` (case-sensitive) while V2
-    ``common_name_search`` maps to ``icontains``.  V2 is a superset: it
-    never misses a V1 match but may return additional case-variant matches."""
-
-    def test_icontains_is_superset_of_contains(self, superuser_client):
-        subtype = SubjectSubTypeFactory.create(value="case_parity")
-        cn_upper = CommonName.objects.create(
-            value="Black_Rhino_CS",
-            display="Black Rhino",
-            subject_subtype=subtype,
-        )
-        cn_lower = CommonName.objects.create(
-            value="black_rhino_cs",
-            display="Black Rhino Lower",
-            subject_subtype=subtype,
-        )
-        s_upper = SubjectFactory.create(subject_subtype=subtype, common_name=cn_upper)
-        s_lower = SubjectFactory.create(subject_subtype=subtype, common_name=cn_lower)
-
-        # V1: case-sensitive contains (via FK traversal)
-        v1_ids = {
-            str(pk)
-            for pk in Subject.objects.filter(
-                common_name__value__contains="Black_Rhino",
-            ).values_list("id", flat=True)
-        }
-
-        # V2: case-insensitive search
-        url = reverse("schemas:subjects")
-        response = superuser_client.get(f"{url}?common_name_search=Black_Rhino")
-        v2_ids = set(response.json()["enum"])
-
-        # V1 only matches the uppercase version
-        assert str(s_upper.id) in v1_ids
-        assert str(s_lower.id) not in v1_ids
-
-        # V2 matches both (superset)
-        assert str(s_upper.id) in v2_ids
-        assert str(s_lower.id) in v2_ids
-
-        # V2 is a superset of V1
-        assert v1_ids.issubset(v2_ids)

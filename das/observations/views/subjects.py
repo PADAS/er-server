@@ -1,5 +1,4 @@
 import logging
-import re
 
 from drf_spectacular.utils import (
     OpenApiParameter,
@@ -23,7 +22,7 @@ from rest_framework.generics import (
 )
 from rest_framework.response import Response
 
-from observations.filters import create_gp_filter_class
+from observations.filters import SubjectFilterSet, create_gp_filter_class
 from observations.mixins import TwoWaySubjectSourceMixin
 from observations.models import SourceGroup, Subject, SubjectGroup, SubjectSource
 from observations.permissions import SubjectModelPermissions
@@ -167,25 +166,60 @@ SUBJECTS_LIST_PARAMS = [
     OpenApiParameter(
         name="common_name",
         location=OpenApiParameter.QUERY,
-        description=("Comma-delimited CommonName values to filter Subjects. " "Example: black_rhino,white_rhino"),
+        description=(
+            "Filter subjects by common name value (exact match). "
+            "Example: black_rhino. Matches the common_name field in the response."
+        ),
         type=OpenApiTypes.STR,
         required=False,
     ),
     OpenApiParameter(
-        name="common_name_search",
-        location=OpenApiParameter.QUERY,
-        description="Partial (case-insensitive) match on the Subject's common name value.",
-        type=OpenApiTypes.STR,
-        required=False,
-    ),
-    OpenApiParameter(
-        name="group_name",
+        name="subject_type",
         location=OpenApiParameter.QUERY,
         description=(
-            "Comma-delimited SubjectGroup names to filter Subjects (matches any listed group). "
-            "Example: DCS_Team_Members,BlackRhino. "
-            "Note: SubjectGroupsView uses the same parameter name for a single-name "
-            "icontains search on group records, not subject membership."
+            "Filter subjects by parent subject type value (exact match). "
+            "Example: vehicle. Matches the subject_type field in the response."
+        ),
+        type=OpenApiTypes.STR,
+        required=False,
+    ),
+    OpenApiParameter(
+        name="additional.sex",
+        location=OpenApiParameter.QUERY,
+        description=(
+            "Documented example of an additional.<key> filter. "
+            "Filters subjects by sex stored in the additional JSONB column (exact match). Example: female."
+        ),
+        type=OpenApiTypes.STR,
+        required=False,
+    ),
+    OpenApiParameter(
+        name="additional.species",
+        location=OpenApiParameter.QUERY,
+        description=(
+            "Documented example of an additional.<key> filter. "
+            "Filters subjects by species stored in the additional JSONB column (exact match). Example: lion."
+        ),
+        type=OpenApiTypes.STR,
+        required=False,
+    ),
+    OpenApiParameter(
+        name="additional.age",
+        location=OpenApiParameter.QUERY,
+        description=(
+            "Documented example of an additional.<key> filter. "
+            "Filters subjects by age stored in the additional JSONB column (exact match, string comparison). "
+            'A numeric JSONB value such as {"age": 5} is matched by ?additional.age=5.'
+        ),
+        type=OpenApiTypes.STR,
+        required=False,
+    ),
+    OpenApiParameter(
+        name="additional.gender",
+        location=OpenApiParameter.QUERY,
+        description=(
+            "Documented example of an additional.<key> filter. "
+            "Filters subjects by gender stored in the additional JSONB column (exact match). Example: male."
         ),
         type=OpenApiTypes.STR,
         required=False,
@@ -198,15 +232,11 @@ SUBJECTS_LIST_PARAMS = [
         parameters=SUBJECTS_LIST_PARAMS,
         summary="List subjects",
         description=(
-            "List subjects with optional filters for time, bbox, group, name, "
-            "common_name, group_name, and subject_subtypes.\n\n"
-            "**JSONField filters (`additional__<key>`):** any query parameter "
-            "of the form `additional__<key>=<value>` filters by that key in "
-            "Subject.additional (e.g. `additional__sex=male`, "
-            "`additional__age=adult`). Multiple keys are ANDed. Reserved "
-            "JSONField lookup names (`has_key`, `contains`, `isnull`, etc.) "
-            "are rejected. These dynamic parameters are not enumerated in the "
-            "schema because their key set is unbounded."
+            "List subjects with optional filters for time, bbox, group, name, common_name (exact), "
+            "subject_type (exact), subject_subtypes, and subject_group. "
+            "Any additional.<key> query parameter is also accepted and matched via exact text extraction "
+            "against the additional JSONB column; sex, species, age, and gender are documented common keys "
+            "but any key present in the additional field can be used."
         ),
     )
 )
@@ -289,11 +319,15 @@ class SubjectsView(ListCreateAPIView, TwoWaySubjectSourceMixin, DynamicSchemaDat
         filtered_queryset = self.filter_on_subject_and_source_groups(filtered_queryset, user, query_params)
 
         filtered_queryset = self.filter_on_subject_subtype(filtered_queryset, user, query_params)
-        filtered_queryset = self.filter_on_common_name(filtered_queryset, query_params)
-        filtered_queryset = self.filter_on_group_name(filtered_queryset, query_params)
-        filtered_queryset = self.filter_on_additional(filtered_queryset, query_params)
         filtered_queryset = self.filter_on_dates(filtered_queryset, user, query_params)
         filtered_queryset = check_to_include_inactive_subjects(self.request, filtered_queryset)
+
+        # Apply the new additive FilterSet (common_name, subject_type, additional.*).
+        # NOTE: DjangoFilterBackend cannot be used here because phase 2 (below)
+        # builds a QuerySet.union() which cannot be .filter()/.annotate()-ed after
+        # the fact.  Instead we apply SubjectFilterSet manually in phase 1, before
+        # the union, so phase 2's id__in re-query inherits the narrowing.
+        filtered_queryset = self.filter_on_subject_filterset(filtered_queryset, query_params)
 
         # Get the IDs of filtered subjects
         filtered_queryset = filtered_queryset.distinct("id").order_by("id")
@@ -429,69 +463,20 @@ class SubjectsView(ListCreateAPIView, TwoWaySubjectSourceMixin, DynamicSchemaDat
 
         return queryset
 
-    def filter_on_common_name(self, queryset: QuerySet, query_params) -> QuerySet:
-        """Filter by CommonName value (exact) or partial match (case-insensitive).
+    def filter_on_subject_filterset(self, queryset: QuerySet, query_params) -> QuerySet:
+        """Apply ``SubjectFilterSet`` to *queryset* in phase 1.
 
-        CommonName.value is the FK primary key, so common_name__value lookups
-        do not actually join the CommonName table; Django collapses them to
-        the FK column on Subject.
+        Handles ``common_name``, ``subject_type``, and ``additional.<key>``
+        JSONB filtering.  Because ``SubjectFilterSet`` is ``open=True``, any
+        ``additional.<key>`` query parameter is accepted and matched via exact
+        text extraction against the ``additional`` JSONB column;
+        ``sex``, ``species``, ``age``, and ``gender`` are documented common
+        keys but not an exhaustive list.  The FilterSet is instantiated with
+        the raw query-param dict so that ``JSONFieldFilterSetMixin.filter_queryset``
+        can read dotted keys such as ``additional.species`` that are not
+        expressible as Python class attributes.
         """
-        if common_names := query_params.get("common_name"):
-            values = [v.strip() for v in common_names.split(",") if v.strip()]
-            queryset = queryset.filter(common_name__value__in=values)
-
-        if search := query_params.get("common_name_search"):
-            queryset = queryset.filter(common_name__value__icontains=search.strip())
-
-        return queryset
-
-    def filter_on_group_name(self, queryset: QuerySet, query_params) -> QuerySet:
-        """Filter by SubjectGroup name(s)."""
-        if group_names := query_params.get("group_name"):
-            names_list = [v.strip() for v in group_names.split(",")]
-            queryset = queryset.filter(groups__name__in=names_list)
-
-        return queryset
-
-    _ADDITIONAL_KEY_PATTERN = re.compile(r"^additional__([a-zA-Z_][a-zA-Z0-9_]*)$")
-    _JSONFIELD_RESERVED_LOOKUPS = frozenset(
-        {
-            "contains",
-            "contained_by",
-            "has_key",
-            "has_keys",
-            "has_any_keys",
-            "icontains",
-            "iexact",
-            "iendswith",
-            "istartswith",
-            "isnull",
-            "overlap",
-            "regex",
-            "iregex",
-        }
-    )
-
-    def filter_on_additional(self, queryset: QuerySet, query_params) -> QuerySet:
-        """Filter by keys in the Subject.additional JSONField.
-
-        Accepts query parameters ``additional__<key>=<value>`` where ``<key>`` is
-        a JSON object key (not a Django JSONField lookup name).
-        """
-        additional_filters: dict[str, str] = {}
-        for param in query_params:
-            match = self._ADDITIONAL_KEY_PATTERN.match(param)
-            if not match:
-                continue
-            json_key = match.group(1)
-            if json_key in self._JSONFIELD_RESERVED_LOOKUPS:
-                continue
-            additional_filters[f"additional__{json_key}"] = query_params[param]
-
-        if additional_filters:
-            queryset = queryset.filter(**additional_filters)
-
-        return queryset
+        return SubjectFilterSet(query_params, queryset=queryset, request=self.request).qs
 
     def filter_on_location(self, queryset, user, query_params, position_updated_since, updated_since, updated_until):
         # Apply bbox filter if present
