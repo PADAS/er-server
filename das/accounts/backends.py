@@ -1,5 +1,8 @@
+from __future__ import annotations
+
 import logging
 import uuid
+from typing import Final, NamedTuple
 
 from authlib.oauth2 import ResourceProtector
 from authlib.oauth2.rfc6749 import OAuth2Token
@@ -8,7 +11,6 @@ from oauth2_provider.backends import OAuth2Backend
 from oauth2_provider.contrib.rest_framework.authentication import OAuth2Authentication
 from oauth2_provider.models import get_access_token_model
 
-from django.conf import settings
 from django.contrib.auth.backends import BaseBackend, ModelBackend
 from django.contrib.auth.models import AnonymousUser, Permission
 from django.contrib.contenttypes.models import ContentType
@@ -331,6 +333,14 @@ class AccountsModelBackend(ModelBackend):
         return (ctype.id, obj.pk)
 
 
+class _LegacyTokenCheck(NamedTuple):
+    is_dot_token: bool
+    bypass_auth0: bool
+
+
+_NOT_A_DOT_TOKEN: Final = _LegacyTokenCheck(is_dot_token=False, bypass_auth0=False)
+
+
 class Auth0JWTAuthentication(BaseAuthentication):
     """
     Auth0 JWT authentication class that integrates with EarthRanger's tenant-aware system.
@@ -346,7 +356,8 @@ class Auth0JWTAuthentication(BaseAuthentication):
         self.resource_protector = ResourceProtector()
         self.resource_protector.register_token_validator(Auth0JWTBearerTokenValidator())
 
-    def _get_bearer_token_value(self, request) -> str | None:
+    @staticmethod
+    def _get_bearer_token_value(request) -> str | None:
         auth_header = request.META.get("HTTP_AUTHORIZATION", "")
         if not auth_header:
             return None
@@ -358,44 +369,53 @@ class Auth0JWTAuthentication(BaseAuthentication):
         token_value = parts[1].strip()
         return token_value or None
 
-    def _should_allow_legacy_oauth2_for_request(self, request, allowed_oauth2_client_ids: list[str]) -> bool:
-        """
-        When require_idp=True, we *normally* fail closed and prevent fallback to legacy auth methods.
+    def _check_legacy_oauth2_token(self, request) -> _LegacyTokenCheck:
+        """Classify the request's Bearer token as a legacy DOT token or not.
 
-        This method implements a carve-out: if the incoming Authorization header is a Django OAuth
-        Toolkit access token (opaque token stored in our DB) and its OAuth2 application is in an
-        allowlist, we skip Auth0 JWT auth and allow the DRF auth chain to continue to OAuth2.
+        Returns a _LegacyTokenCheck indicating whether the Bearer value is an opaque
+        DOT token in our database and, if so, whether its application permits Auth0
+        bypass. May raise AccessToken.MultipleObjectsReturned to surface data integrity issues.
         """
-        if not allowed_oauth2_client_ids:
-            return False
-
         token_value = self._get_bearer_token_value(request)
         if not token_value:
-            return False
+            return _NOT_A_DOT_TOKEN
 
-        # Only carve out for OAuth2 "opaque" tokens we issue/store. If it's not found, it might be
-        # an Auth0 JWT (also typically presented as Bearer), so we should proceed with JWT validation.
-        access_token = AccessToken.objects.select_related("application").filter(token=token_value).first()
-        if not access_token or not getattr(access_token, "application", None):
-            return False
+        try:
+            access_token = AccessToken.objects.select_related("application").get(token=token_value)
+        except AccessToken.DoesNotExist:
+            return _NOT_A_DOT_TOKEN
 
-        return access_token.application.client_id in set(allowed_oauth2_client_ids)
+        if not access_token.application:
+            return _NOT_A_DOT_TOKEN
+
+        bypass = access_token.application.bypass_auth0
+        if bypass:
+            logger.debug(
+                "Legacy DOT token for application %s has bypass_auth0=True", access_token.application.client_id
+            )
+        else:
+            logger.warning(
+                "Legacy DOT token for application %s has bypass_auth0=False", access_token.application.client_id
+            )
+
+        return _LegacyTokenCheck(is_dot_token=True, bypass_auth0=bypass)
 
     def authenticate(self, request):
         """
         Authenticate a request using Auth0 JWT tokens when IDP is required.
 
         Returns:
-            - None: When require_idp=False (skip this authenticator)
-            - (AnonymousUser, None): When require_idp=True but no Authorization header (allow anonymous access)
-            - (User, None): When require_idp=True and valid JWT token provided
-            - Raises AuthenticationFailed: When require_idp=True and invalid JWT token provided
-            - Raises APIException: When tenant settings cannot be resolved
+            - None: When require_idp=False (skip this authenticator), or when a legacy
+              DOT token has bypass_auth0=True (allow fallback to OAuth2 authentication)
+            - (AnonymousUser, None): When require_idp=True but no Authorization header
+            - (User, None): When require_idp=True and valid Auth0 JWT token provided
 
-        This method implements a three-tier authentication strategy:
-        1. Skip authentication entirely when IDP is not required for the tenant
-        2. Allow anonymous access when IDP is required but no credentials are provided
-        3. Enforce strict JWT validation when credentials are present
+        Raises:
+            AuthenticationFailed: When require_idp=True and the token is invalid, the
+                JWT sub claim is missing, or a DOT token has bypass_auth0=False
+            APIException: When tenant settings cannot be resolved
+            AccessToken.MultipleObjectsReturned: When duplicate DOT tokens exist
+                (data integrity issue, surfaces as 500)
         """
         try:
             tenant_settings = get_tenant_settings()
@@ -404,7 +424,6 @@ class Auth0JWTAuthentication(BaseAuthentication):
                     "Auth0 authentication skipped because require_idp is False for tenant %s", tenant_settings.domain
                 )
                 return None
-            allowed_oauth2_client_ids = list(getattr(settings, "IDP_OAUTH2_CLIENT_IDS_ALLOWLIST", []) or [])
         except Exception as ex:
             logger.error("Cannot resolve tenant settings, so failing closed.\n%s", ex)
             raise APIException()  # 500
@@ -414,18 +433,15 @@ class Auth0JWTAuthentication(BaseAuthentication):
             logger.debug("Auth0 authentication skipped because no authorization header")
             return AnonymousUser(), None
 
-        # Carve-out: allow certain legacy OAuth2 clients to keep using DOT access tokens even when
-        # require_idp=True, without weakening the default fail-closed behavior for other clients.
-        if self._get_bearer_token_value(request):
-            if self._should_allow_legacy_oauth2_for_request(request, allowed_oauth2_client_ids):
-                logger.debug("Allowing legacy OAuth2 token for allowlisted client_id while require_idp=True")
-                return None
-            # If it *is* one of our OAuth2 tokens but not allowlisted, we should fail closed and not
-            # proceed to validate as Auth0 JWT (avoids ambiguous behavior and keeps the security model strict).
-            access_token = AccessToken.objects.filter(token=self._get_bearer_token_value(request)).first()
-            if access_token:
-                logger.debug("Blocking legacy OAuth2 token while require_idp=True (client_id not allowlisted)")
-                raise AuthenticationFailed()
+        # Carve-out: allow legacy OAuth2 clients whose application has bypass_auth0=True to keep
+        # using DOT access tokens even when require_idp=True.
+        token_check = self._check_legacy_oauth2_token(request)
+        if token_check.is_dot_token:
+            if token_check.bypass_auth0:
+                return None  # Allow fallback to OAuth2 authentication.
+            # Fail closed: a DOT token without bypass must not fall through to JWT
+            # validation (which would reject it with a misleading "invalid JWT" error).
+            raise AuthenticationFailed()
 
         # From here forward, we must either successfully return a user,
         # or fail authentication by raising, since `require_idp` must be True.
