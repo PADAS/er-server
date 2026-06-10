@@ -65,3 +65,11 @@ class TestDASTenant:
 
         sources = Source.objects.all()
         assert sources.count() == 1
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("tenant_settings", "das_tenant_monkeypatch")
+class TestDASApplication:
+    def test_bypass_auth0_defaults_to_true(self, application):
+        """New applications default to bypass_auth0=True (allowlisted)."""
+        assert application.bypass_auth0 is True

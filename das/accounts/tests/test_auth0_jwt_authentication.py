@@ -4,6 +4,7 @@ Tests for Auth0JWTAuthentication backend.
 
 from __future__ import annotations
 
+import logging
 from unittest.mock import MagicMock, Mock, patch
 
 import pytest
@@ -179,16 +180,14 @@ class TestAuth0JWTAuthentication:
         assert result[0] == das_user_with_auth0_id_for_test
         assert result[1] is None
 
-    def test_allowlisted_oauth2_client_skips_auth0_and_allows_fallback(
-        self, mock_tenant_settings, settings, user, application
-    ):
+    def test_bypass_auth0_application_skips_jwt_and_allows_fallback(self, mock_tenant_settings, user, application):
         """
         When require_idp=True, we usually fail closed to prevent legacy OAuth2 use.
         This test verifies the explicit carve-out: if the incoming Bearer token matches
-        a DOT access token and its OAuth2 application's client_id is allowlisted, we
+        a DOT access token and its OAuth2 application has bypass_auth0=True, we
         return None to allow DRF to continue to OAuth2 authentication.
         """
-        settings.IDP_OAUTH2_CLIENT_IDS_ALLOWLIST = [application.client_id]
+        assert application.bypass_auth0 is True
 
         access_token = AccessTokenFactory(user=user, application=application)
         factory = RequestFactory()
@@ -203,12 +202,14 @@ class TestAuth0JWTAuthentication:
 
         assert result is None
 
-    def test_non_allowlisted_oauth2_token_fails_closed(self, mock_tenant_settings, settings, user, application):
+    def test_non_bypass_auth0_application_fails_closed(self, mock_tenant_settings, user, application):
         """
-        If the incoming Bearer token is one of our stored DOT access tokens but the
-        OAuth2 client_id is not allowlisted, we must fail closed and block fallback.
+        If the incoming Bearer token is a DOT access token whose application has
+        bypass_auth0=False, authenticate() fails closed with AuthenticationFailed
+        rather than allowing fallback to OAuth2 or falling through to JWT validation.
         """
-        settings.IDP_OAUTH2_CLIENT_IDS_ALLOWLIST = []
+        application.bypass_auth0 = False
+        application.save()
 
         access_token = AccessTokenFactory(user=user, application=application)
         factory = RequestFactory()
@@ -216,6 +217,78 @@ class TestAuth0JWTAuthentication:
 
         with pytest.raises(AuthenticationFailed):
             Auth0JWTAuthentication().authenticate(request)
+
+    def test_dot_token_with_null_application_proceeds_to_jwt_validation(self, mock_tenant_settings, user, application):
+        """
+        A DOT access token whose application FK is null is not recognized as a
+        legacy OAuth2 token. It falls through to Auth0 JWT validation, which
+        rejects the opaque string.
+        """
+        access_token = AccessTokenFactory(user=user, application=application)
+        access_token.application = None
+        access_token.save()
+
+        factory = RequestFactory()
+        request = factory.get("/api/test/", HTTP_AUTHORIZATION=f"Bearer {access_token.token}")
+
+        with patch(
+            "accounts.backends.ResourceProtector.validate_request",
+            side_effect=Exception("Invalid token"),
+        ) as mock_validate:
+            with pytest.raises(AuthenticationFailed):
+                Auth0JWTAuthentication().authenticate(request)
+
+        assert mock_validate.call_count == 1
+
+    def test_duplicate_dot_tokens_propagate_as_server_error(self, mock_tenant_settings, user, application):
+        """
+        If multiple access tokens share the same token value (a constraint
+        violation), the lookup raises MultipleObjectsReturned rather than
+        silently picking one — surfacing the data integrity issue as a 500.
+        """
+        access_token = AccessTokenFactory(user=user, application=application)
+        factory = RequestFactory()
+        request = factory.get("/api/test/", HTTP_AUTHORIZATION=f"Bearer {access_token.token}")
+
+        mock_qs = MagicMock()
+        mock_qs.get.side_effect = AccessToken.MultipleObjectsReturned
+
+        with patch("accounts.backends.AccessToken.objects") as mock_objects:
+            mock_objects.select_related.return_value = mock_qs
+            with pytest.raises(AccessToken.MultipleObjectsReturned):
+                Auth0JWTAuthentication().authenticate(request)
+
+    def test_bypass_auth0_true_logs_debug(self, mock_tenant_settings, user, application, caplog):
+        """When a DOT token's application has bypass_auth0=True, a DEBUG message is logged."""
+        assert application.bypass_auth0 is True
+
+        access_token = AccessTokenFactory(user=user, application=application)
+        factory = RequestFactory()
+        request = factory.get("/api/test/", HTTP_AUTHORIZATION=f"Bearer {access_token.token}")
+
+        with caplog.at_level(logging.DEBUG, logger="django.request"):
+            with patch(
+                "accounts.backends.ResourceProtector.validate_request",
+                side_effect=Exception("should not be called"),
+            ):
+                Auth0JWTAuthentication().authenticate(request)
+
+        assert any("bypass_auth0=True" in message and application.client_id in message for message in caplog.messages)
+
+    def test_bypass_auth0_false_logs_warning(self, mock_tenant_settings, user, application, caplog):
+        """When a DOT token's application has bypass_auth0=False, a WARNING message is logged."""
+        application.bypass_auth0 = False
+        application.save()
+
+        access_token = AccessTokenFactory(user=user, application=application)
+        factory = RequestFactory()
+        request = factory.get("/api/test/", HTTP_AUTHORIZATION=f"Bearer {access_token.token}")
+
+        with caplog.at_level(logging.WARNING, logger="django.request"):
+            with pytest.raises(AuthenticationFailed):
+                Auth0JWTAuthentication().authenticate(request)
+
+        assert any("bypass_auth0=False" in message and application.client_id in message for message in caplog.messages)
 
     @pytest.mark.parametrize(
         "missing_sub",
