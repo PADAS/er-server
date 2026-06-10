@@ -538,7 +538,19 @@ class EventFilteringQuerySet(models.QuerySet, FilterFieldMixin):
     def by_exclude_contained(self, value):
         if not value:
             return self
-        return self.exclude(in_relationship__type__value="contains")
+        # Use a tenant-scoped Exists() subquery instead of Django's split_exclude.
+        # split_exclude builds the anti-join subquery outside the tenant manager,
+        # so it only emits a cross-table tenant-equality join condition
+        # (U1.das_tenant_id = U2.das_tenant_id) with no leading tenant literal
+        # in the activity_eventrelationship subquery — forcing Postgres to scan
+        # the full evtrel_tenant_to_evt_idx per candidate row (~132 buffers each,
+        # 3.33M total on a 25k-row result set, 9.4s of a 10.2s query).
+        # EventRelationship.objects goes through TenantManagerMixin, which injects
+        # the das_tenant_id literal into the subquery so the index probe can use
+        # the leading (das_tenant_id, to_event_id) columns. Mirrors the pattern
+        # used by EventSubjectsFilter and by_text_filter.
+        contained = EventRelationship.objects.filter(to_event_id=OuterRef("pk"), type__value="contains")
+        return self.alias(_is_contained=Exists(contained)).filter(_is_contained=False)
 
     def by_location(self, location: str, user, categories_to_filter: dict):
         if user.is_superuser:
