@@ -357,29 +357,29 @@ class Auth0JWTAuthentication(BaseAuthentication):
         self.resource_protector.register_token_validator(Auth0JWTBearerTokenValidator())
 
     @staticmethod
-    def _get_bearer_token_value(request) -> str | None:
+    def _get_token_value(request) -> str | None:
+        """Extract a token value from the request.
+
+        Checks the Authorization header first, then falls back to the ?auth=
+        query parameter. Header takes precedence if both are present.
+        """
         auth_header = request.META.get("HTTP_AUTHORIZATION", "")
-        if not auth_header:
-            return None
-        if not auth_header.startswith("Bearer "):
-            return None
-        parts = auth_header.split(" ", maxsplit=1)
-        if len(parts) != 2:
-            return None
-        token_value = parts[1].strip()
-        return token_value or None
+        if auth_header and auth_header.startswith("Bearer "):
+            parts = auth_header.split(" ", maxsplit=1)
+            if len(parts) == 2:
+                token_value = parts[1].strip()
+                if token_value:
+                    return token_value
 
-    def _check_legacy_oauth2_token(self, request) -> _LegacyTokenCheck:
-        """Classify the request's Bearer token as a legacy DOT token or not.
+        return request.GET.get("auth") or None
 
-        Returns a _LegacyTokenCheck indicating whether the Bearer value is an opaque
+    def _check_legacy_oauth2_token(self, token_value: str) -> _LegacyTokenCheck:
+        """Classify a token string as a legacy DOT token or not.
+
+        Returns a _LegacyTokenCheck indicating whether the token value is an opaque
         DOT token in our database and, if so, whether its application permits Auth0
         bypass. May raise AccessToken.MultipleObjectsReturned to surface data integrity issues.
         """
-        token_value = self._get_bearer_token_value(request)
-        if not token_value:
-            return _NOT_A_DOT_TOKEN
-
         try:
             access_token = AccessToken.objects.select_related("application").get(token=token_value)
         except AccessToken.DoesNotExist:
@@ -407,7 +407,7 @@ class Auth0JWTAuthentication(BaseAuthentication):
         Returns:
             - None: When require_idp=False (skip this authenticator), or when a legacy
               DOT token has bypass_auth0=True (allow fallback to OAuth2 authentication)
-            - (AnonymousUser, None): When require_idp=True but no Authorization header
+            - (AnonymousUser, None): When require_idp=True but no token in header or query params
             - (User, None): When require_idp=True and valid Auth0 JWT token provided
 
         Raises:
@@ -428,14 +428,14 @@ class Auth0JWTAuthentication(BaseAuthentication):
             logger.error("Cannot resolve tenant settings, so failing closed.\n%s", ex)
             raise APIException()  # 500
 
-        auth_header = request.META.get("HTTP_AUTHORIZATION", "")
-        if not auth_header:
-            logger.debug("Auth0 authentication skipped because no authorization header")
+        token_value = self._get_token_value(request)
+        if not token_value:
+            logger.debug("Auth0 authentication skipped because no token found in header or query params")
             return AnonymousUser(), None
 
         # Carve-out: allow legacy OAuth2 clients whose application has bypass_auth0=True to keep
         # using DOT access tokens even when require_idp=True.
-        token_check = self._check_legacy_oauth2_token(request)
+        token_check = self._check_legacy_oauth2_token(token_value)
         if token_check.is_dot_token:
             if token_check.bypass_auth0:
                 return None  # Allow fallback to OAuth2 authentication.
