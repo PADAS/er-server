@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import uuid
 
 from django_multitenant.fields import TenantForeignKey, TenantOneToOneField
@@ -82,6 +84,13 @@ class DASApplication(TenantModelMixin, AbstractApplication):
         null=True,
         blank=True,
         on_delete=models.CASCADE,
+    )
+    bypass_auth0 = models.BooleanField(
+        default=True,
+        help_text=(
+            "When True, this application's OAuth2 tokens bypass Auth0 JWT "
+            "enforcement on tenants with require_idp=True."
+        ),
     )
 
     tenant_id = "das_tenant_id"
