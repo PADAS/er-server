@@ -487,7 +487,7 @@ class TestAccountLinkerCallback:
         assert b"Unable to associate your accounts" in result.content
         assert "Error exchanging authorization code in account linker" in caplog.text
 
-    def test_missing_sub_claim_returns_400(self, request_factory, active_user, caplog):
+    def test_missing_userinfo_returns_400(self, request_factory, active_user, caplog):
         request = request_factory.get(f"/auth/account-linker/callback/?state={FAKE_LINK_ATTEMPT}")
         request.session = {f"{SESSION_KEY_PREFIX}{FAKE_LINK_ATTEMPT}": str(active_user.id)}
 
@@ -504,7 +504,28 @@ class TestAccountLinkerCallback:
 
         assert result.status_code == 400
         assert b"Unable to associate your accounts" in result.content
-        assert "Could not extract sub claim from Auth0 token" in caplog.text
+        assert "No userinfo in Auth0 token response" in caplog.text
+
+    @pytest.mark.parametrize("bad_sub", [None, "", "  "])
+    def test_null_or_empty_sub_claim_returns_400(self, request_factory, active_user, caplog, bad_sub):
+        request = request_factory.get(f"/auth/account-linker/callback/?state={FAKE_LINK_ATTEMPT}")
+        request.session = {f"{SESSION_KEY_PREFIX}{FAKE_LINK_ATTEMPT}": str(active_user.id)}
+
+        mock_token = Mock()
+        mock_token.get = lambda key, default=None: {
+            "userinfo": {"sub": bad_sub, "email": "newauth0email@example.com"}
+        }.get(key, default)
+
+        with caplog.at_level(logging.WARNING, logger="accounts.account_linker"):
+            with patch(
+                "accounts.account_linker._account_linker_auth0_client.auth0.authorize_access_token"
+            ) as mock_exchange:
+                mock_exchange.return_value = mock_token
+                result = account_linker_callback(request)
+
+        assert result.status_code == 400
+        assert b"Unable to associate your accounts" in result.content
+        assert "missing or empty sub claim" in caplog.text
 
     def test_email_change_sends_notification_to_prior_address(self, request_factory, active_user):
         request = request_factory.get(f"/auth/account-linker/callback/?state={FAKE_LINK_ATTEMPT}")

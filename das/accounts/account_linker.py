@@ -198,14 +198,19 @@ def account_linker_callback(request):
             status=400,
         )
 
-    try:
-        userinfo = token.get("userinfo")
-        if not userinfo:
-            raise ValueError("No userinfo in token response")
-        auth0_sub = userinfo["sub"]
-        auth0_email = (userinfo.get("email") or "").strip()
-    except (TypeError, KeyError, ValueError):
-        logger.exception("Could not extract sub claim from Auth0 token")
+    userinfo = token.get("userinfo")
+    if not userinfo:
+        logger.error("No userinfo in Auth0 token response")
+        return HttpResponse(
+            _UNABLE_TO_LINK_MESSAGE,
+            status=400,
+        )
+
+    auth0_sub = (userinfo.get("sub") or "").strip()
+    auth0_email = (userinfo.get("email") or "").strip()
+
+    if not auth0_sub:
+        logger.warning("Auth0 token has missing or empty sub claim")
         return HttpResponse(
             _UNABLE_TO_LINK_MESSAGE,
             status=400,
