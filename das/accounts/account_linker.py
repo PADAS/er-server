@@ -15,10 +15,12 @@ from authlib.integrations.django_client import OAuth
 from django.conf import settings
 from django.core import signing
 from django.core.exceptions import ValidationError
+from django.core.mail import send_mail
 from django.db import IntegrityError, transaction
 from django.db.models.functions import Trim
 from django.http import HttpResponse
 from django.shortcuts import redirect
+from django.template.loader import render_to_string
 from django.urls import reverse
 from django.views.decorators.csrf import csrf_exempt
 
@@ -252,6 +254,11 @@ def account_linker_callback(request):
             )
         logger.info("User %s already has auth0_id=%s, skipping linking", user.username, user.auth0_id)
 
+    current_email = user.email
+    should_notify = (
+        bool(current_email and current_email.strip()) and current_email.strip().lower() != auth0_email.strip().lower()
+    )
+
     # The unique constraint on auth0_id rejects duplicates at save time,
     # preventing a stolen sub from being persisted.
     try:
@@ -263,6 +270,9 @@ def account_linker_callback(request):
                 user.email = auth0_email
                 logger.info("Updated email for user %s to %s", user.username, auth0_email)
             user.save(update_fields=["auth0_id", "email"])
+
+            if should_notify:
+                transaction.on_commit(lambda: _send_email_changed_notification(current_email))
     except (IntegrityError, ValidationError):
         logger.warning(
             "Auth0 sub %s is already linked to another user; cannot link to user %s",
@@ -275,3 +285,20 @@ def account_linker_callback(request):
         return HttpResponse(_UNABLE_TO_LINK_MESSAGE, status=400)
 
     return redirect("/")
+
+
+def _send_email_changed_notification(prior_email: str) -> None:
+    """Send a notification to the prior email address about the change.
+
+    Failures are logged but swallowed — the link has already been committed
+    and a send error must not turn a successful link into a 500.
+    """
+    try:
+        site_name = get_tenant_settings().domain
+        recipient = prior_email.strip()
+        context = {"site_name": site_name}
+        subject = render_to_string("registration/account_linker_email_changed_subject.txt", context).strip()
+        body = render_to_string("registration/account_linker_email_changed_email.html", context)
+        send_mail(subject, body, settings.DEFAULT_FROM_EMAIL, [recipient])
+    except Exception:
+        logger.exception("Failed to send email-changed notification to %s", prior_email)
