@@ -18,6 +18,30 @@ def fake_tenant_test_task(*args, **kwargs):
     logger.info("In fake_tenant_test_task()")
 
 
+@celery.app.task(base=TenantTask)
+def fake_tenant_test_task_raising_dastenant_missing(*args, **kwargs):
+    raise DASTenant.DoesNotExist()
+
+
+@celery.app.task(base=TenantTask)
+def fake_tenant_test_task_raising_tenant_not_found(*args, **kwargs):
+    raise TenantNotFoundException()
+
+
+class _NoopTenantContextManager:
+    """Stand-in for TenantContextManager whose enter/exit succeed, so the task
+    body runs as if the tenant context was resolved correctly."""
+
+    def __init__(self, *args, **kwargs):
+        pass
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        return False
+
+
 @pytest.mark.django_db
 @pytest.mark.usefixtures("tenant_settings", "das_tenant_monkeypatch")
 class TestTenantCeleryTasks:
@@ -41,6 +65,56 @@ class TestTenantCeleryTasks:
             mock_retry.assert_called_once()
             args, kwargs = mock_retry.call_args
             assert isinstance(kwargs.get("exc"), OperationalError)
+
+    @patch("utils.tenant.celery.TenantContextManager")
+    def test_mixin_skips_without_retry_when_dastenant_missing_locally(self, mock_tenant_context, caplog):
+        caplog.set_level(logging.WARNING)
+        mock_tenant_context.side_effect = DASTenant.DoesNotExist()
+        with patch.object(fake_tenant_test_task, "retry", autospec=True) as mock_retry:
+            fake_tenant_test_task(domain="missing.com")
+
+            assert "exists in TMS but is missing from the local" in caplog.text
+            assert "skipping task" in caplog.text
+            mock_retry.assert_not_called()
+
+    @patch("utils.tenant.celery.TenantContextManager")
+    def test_mixin_skips_without_retry_when_tenant_not_found_in_tms(self, mock_tenant_context, caplog):
+        caplog.set_level(logging.WARNING)
+        mock_tenant_context.side_effect = TenantNotFoundException()
+        with patch.object(fake_tenant_test_task, "retry", autospec=True) as mock_retry:
+            fake_tenant_test_task(domain="missing.com")
+
+            assert "could not be resolved to a tenant in TMS" in caplog.text
+            assert "skipping task" in caplog.text
+            mock_retry.assert_not_called()
+
+    @patch("utils.tenant.celery.TenantContextManager", _NoopTenantContextManager)
+    def test_mixin_propagates_dastenant_doesnotexist_from_task_body(self, caplog):
+        """DASTenant.DoesNotExist raised by the task body (after the tenant
+        context was entered) is a real failure and must propagate, not be
+        swallowed with the TMS/local mismatch warning."""
+        caplog.set_level(logging.WARNING)
+        with patch.object(fake_tenant_test_task_raising_dastenant_missing, "retry", autospec=True) as mock_retry:
+            with pytest.raises(DASTenant.DoesNotExist):
+                fake_tenant_test_task_raising_dastenant_missing(domain="zoo.com")
+
+            assert "core_dastenant / tms.domain mismatch" not in caplog.text
+            assert "skipping task" not in caplog.text
+            mock_retry.assert_not_called()
+
+    @patch("utils.tenant.celery.TenantContextManager", _NoopTenantContextManager)
+    def test_mixin_propagates_tenant_not_found_from_task_body(self, caplog):
+        """TenantNotFoundException raised by the task body (after the tenant
+        context was entered) must propagate, not be swallowed with the
+        skip-without-retry warning."""
+        caplog.set_level(logging.WARNING)
+        with patch.object(fake_tenant_test_task_raising_tenant_not_found, "retry", autospec=True) as mock_retry:
+            with pytest.raises(TenantNotFoundException):
+                fake_tenant_test_task_raising_tenant_not_found(domain="zoo.com")
+
+            assert "could not be resolved to a tenant in TMS" not in caplog.text
+            assert "skipping task" not in caplog.text
+            mock_retry.assert_not_called()
 
 
 class TestOverAllTenantTask:

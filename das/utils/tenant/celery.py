@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import contextlib
 import logging
 import random
 
@@ -29,22 +30,58 @@ class TenantTaskMixin:
         if not domain:
             raise ValueError("domain needs to be defined via kwargs for a celery TenantTask")
 
-        try:
-            with TenantContextManager(domain):
-                return super().__call__(*args, **kwargs)
-        except (OperationalError, InterfaceError) as ex:
-            logger.warning(
-                "%s occurred while running: %s for Tenant domain: %s",
-                type(ex).__name__,
-                self.name,
-                domain,
-            )
-            # default_retry_delay == 180 seconds, max_retries == 3, retry_backoff == exponential backoff, with jitter, max of ten minutes
+        # Enter the tenant context in its own try/except so that we only treat
+        # a missing tenant as a "skip without retry" when it happens while
+        # resolving/entering the context. Once the context is successfully
+        # entered, the task body runs inside the ExitStack's `with` block and
+        # any DASTenant.DoesNotExist / TenantNotFoundException it raises
+        # propagates normally (it is a real task failure, not a TMS/local
+        # mismatch).
+        with contextlib.ExitStack() as stack:
             try:
-                close_old_connections()
-            except Exception:
-                logger.debug("Failed to close old connections during retry for: %s", self.name)
-            self.retry(exc=ex, retry_backoff=True)
+                stack.enter_context(TenantContextManager(domain))
+            except DASTenant.DoesNotExist:
+                # Tenant exists in TMS (tms.domain) but has no matching row in the
+                # local core_dastenant table. This is a permanent misconfiguration
+                # for this run, so skip rather than retry (unlike OperationalError below).
+                logger.warning(
+                    "Tenant domain %s exists in TMS but is missing from the local "
+                    "core_dastenant table (core_dastenant / tms.domain mismatch); "
+                    "skipping task %s without retry",
+                    domain,
+                    self.name,
+                )
+                return None
+            except TenantNotFoundException:
+                # Domain is not known to TMS at all, so this is permanent for this
+                # run; skip rather than retry.
+                logger.warning(
+                    "Tenant domain %s could not be resolved to a tenant in TMS; " "skipping task %s without retry",
+                    domain,
+                    self.name,
+                )
+                return None
+            except (OperationalError, InterfaceError) as ex:
+                return self._retry_on_db_error(ex, domain)
+
+            try:
+                return super().__call__(*args, **kwargs)
+            except (OperationalError, InterfaceError) as ex:
+                return self._retry_on_db_error(ex, domain)
+
+    def _retry_on_db_error(self, ex, domain):
+        logger.warning(
+            "%s occurred while running: %s for Tenant domain: %s",
+            type(ex).__name__,
+            self.name,
+            domain,
+        )
+        # default_retry_delay == 180 seconds, max_retries == 3, retry_backoff == exponential backoff, with jitter, max of ten minutes
+        try:
+            close_old_connections()
+        except Exception:
+            logger.debug("Failed to close old connections during retry for: %s", self.name)
+        return self.retry(exc=ex, retry_backoff=True)
 
     def apply(self, args=None, kwargs=None, *arg, **kw):
         args = () if args is None else args
