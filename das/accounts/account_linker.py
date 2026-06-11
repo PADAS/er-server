@@ -22,7 +22,7 @@ from django.urls import reverse
 from django.views.decorators.csrf import csrf_exempt
 
 from accounts.models import User
-from utils.auth0.helpers import create_auth0_management_client, get_auth0_custom_domain
+from utils.auth0.helpers import get_auth0_custom_domain
 from utils.tenant import get_tenant_settings
 from utils.tenant.decorators import require_enabled_idp_configs
 
@@ -70,6 +70,16 @@ _INVALID_LINK_MESSAGE = "Invalid link. Please contact your site administrator."
 _UNABLE_TO_LINK_MESSAGE = "Unable to associate your accounts. Please contact support."
 
 
+def _is_org_scoped_site() -> bool:
+    """Return True if this tenant is org-scoped (has an idp_org_id configured).
+
+    Org-scoped sites manage Auth0 organisation membership through other means;
+    the account linker only operates on common-DB sites where idp_org_id is
+    absent.
+    """
+    return bool(get_tenant_settings().feature_flags.idp_org_id)
+
+
 def create_magic_link_token(user_id):
     """Create a signed, timestamped token encoding a user ID for magic links."""
     return signing.dumps({"user_id": str(user_id)}, salt=MAGIC_LINK_SALT)
@@ -91,6 +101,9 @@ def account_linker_landing(request):
     1. ``?token=<signed_token>`` — magic link flow: verify token, resolve user
     2. ``?session_ref=<ref>`` — session flow: caller stored user_id in session
     """
+    if _is_org_scoped_site():
+        return HttpResponse(_IDP_NOT_ENABLED_MESSAGE, status=400)
+
     token = request.GET.get("token")
 
     if token:
@@ -144,8 +157,11 @@ def account_linker_landing(request):
 @csrf_exempt
 @require_enabled_idp_configs(message=_IDP_NOT_ENABLED_MESSAGE, status=400)
 def account_linker_callback(request):
-    """Handle the Auth0 callback: exchange the authorization code, link the
-    user's Auth0 identity, and add them to the tenant's Auth0 organization."""
+    """Handle the Auth0 callback: exchange the authorization code and link the
+    user's Auth0 identity."""
+
+    if _is_org_scoped_site():
+        return HttpResponse(_IDP_NOT_ENABLED_MESSAGE, status=400)
 
     error = request.GET.get("error")
     if error:
@@ -210,19 +226,14 @@ def account_linker_callback(request):
             )
         logger.info("User %s already has auth0_id=%s, skipping linking", user.username, user.auth0_id)
 
-    # When auth0_id is not yet set, save and org-add run atomically — if either
-    # fails, both roll back. The unique constraint on auth0_id rejects duplicates
-    # at save time, preventing a stolen sub from reaching the org-add call.
-    # When already linked (matching sub), only the org-add runs (idempotent).
+    # The unique constraint on auth0_id rejects duplicates at save time,
+    # preventing a stolen sub from being persisted.
     try:
         with transaction.atomic():
             if not user.auth0_id:
                 user.auth0_id = auth0_sub
                 user.save(update_fields=["auth0_id"])
                 logger.info("Linked user %s to Auth0 sub %s", user.username, auth0_sub)
-            org_id = get_tenant_settings().feature_flags.idp_org_id
-            _add_user_to_auth0_org(user.auth0_id, org_id)
-            logger.info("Added user %s to Auth0 org %s", user.username, org_id)
     except (IntegrityError, ValidationError):
         logger.warning(
             "Auth0 sub %s is already linked to another user; cannot link to user %s",
@@ -235,9 +246,3 @@ def account_linker_callback(request):
         return HttpResponse(_UNABLE_TO_LINK_MESSAGE, status=400)
 
     return redirect("/")
-
-
-def _add_user_to_auth0_org(auth0_sub, org_id):
-    """Add an Auth0 user to an Auth0 organization via the Management API."""
-    client = create_auth0_management_client()
-    client.organizations.members.create(org_id, members=[auth0_sub])
