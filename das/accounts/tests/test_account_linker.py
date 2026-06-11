@@ -468,8 +468,7 @@ class TestAccountLinkerCallback:
         request.session = {}
 
         mock_ts = Mock()
-        mock_ts.feature_flags.require_idp = True
-        mock_ts.feature_flags.idp_org_id = None
+        mock_ts.feature_flags.require_idp = False
         with patch("utils.tenant.decorators.get_tenant_settings", return_value=mock_ts):
             result = view_func(request)
 
