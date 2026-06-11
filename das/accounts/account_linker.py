@@ -16,6 +16,7 @@ from django.conf import settings
 from django.core import signing
 from django.core.exceptions import ValidationError
 from django.db import IntegrityError, transaction
+from django.db.models.functions import Trim
 from django.http import HttpResponse
 from django.shortcuts import redirect
 from django.urls import reverse
@@ -68,6 +69,9 @@ SESSION_KEY_PREFIX = "account_linker_attempt:"
 _IDP_NOT_ENABLED_MESSAGE = "Account linking is not available for this site. Please contact support."
 _INVALID_LINK_MESSAGE = "Invalid link. Please contact your site administrator."
 _UNABLE_TO_LINK_MESSAGE = "Unable to associate your accounts. Please contact support."
+_EMAIL_COLLISION_MESSAGE = (
+    "This email address is already associated with another account on this site. Please contact support."
+)
 
 
 def _is_org_scoped_site() -> bool:
@@ -196,8 +200,16 @@ def account_linker_callback(request):
         if not userinfo:
             raise ValueError("No userinfo in token response")
         auth0_sub = userinfo["sub"]
+        auth0_email = (userinfo.get("email") or "").strip()
     except (TypeError, KeyError, ValueError):
         logger.exception("Could not extract sub claim from Auth0 token")
+        return HttpResponse(
+            _UNABLE_TO_LINK_MESSAGE,
+            status=400,
+        )
+
+    if not auth0_email:
+        logger.warning("Auth0 token missing email claim for sub %s", auth0_sub)
         return HttpResponse(
             _UNABLE_TO_LINK_MESSAGE,
             status=400,
@@ -211,6 +223,19 @@ def account_linker_callback(request):
             _UNABLE_TO_LINK_MESSAGE,
             status=400,
         )
+
+    if (
+        User.objects.annotate(trimmed_email=Trim("email"))
+        .filter(trimmed_email__iexact=auth0_email, is_active=True)
+        .exclude(id=user.id)
+        .exists()
+    ):
+        logger.warning(
+            "Email collision during account linking for user %s: email %s already belongs to another active user",
+            user.username,
+            auth0_email,
+        )
+        return HttpResponse(_EMAIL_COLLISION_MESSAGE, status=400)
 
     if user.auth0_id:
         if user.auth0_id != auth0_sub:
@@ -233,8 +258,11 @@ def account_linker_callback(request):
         with transaction.atomic():
             if not user.auth0_id:
                 user.auth0_id = auth0_sub
-                user.save(update_fields=["auth0_id"])
                 logger.info("Linked user %s to Auth0 sub %s", user.username, auth0_sub)
+            if user.email != auth0_email:
+                user.email = auth0_email
+                logger.info("Updated email for user %s to %s", user.username, auth0_email)
+            user.save(update_fields=["auth0_id", "email"])
     except (IntegrityError, ValidationError):
         logger.warning(
             "Auth0 sub %s is already linked to another user; cannot link to user %s",
