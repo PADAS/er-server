@@ -40,13 +40,12 @@ def _get_credentials():
     if this function is ever changed to return tenant-specific credentials, that
     cache becomes a cross-tenant leak and must be reworked (e.g. keyed by tenant_id,
     or rebuilt per request).
-    """
-    storage_class = getattr(settings, "DEFAULT_FILE_STORAGE", "")
-    if "TenantGoogleCloudStorage" in str(storage_class):
-        from core.storages import TenantGoogleCloudStorage
 
-        store = TenantGoogleCloudStorage()
-        return store.get_impersonated_credentials()
+    NOTE: Do NOT use TenantGoogleCloudStorage.get_impersonated_credentials() here.
+    That method performs SA self-impersonation (requires roles/iam.serviceAccountTokenCreator
+    on the pod SA) and is designed only for URL signing in TenantGoogleCloudStorage.url().
+    The GCS resumable upload API only needs a standard OAuth2 bearer token.
+    """
     import google.auth
 
     creds, _ = google.auth.default(scopes=["https://www.googleapis.com/auth/cloud-platform"])

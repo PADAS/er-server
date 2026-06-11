@@ -2,7 +2,7 @@
 DRF API for ERA-9210 chunked uploads: Redis session + GCS resumable + FileContent / ImageFileContent.
 
 Client flow:
-  1. POST  /usercontent/chunked-uploads/                          — init, get upload_id + chunk_size
+  1. POST  /usercontent/chunked-uploads/                          — init, get id + chunk_size
   2. PUT   /usercontent/chunked-uploads/<id>/chunks/<index>/     — upload each chunk (raw octet-stream)
   3. POST  /usercontent/chunked-uploads/<id>/complete/           — finalize; returns FileContent/ImageFileContent
 
@@ -44,6 +44,7 @@ from usercontent.storage_paths import (
     force_download_content_headers,
     is_image_filename,
 )
+from usercontent.utils import resolve_usercontent_for_tenant
 from utils.tenant.thread import get_tenant_settings
 
 logger = logging.getLogger(__name__)
@@ -88,6 +89,7 @@ class ChunkedUploadInitSerializer(serializers.Serializer):
     filename = serializers.CharField(max_length=255)
     size = serializers.IntegerField(min_value=1, max_value=MAX_SIZE)
     chunk_size = serializers.IntegerField(required=False, min_value=1)
+    id = serializers.UUIDField(required=False)
 
     def validate_chunk_size(self, value: int | None) -> int | None:
         if value is None:
@@ -173,11 +175,24 @@ class ChunkedUploadInitView(APIView):
         preferred = int(getattr(settings, "CHUNKED_UPLOAD_CHUNK_SIZE", 2 * 1024 * 1024))
         chunk_size = min(ser.validated_data.get("chunk_size") or preferred, max_chunk)
 
-        upload_id = uuid.uuid4()
+        client_upload_id = ser.validated_data.get("id")
+        upload_id = client_upload_id or uuid.uuid4()
         is_image = is_image_filename(filename)
         uploads_root = "image_fileuploads" if is_image else "file_uploads"
         storage_path = build_usercontent_storage_path(upload_id, filename, uploads_root=uploads_root)
         tenant_id = _tenant_key()
+
+        if client_upload_id is not None:
+            # Collision check only for client-supplied IDs; server-generated uuid4s have
+            # negligible collision probability and we avoid the extra lookup on the hot path.
+            if (
+                upload_sessions.get(tenant_id, str(upload_id)) is not None
+                or resolve_usercontent_for_tenant(upload_id) is not None
+            ):
+                return Response(
+                    {"detail": "An upload with this ID already exists."},
+                    status=status.HTTP_409_CONFLICT,
+                )
 
         content_type, content_disposition = force_download_content_headers(filename)
         try:
@@ -217,7 +232,7 @@ class ChunkedUploadInitView(APIView):
 
         return Response(
             {
-                "upload_id": str(upload_id),
+                "id": str(upload_id),
                 "chunk_size": chunk_size,
                 "size": size,
                 "num_chunks": _expected_num_chunks(size, chunk_size),

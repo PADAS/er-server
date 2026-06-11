@@ -41,7 +41,7 @@ attachment_field_json_schema = {
         "title": {"type": "string", "maxLength": FIELD_TITLE_MAX_LENGTH},
         "type": {"const": "string"},
     },
-    "required": ["deprecated", "format", "title", "type"],
+    "required": ["deprecated", "title", "type"],
     "additionalProperties": False,
 }
 

@@ -71,7 +71,6 @@
                         },
                         "arrestee_photo": {
                             "deprecated": false,
-                            "format": "uri",
                             "title": "Photo",
                             "type": "string"
                         }
@@ -118,7 +117,6 @@
             },
             "photo": {
                 "deprecated": false,
-                "format": "uri",
                 "title": "Photo",
                 "type": "string"
             },

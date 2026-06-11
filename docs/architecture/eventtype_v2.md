@@ -591,6 +591,297 @@ This example demonstrates a complete V2 eventtype for wildlife carcass reporting
 }
 ```
 
+## Submitting Events with Attachments
+
+V2 event types bind file uploads to **named properties** in `event_details` (e.g. `event_details.photo`), in contrast to V1 where files were a flat list attached to the event via a separate endpoint. The stored value of an attachment property is a UUID string. On read, `event_details.<field>` returns the **raw UUID** — proxy URLs are served back only in `metadata.attachments.<uuid>.files` for `status="complete"` attachments.
+
+### Lifecycle at a glance
+
+Uploads and event creation are **decoupled** — there is no chicken-and-egg here. The UUID that binds an upload to an event is **client-supplied: the caller may bring its own UUID4** and use it immediately, with no round-trip needed to mint an id first. The file is uploaded to a generic, event-agnostic endpoint; the event is created (or updated) referencing that same UUID. You do not need an event id to start the upload, you do not need the file to finish uploading before you create the event, and — because the id is bring-your-own — you do not even need to have started the upload before you create the event.
+
+```
+1. POST /api/v1.0/usercontent/chunked-uploads/   →  obtain id (a UUID); caller may supply their own
+2. PUT  /api/v1.0/usercontent/chunked-uploads/<id>/chunks/<N>/  →  upload each chunk
+3. POST /api/v1.0/usercontent/chunked-uploads/<id>/complete/    →  finalize; FileContent row created
+4. POST /api/v2.0/activity/events/  with event_details.<field> = <id>
+5. GET  /api/v2.0/activity/events/<event-id>/  →  event_details.<field> = raw UUID; metadata.attachments sidecar
+```
+
+The same UUID flows through every step. **This ordering is not mandatory:** because the id is bring-your-own, the client can pre-allocate the UUID itself and POST the event (step 4) *before* uploading the file (steps 1–3) — the init call is only one way to obtain an id, not a prerequisite. The sole invariant is that the same UUID appears in both the upload session and the `event_details` slot.
+
+### Step 1 — Initiate the upload (chunked-upload protocol)
+
+#### POST `/api/v1.0/usercontent/chunked-uploads/` — init
+
+**Request body:**
+
+| Field | Required | Description |
+|-------|----------|-------------|
+| `filename` | Yes | Original filename; extension must be in `USERCONTENT_SETTINGS.allowed_extensions`. |
+| `size` | Yes | Total file size in bytes; must be `1..CHUNKED_UPLOAD_MAX_FILE_SIZE` (default 500 MiB). |
+| `chunk_size` | No | Preferred chunk size; server caps to the lesser of `CHUNKED_UPLOAD_CHUNK_SIZE` (default 2 MiB) and Django's `DATA_UPLOAD_MAX_MEMORY_SIZE` minus a safety margin. |
+| `id` | No | Client-supplied UUID4 for the upload. If omitted the server generates one. |
+
+```http
+POST /api/v1.0/usercontent/chunked-uploads/
+Content-Type: application/json
+
+{
+  "filename": "suspect.jpg",
+  "size": 482133,
+  "id": "550e8400-e29b-41d4-a716-446655440000",
+  "chunk_size": 262144
+}
+```
+
+**201 Created response:**
+
+```json
+{
+  "id": "550e8400-e29b-41d4-a716-446655440000",
+  "chunk_size": 262144,
+  "size": 482133,
+  "num_chunks": 2
+}
+```
+
+**Error codes:**
+
+| Code | Reason |
+|------|--------|
+| 400 | Invalid/disallowed filename extension; `chunk_size` over the server cap. |
+| 401 | Authentication required. |
+| 409 | Client-supplied `id` collides with a live session or a finalized row. |
+| 502 | Storage init failure; body contains `error_id` (no internal detail exposed). |
+
+Throttled at the `chunked_upload_init` scope (60/min).
+
+#### PUT `/api/v1.0/usercontent/chunked-uploads/<id>/chunks/<N>/` — upload a chunk
+
+Send raw bytes (`Content-Type: application/octet-stream`). Chunks must arrive **strictly in order and cannot be parallelized** — the server accepts only the next expected index (the status endpoint's `next_chunk_index`) and rejects any higher index with 400 (`Chunk out of order`). Re-sending an already-received (lower) index is idempotent **only** if the bytes are byte-identical; different bytes return 400.
+
+| Code | Reason |
+|------|--------|
+| 200 | Chunk accepted (204 surfaced as 200 by ExtendedJSONRenderer). |
+| 400 | Index out of range; byte length mismatch; duplicate index with different bytes. |
+| 403 | Session belongs to another user. |
+| 404 | Session not found or expired (TTL `CHUNKED_UPLOAD_SESSION_TTL_SECONDS`, default 86400 s). |
+
+Throttled at the `chunked_upload_chunk` scope (200/min).
+
+#### GET `/api/v1.0/usercontent/chunked-uploads/<id>/` — poll status (resume)
+
+Returns `next_chunk_index`, `num_chunks`, `complete`, `size`, `chunk_size`. Use this to resume an interrupted upload. Returns 404 if the session is missing or expired; 403 if the session belongs to another user.
+
+#### POST `/api/v1.0/usercontent/chunked-uploads/<id>/complete/` — finalize
+
+After all chunks are received, finalize the upload. Creates a `FileContent` row (or `ImageFileContent` for image filenames) with `id == <id>`. Returns the serialized record (`id`, `filename`, `icon_url`, `file_type`, `created_at`, `updated_at`).
+
+| Code | Reason |
+|------|--------|
+| 200 | Finalized; body is the serialized FileContent/ImageFileContent. |
+| 400 | Upload incomplete (not all chunks received). |
+| 403 | Session belongs to another user. |
+| 404 | Session not found or expired. |
+| 409 | Upload already finalized (duplicate complete call). |
+
+**Session lifecycle:** Redis-backed with TTL `CHUNKED_UPLOAD_SESSION_TTL_SECONDS` (default 86400 s / 24 h). Expired sessions return 404 — clients should be prepared to re-init and re-upload. Maximum file size: `CHUNKED_UPLOAD_MAX_FILE_SIZE` (default 500 MiB).
+
+### Step 2 — Submit the event
+
+`POST /api/v2.0/activity/events/` with `application/json`. Place the UUID directly in `event_details` under the property name declared as an `ATTACHMENT` field in the event type's UI schema.
+
+Write-time validation is **format-only**: any well-formed UUID passes regardless of whether the file exists, belongs to the same user, or matches `allowableFileTypes`. Only non-string values and malformed UUID strings are rejected with 400.
+
+```http
+POST /api/v2.0/activity/events/
+Content-Type: application/json
+
+{
+  "event_type": "arrest_rep",
+  "title": "Suspect detained at gate",
+  "time": "2026-06-03T14:30:00Z",
+  "location": {"latitude": -1.2921, "longitude": 36.8219},
+  "event_details": {
+    "arrestrep_name": "John Doe",
+    "photo": "550e8400-e29b-41d4-a716-446655440000"
+  }
+}
+```
+
+`photo` here must be declared in the event type schema as:
+
+```json
+"ui": {
+  "fields": {
+    "photo": {
+      "type": "ATTACHMENT",
+      "allowableFileTypes": ["image"],
+      "parent": "section-1"
+    }
+  }
+}
+```
+
+`PATCH /api/v2.0/activity/events/<id>/` accepts the same shape for updates.
+
+#### Attachments inside a collection
+
+When the `ATTACHMENT` field lives inside a `COLLECTION`, the UUID goes on each collection item:
+
+```json
+"event_details": {
+  "arrests": [
+    {"name": "John Doe",   "arrestee_photo": "550e8400-e29b-41d4-a716-446655440000"},
+    {"name": "Jane Smith", "arrestee_photo": "550e8400-e29b-41d4-a716-446655440001"}
+  ]
+}
+```
+
+#### Write-time validation rules
+
+| Failure | HTTP | Example response body |
+|---------|------|-----------------------|
+| Value is not a string / not a valid UUID | 400 | `{"event_details": {"photo": ["Not a valid UUID."]}}` |
+
+`null`, missing, and empty-string values are accepted — an attachment property is optional unless the JSON schema marks it `required`. Unknown UUIDs, cross-tenant UUIDs, and file-type mismatches all pass.
+
+#### Metadata sidecar (write side)
+
+On every write, the server stores a slim `{}` placeholder for each UUID present in an attachment slot in `EventDetails.data["metadata"]["attachments"]`. Removing a field from `event_details` drops its placeholder. The sidecar is hydrated at read time (see below) — it is never stored with resolved URLs.
+
+### Step 3 — Read back
+
+`GET /api/v2.0/activity/events/<id>/` returns `event_details.<field>` as the **raw stored UUID** (not a proxy URL). Proxy URLs appear only in `metadata.attachments.<uuid>.files` for `status="complete"` attachments.
+
+```json
+{
+  "id": "…",
+  "event_type": "arrest_rep",
+  "event_details": {
+    "arrestrep_name": "John Doe",
+    "photo": "550e8400-e29b-41d4-a716-446655440000"
+  },
+  "metadata": {
+    "attachments": {
+      "550e8400-e29b-41d4-a716-446655440000": {
+        "status": "complete",
+        "file_type": "image",
+        "files": {
+          "original":   "https://<server>/api/v1.0/usercontent/550e8400-e29b-41d4-a716-446655440000/",
+          "icon":       "https://<server>/api/v1.0/usercontent/550e8400-e29b-41d4-a716-446655440000/?rendition=icon",
+          "thumbnail":  "https://<server>/api/v1.0/usercontent/550e8400-e29b-41d4-a716-446655440000/?rendition=thumbnail",
+          "large":      "https://<server>/api/v1.0/usercontent/550e8400-e29b-41d4-a716-446655440000/?rendition=large",
+          "xlarge":     "https://<server>/api/v1.0/usercontent/550e8400-e29b-41d4-a716-446655440000/?rendition=xlarge"
+        }
+      }
+    }
+  }
+}
+```
+
+The `metadata` key sits behind the event's category-read permission gate — unpermitted users receive only `{id, serial_number}`. Socket-emit (no request context) receives `{status, file_type}` without the `files` key.
+
+#### `metadata.attachments` — status semantics
+
+| `status` | Meaning | Client action |
+|----------|---------|---------------|
+| `unknown` | Server has never seen this UUID (no session, no DB row). | Verify the UUID is correct; re-upload if needed. |
+| `in_progress` | An upload session exists but is not finalized (chunks still in flight). | Finish the upload (continue PUTting chunks and POST complete) or poll the chunked-upload status endpoint. |
+| `complete` | Upload finalized; `file_type` is set and `files` is present when a request context exists. | Use `files.original` or the desired rendition URL. |
+
+#### `files` object schema
+
+The `files` key is present only when `status == "complete"` and the response is serialized with a request context (HTTP responses; absent from socket emits).
+
+| File type | Keys in `files` |
+|-----------|-----------------|
+| `image` | `original`, `icon`, `thumbnail`, `large`, `xlarge` |
+| `document`, `audio`, `video`, other | `original` only |
+
+Rendition URLs have the form `/api/v1.0/usercontent/<uuid>/?rendition=<name>`.
+
+#### `file_type` classification
+
+| Bucket | Determined by |
+|--------|---------------|
+| `image` | Image filename extensions (jpg, jpeg, png, gif, tif, tiff) |
+| `document` | Document extensions (pdf, docx, etc.) |
+| `audio` | Audio extensions |
+| `video` | Video extensions |
+| `null` | Unknown extension |
+
+### Download endpoint
+
+**`GET /api/v1.0/usercontent/<uuid>/`**
+
+| Condition | Behavior |
+|-----------|----------|
+| Auth required | 401 for anonymous requests. |
+| Tenant-scoped | 404 for unknown or cross-tenant UUIDs. |
+| Active MIME types (SVG, HTML, JS) | Forced to `application/octet-stream` with `Content-Disposition: attachment`. |
+| All other types | Streamed inline with correct MIME type. |
+| `X-Content-Type-Options: nosniff` | Always set. |
+
+**Optional `?rendition=<name>` query parameter:**  Serves a pre-generated image rendition. Valid names: `icon`, `thumbnail`, `large`, `xlarge` (matches the configured `VERSATILEIMAGEFIELD_RENDITION_KEY_SETS["default"]`). Applies to images only — a rendition request on a non-image file, or an unknown rendition name, returns 404.
+
+**Access control:** Relies on UUID unguessability (122-bit UUIDv4) combined with tenant scope. There is no per-user ownership check — any authenticated user in the tenant who holds the UUID may download the file.
+
+### Worked end-to-end example
+
+> **Note:** the ordering below is just one valid sequence. Because the upload UUID is bring-your-own, the client may POST the event form data (step 4) *before* initiating or finishing the upload (steps 1–3). The only requirement is that the same UUID is used in both places.
+
+```http
+# 1. Init upload with a client-supplied UUID
+POST /api/v1.0/usercontent/chunked-uploads/
+{"filename": "photo.jpg", "size": 5120, "id": "550e8400-e29b-41d4-a716-446655440000", "chunk_size": 5120}
+
+→ 201 {"id": "550e8400-e29b-41d4-a716-446655440000", "chunk_size": 5120, "size": 5120, "num_chunks": 1}
+
+# 2. Upload the single chunk
+PUT /api/v1.0/usercontent/chunked-uploads/550e8400-e29b-41d4-a716-446655440000/chunks/0/
+Content-Type: application/octet-stream
+<raw bytes>
+
+→ 200
+
+# 3. Finalize
+POST /api/v1.0/usercontent/chunked-uploads/550e8400-e29b-41d4-a716-446655440000/complete/
+
+→ 200 {"id": "550e8400-e29b-41d4-a716-446655440000", "filename": "photo.jpg", "file_type": "image", ...}
+
+# 4. Create the event with the UUID in event_details
+POST /api/v2.0/activity/events/
+{"event_type": "arrest_rep", "title": "Arrest", "event_details": {"photo": "550e8400-e29b-41d4-a716-446655440000"}}
+
+→ 201
+
+# 5. Read back — raw UUID in event_details, files in metadata
+GET /api/v2.0/activity/events/<event-id>/
+
+→ 200
+{
+  "event_details": {
+    "photo": "550e8400-e29b-41d4-a716-446655440000"
+  },
+  "metadata": {
+    "attachments": {
+      "550e8400-e29b-41d4-a716-446655440000": {
+        "status": "complete",
+        "file_type": "image",
+        "files": {
+          "original":  "https://<server>/api/v1.0/usercontent/550e8400-e29b-41d4-a716-446655440000/",
+          "icon":      "https://<server>/api/v1.0/usercontent/550e8400-e29b-41d4-a716-446655440000/?rendition=icon",
+          "thumbnail": "https://<server>/api/v1.0/usercontent/550e8400-e29b-41d4-a716-446655440000/?rendition=thumbnail",
+          "large":     "https://<server>/api/v1.0/usercontent/550e8400-e29b-41d4-a716-446655440000/?rendition=large",
+          "xlarge":    "https://<server>/api/v1.0/usercontent/550e8400-e29b-41d4-a716-446655440000/?rendition=xlarge"
+        }
+      }
+    }
+  }
+}
+```
+
 ## Validation and Error Handling
 
 V2 eventtypes provide comprehensive validation at multiple levels:

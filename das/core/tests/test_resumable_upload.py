@@ -4,6 +4,8 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
+from django.test import override_settings
+
 from core import resumable_upload
 
 
@@ -97,3 +99,35 @@ class TestResumableUploadAbort:
 
         resumable_upload.abort("https://upload.example/session/abc")
         # no raise
+
+
+class TestGetCredentials:
+    @patch("google.auth.default")
+    def test_uses_ambient_credentials(self, mock_google_auth_default):
+        """_get_credentials() must return ambient Workload Identity credentials."""
+        fake_creds = MagicMock()
+        mock_google_auth_default.return_value = (fake_creds, "test-project")
+
+        result = resumable_upload._get_credentials()
+
+        mock_google_auth_default.assert_called_once_with(scopes=["https://www.googleapis.com/auth/cloud-platform"])
+        assert result is fake_creds
+
+    @patch("google.auth.default")
+    def test_never_calls_get_impersonated_credentials_when_tenant_storage_configured(self, mock_google_auth_default):
+        """Must not call TenantGoogleCloudStorage.get_impersonated_credentials() even when
+        DEFAULT_FILE_STORAGE is TenantGoogleCloudStorage.
+
+        ERA-9210 regression guard: self-impersonation requires roles/iam.serviceAccountTokenCreator
+        on the pod SA (not granted). The resumable upload API only needs a bearer token, not the
+        signing credentials that TenantGoogleCloudStorage.url() uses for signed GCS URLs.
+        """
+        fake_creds = MagicMock()
+        mock_google_auth_default.return_value = (fake_creds, "test-project")
+
+        with override_settings(DEFAULT_FILE_STORAGE="core.storages.TenantGoogleCloudStorage"):
+            with patch("core.storages.TenantGoogleCloudStorage") as mock_storage_cls:
+                result = resumable_upload._get_credentials()
+
+        assert result is fake_creds
+        mock_storage_cls.assert_not_called()

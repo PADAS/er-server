@@ -41,6 +41,7 @@ from activity.filters import (
 from activity.models import (
     Event,
     EventCategory,
+    EventDetails,
     EventFactor,
     EventFile,
     EventFilter,
@@ -843,7 +844,13 @@ class EventsView(ListCreateAPIView):
         ]
 
         if serializer_context.get("include_details"):
-            prefetches.append(Prefetch("event_details", to_attr="event_details_set"))
+            prefetches.append(
+                Prefetch(
+                    "event_details",
+                    queryset=EventDetails.objects.order_by("-created_at"),
+                    to_attr="event_details_set",
+                )
+            )
         if serializer_context.get("include_notes"):
             prefetches.append(Prefetch("notes", queryset=EventNote.objects.select_related("created_by_user")))
         if serializer_context.get("include_files"):

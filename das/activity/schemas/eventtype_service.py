@@ -11,7 +11,19 @@ from __future__ import annotations
 import json
 import logging
 from dataclasses import dataclass, field
-from typing import List, Optional, Tuple
+from typing import (
+    Any,
+    ClassVar,
+    Generic,
+    Iterator,
+    List,
+    Optional,
+    Protocol,
+    Tuple,
+    TypeAlias,
+    TypeVar,
+    cast,
+)
 
 from rest_framework.request import Request as DRFRequest
 
@@ -19,6 +31,7 @@ from activity.models import EventType
 from activity.schemas.errors import ErrorCategory, ErrorCode, ErrorHint, SchemaError
 from activity.schemas.schema_rendering import SchemaRenderer
 from activity.schemas.schema_retrieving import build_dynamic_schemas_registry
+from usercontent.utils import FileTypeLabel
 from utils import StrEnum
 
 logger = logging.getLogger(__name__)
@@ -36,6 +49,69 @@ class RenderErrors(StrEnum):
     NO_JSON_KEY = "no_json_key"
     INVALID_SCHEMA = "invalid_schema"
     SCHEMA_RENDERING_ERROR = "rendering_error"
+
+
+class UiField(Protocol):
+    """A UI field entry in schema["ui"]["fields"][name]."""
+
+    type: ClassVar[str]  # discriminant, e.g. "ATTACHMENT" (per-impl const)
+    parent: str  # raw JSON parent: a section OR collection name
+
+
+FieldT = TypeVar("FieldT", bound=UiField)
+
+
+@dataclass
+class Slot(Generic[FieldT]):
+    """A UI field plus its place in the schema's collection hierarchy.
+
+    `field.parent` points at the enclosing section for a flat field and at the
+    enclosing COLLECTION for a nested one. `parent_is_collection` records which
+    case applies (decided during the schema walk, where the full set of
+    COLLECTION field names is known); `collection_parent` derives the name.
+    This logic is field-type-agnostic — the seam future field types reuse.
+    """
+
+    field: FieldT
+    parent_is_collection: bool
+
+    @property
+    def collection_parent(self) -> str | None:
+        return self.field.parent if self.parent_is_collection else None
+
+    def value_containers(self, data: dict[str, Any]) -> Iterator[dict[str, Any]]:
+        """Yield each dict that directly holds this slot's field value.
+
+        For a flat slot, yields ``data`` itself. For a collection-nested slot,
+        yields each ``dict`` item of the enclosing COLLECTION list, skipping a
+        missing / non-list parent and any non-dict entries.
+
+        Each yielded dict is a reference into the passed-in ``data`` structure,
+        not a copy — a caller that intends to mutate ``container[field_name]``
+        must pass a copy of ``data`` first (the validation caller only reads;
+        the URL-rendering caller copies before substituting).
+        """
+        if self.collection_parent is None:
+            yield data
+            return
+        items = data.get(self.collection_parent)
+        if not isinstance(items, list):
+            return
+        for item in items:
+            if isinstance(item, dict):
+                yield item
+
+
+@dataclass
+class AttachmentField:
+    """1:1 model of an ATTACHMENT entry in schema["ui"]["fields"][name]."""
+
+    type: ClassVar[str] = "ATTACHMENT"  # meta-schema const; fixed discriminant, not init data
+    parent: str  # raw JSON parent: a section OR collection name
+    allowable_file_types: list[FileTypeLabel]
+
+
+AttachmentSlot: TypeAlias = Slot[AttachmentField]
 
 
 @dataclass
@@ -66,6 +142,52 @@ class SchemaResult:
         if self.status != RenderStatus.SUCCESS:
             api_dict["errors"] = [err.to_dict() for err in self.errors]
         return api_dict
+
+    def extract_attachment_slots(self) -> dict[str, AttachmentSlot]:
+        """Return a mapping of field_name -> AttachmentSlot for every ATTACHMENT field.
+
+        Walks ``self.schema["ui"]["fields"]`` and collects every field whose
+        ``type`` is ``"ATTACHMENT"``.  For each such field,
+        ``slot.collection_parent`` is the name of the enclosing COLLECTION field
+        (i.e. the parent field that has ``type == "COLLECTION"``) when the
+        field is nested, otherwise ``None``.
+
+        Precondition: ``self.schema`` is not ``None``. Callers must
+        gate on ``schema_result.schema`` first; the method raises
+        ``ValueError`` so contract violations surface immediately
+        rather than masquerading as "no attachment fields".
+        This is a pure function — no DB or GCS calls.
+        """
+        if self.schema is None:
+            raise ValueError(
+                "extract_attachment_slots requires a parsed schema; "
+                "caller must gate on schema_result.schema first."
+            )
+
+        ui_fields: dict[str, Any] = (self.schema.get("ui") or {}).get("fields") or {}
+        result: dict[str, AttachmentSlot] = {}
+
+        for field_name, ui_def in ui_fields.items():
+            if not isinstance(ui_def, dict):
+                raise ValueError(
+                    f"ui.fields[{field_name!r}] is {type(ui_def).__name__}, expected dict; "
+                    "EventTypeV2Serializer meta-schema should have rejected this on write."
+                )
+
+        collection_field_names: set[str] = {
+            name for name, defn in ui_fields.items() if defn.get("type") == "COLLECTION"
+        }
+
+        for field_name, ui_def in ui_fields.items():
+            if ui_def.get("type") != "ATTACHMENT":
+                continue
+            parent = ui_def.get("parent", "")
+            allowable = cast(list[FileTypeLabel], ui_def.get("allowableFileTypes") or [])
+            result[field_name] = AttachmentSlot(
+                field=AttachmentField(parent=parent, allowable_file_types=allowable),
+                parent_is_collection=parent in collection_field_names,
+            )
+        return result
 
 
 class EventTypeSchemaService:

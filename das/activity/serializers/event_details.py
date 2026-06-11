@@ -1,8 +1,13 @@
+from __future__ import annotations
+
 import json
 import logging
+import uuid
 from collections import OrderedDict
+from typing import Any
 
 from django.template.defaultfilters import truncatechars
+from rest_framework import exceptions as drf_exceptions
 from rest_framework.serializers import ModelSerializer
 
 from accounts.serializers import UserDisplaySerializer
@@ -10,6 +15,10 @@ from activity.models import EventDetails, EventType
 from activity.schemas.auto_generate import (
     V2SchemaAutoBuilder,
     should_auto_generate_schema,
+)
+from activity.schemas.eventtype_service import (
+    AttachmentSlot,
+    EventTypeSchemaService,
 )
 from activity.serializers.helpers import get_update_type
 from revision.manager import ACTION_ADDED, ACTION_UPDATED
@@ -31,6 +40,41 @@ logger = logging.getLogger(__name__)
 MAX_UPDATES_STR_LENGTH = 10
 
 
+def _is_valid_uuid(value: str) -> bool:
+    """Return True if *value* is a valid UUID string."""
+    try:
+        uuid.UUID(value)
+        return True
+    except ValueError:
+        return False
+
+
+def _collect_attachment_uuids(event_type: Any, event_details_data: dict[str, Any]) -> set[str]:
+    """Return the set of UUID strings stored in attachment fields of *event_details_data*.
+
+    Only applies to V2 event types.  Returns an empty set for V1 event types, event
+    types with unparseable schemas, and schemas with no attachment slots.
+    """
+    if event_type.version != EventType.VersionChoices.VERSION_2:
+        return set()
+
+    schema_result = EventTypeSchemaService().get_raw_schema(event_type)
+    if not schema_result.schema:
+        return set()
+
+    attachment_slots = schema_result.extract_attachment_slots()
+    if not attachment_slots:
+        return set()
+
+    uuids: set[str] = set()
+    for field_name, slot in attachment_slots.items():
+        for container in slot.value_containers(event_details_data):
+            value = container.get(field_name)
+            if isinstance(value, str) and value and _is_valid_uuid(value):
+                uuids.add(value)
+    return uuids
+
+
 class EventDetailsSerializer(ModelSerializer):
     class Meta:
         model = EventDetails
@@ -49,6 +93,12 @@ class EventDetailsSerializer(ModelSerializer):
         ):
             del validated_data["event_details"]["_internal_validated"]
             validated_data = {"event_details": self._to_internal_value_inner(instance, validated_data["event_details"])}
+
+        # Collect attachment UUIDs from the event_details and persist a metadata sidecar.
+        # This is recomputed on every write so removing an attachment field drops its placeholder.
+        uuids = _collect_attachment_uuids(self.get_event_type(instance), validated_data["event_details"])
+        if uuids:
+            validated_data["metadata"] = {"attachments": {u: {} for u in uuids}}
 
         # Get the current details object
         current_details = self.get_attribute(instance)
@@ -132,6 +182,58 @@ class EventDetailsSerializer(ModelSerializer):
         all_schema_fields, all_definitions = get_all_fields_and_definitions(schema)
         return all_schema_fields, all_definitions, parameters
 
+    def _validate_v2_attachment_fields(self, attachment_slots: dict[str, AttachmentSlot], data: dict[str, Any]) -> None:
+        """Validate attachment field values against the provided attachment slots.
+
+        For each ATTACHMENT slot:
+        - Skip null / absent / empty values.
+        - Reject non-string values and strings that are not valid UUIDs.
+
+        Ownership and file-type checks are NOT performed here; any well-formed
+        UUID is accepted at write time.  The resolved status is exposed at read
+        time via the ``metadata.attachments`` sidecar.
+
+        Raises:
+            rest_framework.exceptions.ValidationError: mapping of
+            ``{field_name: [error_message]}`` when any slot has a malformed value.
+        """
+        errors: dict[str, list[str]] = {}
+
+        for field_name, slot in attachment_slots.items():
+            for container in slot.value_containers(data):
+                field_errors = self._validate_single_attachment_value(
+                    value=container.get(field_name),
+                )
+                if field_errors:
+                    errors.setdefault(field_name, []).extend(field_errors)
+
+        if errors:
+            raise drf_exceptions.ValidationError(errors)
+
+    def _validate_single_attachment_value(
+        self,
+        value: Any,
+    ) -> list[str]:
+        """Validate a single attachment field value (format check only).
+
+        Null / absent / empty values are accepted.  Non-string values and strings
+        that are not valid UUIDs are rejected.  No ownership or file-type
+        resolution is performed.
+
+        Returns a list of error strings (empty means valid).
+        """
+        # Null / absent / empty: allowed (field is optional unless schema marks it required)
+        if value is None or value == "":
+            return []
+
+        if not isinstance(value, str):
+            return ["Not a valid UUID."]
+
+        if not _is_valid_uuid(value):
+            return ["Not a valid UUID."]
+
+        return []
+
     def _to_internal_value_inner(self, instance, data):
         if instance is None:
             data["_internal_validated"] = False
@@ -147,6 +249,15 @@ class EventDetailsSerializer(ModelSerializer):
 
         # V2 schemas don't need the v1-style field processing below
         if event_type.version == EventType.VersionChoices.VERSION_2:
+            schema_result = EventTypeSchemaService().get_raw_schema(event_type)
+            if not schema_result.schema:
+                raise drf_exceptions.ValidationError(
+                    f"Event type '{event_type.value}' has an unparseable V2 schema; "
+                    "cannot validate event_details. Contact an administrator."
+                )
+            attachment_slots = schema_result.extract_attachment_slots()
+            if attachment_slots:
+                self._validate_v2_attachment_fields(attachment_slots, data)
             return data
 
         schema = event_type.schema

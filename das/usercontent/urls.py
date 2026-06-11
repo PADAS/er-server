@@ -6,8 +6,10 @@ from usercontent.chunked_upload import (
     ChunkedUploadInitView,
     ChunkedUploadStatusView,
 )
+from usercontent.views import UserContentDownloadView
 
 urlpatterns = [
+    path("<uuid:usercontent_id>/", UserContentDownloadView.as_view(), name="usercontent-download"),
     path("chunked-uploads/", ChunkedUploadInitView.as_view(), name="chunked-upload-init"),
     path(
         "chunked-uploads/<uuid:upload_id>/",

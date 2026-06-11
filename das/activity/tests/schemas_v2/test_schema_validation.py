@@ -1,4 +1,7 @@
+from __future__ import annotations
+
 import copy
+from typing import Any
 
 import pytest
 
@@ -490,6 +493,148 @@ class TestSectionReferenceValidation:
             # No validation error should occur at all when section validation is off
             # and the base schema is otherwise valid.
             pytest.fail(f"Validation failed unexpectedly even when section validation was disabled: {e}")
+
+
+class TestAttachmentFieldFormatValidation:
+    """Tests for attachment field JSON schema validation after format was removed.
+
+    Background
+    ----------
+    The attachment field json subschema (``attachmentFieldJSONSchema``) only
+    permits ``deprecated``, ``title``, and ``type`` (``additionalProperties:
+    False``).  After a file is uploaded the attachment value becomes an opaque
+    string handle (a UUID or a URI); ``format`` was therefore dropped from the
+    attachment json subschema because it described the wire value, not the
+    field definition.
+
+    Limitation: the json meta-schema cannot distinguish an ATTACHMENT field
+    from a TEXT field — both have ``"type": "string"`` in their json
+    subschemas.  The ATTACHMENT discriminator lives only in the UI block
+    (``ui.fields.<key>.type == "ATTACHMENT"``), which the field-level json
+    subschemas never consult.  As a result, ``format: "uuid"`` or ``format:
+    "uri"`` on an attachment-shaped json field is silently accepted because it
+    matches the ``textFieldJSONSchema`` (which explicitly permits those format
+    values).  Identity and format enforcement of actual attachment *values* is
+    handled at the serializer layer in
+    ``EventDetailsSerializer._validate_v2_attachment_fields``; see
+    ``test_event_details_attachment_v2.py`` for coverage of that path.
+    """
+
+    _VALID_UI = {
+        "fields": {
+            "photo": {
+                "allowableFileTypes": [],
+                "type": "ATTACHMENT",
+                "parent": "section-1",
+            }
+        },
+        "headers": {},
+        "order": ["section-1"],
+        "sections": {
+            "section-1": {
+                "columns": 1,
+                "isActive": True,
+                "label": "",
+                "leftColumn": [{"name": "photo", "type": "field"}],
+                "rightColumn": [],
+            }
+        },
+    }
+
+    def _attachment_schema_without_format(self) -> dict[str, Any]:
+        """Build a minimal V2 schema with an attachment field and no format key."""
+        return {
+            "json": {
+                "$schema": "https://json-schema.org/draft/2020-12/schema",
+                "type": "object",
+                "properties": {
+                    "photo": {
+                        "deprecated": False,
+                        "title": "Photo",
+                        "type": "string",
+                    }
+                },
+                "required": [],
+                "unevaluatedProperties": False,
+            },
+            "ui": self._VALID_UI,
+        }
+
+    def _attachment_schema_with_format(self, format_value: str) -> dict[str, Any]:
+        """Build a minimal V2 schema with an attachment field carrying a format key."""
+        return {
+            "json": {
+                "$schema": "https://json-schema.org/draft/2020-12/schema",
+                "type": "object",
+                "properties": {
+                    "photo": {
+                        "deprecated": False,
+                        "format": format_value,
+                        "title": "Photo",
+                        "type": "string",
+                    }
+                },
+                "required": [],
+                "unevaluatedProperties": False,
+            },
+            "ui": self._VALID_UI,
+        }
+
+    def test_attachment_without_format_is_accepted(self) -> None:
+        """An attachment field without 'format' is valid under the updated meta-schema."""
+        schema = self._attachment_schema_without_format()
+        field = JSONSchemaField(meta_schema=main_event_type_schema)
+        result = field.to_internal_value(schema)
+        assert result is not None
+
+    def test_attachment_field_with_format_is_still_accepted_via_text_subschema(self) -> None:
+        """An attachment-shaped field carrying format: 'uuid' is accepted, not rejected.
+
+        The json meta-schema cannot distinguish an ATTACHMENT field from a TEXT
+        field (both use ``"type": "string"``).  A field definition that would
+        fail ``attachmentFieldJSONSchema`` (because ``format`` is an additional
+        property there) still passes because the validator's ``anyOf`` falls
+        through to ``textFieldJSONSchema``, which explicitly allows ``format``
+        values of ``"uri"``, ``"uuid"``, and ``"email"``.  The ATTACHMENT
+        discriminator is the UI ``type`` key, not the json subschema.
+        """
+        for format_value in ("uuid", "uri"):
+            schema = self._attachment_schema_with_format(format_value)
+            field = JSONSchemaField(meta_schema=main_event_type_schema)
+            # Must NOT raise — the text subschema accepts this.
+            result = field.to_internal_value(schema)
+            assert result is not None
+
+    def test_attachment_field_with_unsupported_property_is_rejected(self) -> None:
+        """An attachment-shaped field with a truly unsupported property is rejected.
+
+        ``maxLength`` is not a top-level property in any string field
+        subschema (``attachmentFieldJSONSchema``, ``textFieldJSONSchema``).
+        All string subschemas use ``additionalProperties: False``, so none of
+        the ``anyOf`` branches accept it and the meta-schema raises a
+        validation error.
+        """
+        schema = {
+            "json": {
+                "$schema": "https://json-schema.org/draft/2020-12/schema",
+                "type": "object",
+                "properties": {
+                    "photo": {
+                        "deprecated": False,
+                        "maxLength": 5,
+                        "title": "Photo",
+                        "type": "string",
+                    }
+                },
+                "required": [],
+                "unevaluatedProperties": False,
+            },
+            "ui": self._VALID_UI,
+        }
+        field = JSONSchemaField(meta_schema=main_event_type_schema)
+        with pytest.raises(ValidationError) as exc_info:
+            field.to_internal_value(schema)
+        assert "is not valid under any of the given schemas" in str(exc_info.value)
 
 
 class TestMetaSchemaPropertyConstraints:

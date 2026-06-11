@@ -52,6 +52,7 @@ from activity.models import (
     EventCategory,
     EventClass,
     EventClassFactor,
+    EventDetails,
     EventFactor,
     EventFile,
     EventFilter,
@@ -70,7 +71,8 @@ from activity.util import get_permitted_event_categories
 from core.serializers import PointValidator
 from observations.serializers import SubjectRelatedField, SubjectSerializer
 from revision.manager import ACTION_ADDED, ACTION_UPDATED, RevisionMessage
-from usercontent.serializers import UserContentSerializer
+from usercontent.serializers import UserContentSerializer, get_image_rendition_keys
+from usercontent.utils import get_attachment_info
 from utils.categories import (
     EventCategoryRelatedPermissionSetActions,
     make_eventcategory_permission_codename,
@@ -438,9 +440,15 @@ class EventSerializerMixin:
         eventsource = validated_data.pop("eventsource", None)
         external_event_id = validated_data.pop("external_event_id", None)
 
+        # Safe to insert before deferred attachment validation: the caller wraps this in
+        # transaction.atomic() (activity/views/events/base.py:764), which rolls back on
+        # subsequent ValidationError.
         new_event = Event.objects.create_event(**validated_data)
 
-        EventDetailsSerializer().update(new_event, details_data)
+        # The deferred create-path re-validation needs the request to enforce
+        # attachment ownership / allowableFileTypes (the parent's schema only exists
+        # after the Event row is created, so validation is deferred to here).
+        EventDetailsSerializer(context=self.context).update(new_event, details_data)
 
         if eventsource and external_event_id:
             try:
@@ -499,6 +507,7 @@ class EventSerializerMixin:
             # details don't get saved in the same table as the rest of the
             # event data, so hand this off and pretend we never saw it
             if k == "event_details":
+                # No request context passed: validation already ran in is_valid(), so none is needed here.
                 EventDetailsSerializer().update(instance, {k: v})
                 continue
             if k == "notes":
@@ -1048,6 +1057,60 @@ class EventSerializer(EventSerializerMixin, ModelSerializer):
         )
         return serializer.data
 
+    def _hydrate_attachment_metadata(self, rep: dict, event: Event, request: object) -> None:
+        """Hydrate the top-level ``metadata.attachments`` sidecar from stored placeholders.
+
+        Reads UUID placeholders written by ``EventDetailsSerializer.update`` into
+        ``EventDetails.data["metadata"]["attachments"]``, resolves each UUID via
+        ``get_attachment_info``, and appends a ``metadata`` key to *rep*.
+
+        This method mutates *rep* in place.  It is called after the permission gate
+        so only users permitted to read the event ever see attachment UUIDs or URLs.
+
+        For ``complete`` attachments, ``files`` is only emitted when a *request* is
+        present (URL building requires one).  Request-less paths (e.g. socket emit)
+        receive ``{"status": "complete", "file_type": ...}`` without the ``files`` key.
+        For ``complete`` image attachments, ``files`` contains ``original`` plus the
+        configured renditions (``icon``, ``thumbnail``, ``large``, ``xlarge``).  For
+        non-image ``complete`` attachments, ``files`` contains only ``original``.
+        """
+        # Resolve the EventDetails row
+        if hasattr(event, "event_details_set") and event.event_details_set:
+            details = event.event_details_set[0]
+        else:
+            details = EventDetails.objects.filter(event=event).order_by("created_at").last()
+
+        if details is None:
+            return
+
+        placeholders: dict = (details.data or {}).get("metadata", {}).get("attachments", {})
+        if not placeholders:
+            return
+
+        hydrated: dict = {}
+        for attachment_uuid in placeholders:
+            info = get_attachment_info(attachment_uuid)
+            if info.status == "complete":
+                entry: dict = {"status": "complete", "file_type": info.file_type}
+                if request is not None:
+                    files = {"original": utils.add_base_url(request, f"/api/v1.0/usercontent/{attachment_uuid}/")}
+                    if info.has_renditions:
+                        for rendition in get_image_rendition_keys():
+                            if rendition == "original":
+                                continue
+                            files[rendition] = utils.add_base_url(
+                                request, f"/api/v1.0/usercontent/{attachment_uuid}/?rendition={rendition}"
+                            )
+                    entry["files"] = files
+                hydrated[attachment_uuid] = entry
+            elif info.status == "in_progress":
+                hydrated[attachment_uuid] = {"status": "in_progress", "file_type": info.file_type}
+            else:
+                hydrated[attachment_uuid] = {"status": "unknown"}
+
+        if hydrated:
+            rep["metadata"] = {"attachments": hydrated}
+
     def to_representation(self, event: Event) -> dict:
         with tracer.start_as_current_span("EventSerializer.to_representation") as span:
             span.set_attribute("event_id", str(event.id))
@@ -1086,6 +1149,11 @@ class EventSerializer(EventSerializerMixin, ModelSerializer):
             rep["geojson"] = self.get_geojson(request, event)
 
         rep["is_collection"] = event.event_type.is_collection if event.event_type else False
+
+        # Hydrate attachment metadata sidecar from stored placeholders.
+        # This must sit after the permission gate (lines above) so unpermitted users
+        # who receive only {id, serial_number} never see attachment UUIDs or URLs.
+        self._hydrate_attachment_metadata(rep, event, request)
 
         details_updates = []
 

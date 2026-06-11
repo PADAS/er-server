@@ -653,6 +653,16 @@ USERCONTENT_SETTINGS = {
     # ---------------------------------------------------------------------------
     "imagefile_extensions": ("jpg", "jpeg", "png", "gif", "tif", "tiff"),
     # ---------------------------------------------------------------------------
+    # FILE TYPE PARTITIONS
+    # Used by usercontent.utils.classify_file_type() to bucket an uploaded file
+    # into one of the four UI categories (audio / document / image / video).
+    # Each set must be a subset of allowed_extensions above.
+    # ---------------------------------------------------------------------------
+    "audio_extensions": ("mp3", "wav", "aac", "ogg", "flac", "m4a", "opus"),
+    "document_extensions": ("pdf", "doc", "docx", "xls", "xlsx", "csv", "ppt", "pptx", "odt", "ods", "txt", "rtf"),
+    "image_extensions": ("jpg", "jpeg", "png", "gif", "tif", "tiff", "webp", "heic", "bmp", "svg"),
+    "video_extensions": ("mp4", "mov", "avi", "mkv", "wmv", "webm", "m4v", "3gp"),
+    # ---------------------------------------------------------------------------
     # SERVE BEHAVIOUR
     # Force these MIME types to download as application/octet-stream so browsers
     # never render or execute them inline.

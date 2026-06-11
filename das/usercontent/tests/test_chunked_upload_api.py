@@ -1,5 +1,8 @@
-"""API tests for chunked uploads (ERA-9210); GCS calls mocked."""
+"""API tests for chunked uploads (ERA-9210 / ERA-13273); GCS calls mocked."""
 
+from __future__ import annotations
+
+import uuid
 from unittest.mock import patch
 
 from django.contrib.auth import get_user_model
@@ -7,6 +10,7 @@ from rest_framework import status
 from rest_framework.test import APIClient
 
 from core.tests import BaseAPITest
+from usercontent import upload_sessions
 from usercontent.models import FileContent, ImageFileContent
 
 User = get_user_model()
@@ -35,7 +39,7 @@ class TestChunkedUploadAPI(BaseAPITest):
         )
         assert r0.status_code == status.HTTP_201_CREATED, r0.content
         body = self._json_data(r0)
-        upload_id = body["upload_id"]
+        upload_id = body["id"]
         assert body["num_chunks"] == 1
 
         r1 = self.client.put(
@@ -58,7 +62,7 @@ class TestChunkedUploadAPI(BaseAPITest):
             {"filename": "a.txt", "size": 20, "chunk_size": 10},
             format="json",
         )
-        upload_id = self._json_data(r0)["upload_id"]
+        upload_id = self._json_data(r0)["id"]
         r1 = self.client.put(
             f"{self.base}/{upload_id}/chunks/1/",
             data=b"0123456789",
@@ -74,7 +78,7 @@ class TestChunkedUploadAPI(BaseAPITest):
             {"filename": "b.txt", "size": 5, "chunk_size": 5},
             format="json",
         )
-        upload_id = self._json_data(r0)["upload_id"]
+        upload_id = self._json_data(r0)["id"]
         chunk = b"abcde"
         url = f"{self.base}/{upload_id}/chunks/0/"
         assert self.client.put(url, data=chunk, content_type="application/octet-stream").status_code == 200
@@ -88,7 +92,7 @@ class TestChunkedUploadAPI(BaseAPITest):
             {"filename": "c.txt", "size": 5, "chunk_size": 5},
             format="json",
         )
-        upload_id = self._json_data(r0)["upload_id"]
+        upload_id = self._json_data(r0)["id"]
 
         other = User.objects.create_user(
             "other-uploader",
@@ -114,7 +118,7 @@ class TestChunkedUploadAPI(BaseAPITest):
             {"filename": "status.txt", "size": 5, "chunk_size": 5},
             format="json",
         )
-        upload_id = self._json_data(r0)["upload_id"]
+        upload_id = self._json_data(r0)["id"]
 
         other = User.objects.create_user(
             "other-status",
@@ -136,7 +140,7 @@ class TestChunkedUploadAPI(BaseAPITest):
             {"filename": "complete.txt", "size": 5, "chunk_size": 5},
             format="json",
         )
-        upload_id = self._json_data(r0)["upload_id"]
+        upload_id = self._json_data(r0)["id"]
 
         other = User.objects.create_user(
             "other-complete",
@@ -180,7 +184,7 @@ class TestChunkedUploadAPI(BaseAPITest):
             format="json",
         )
         assert r0.status_code == status.HTTP_201_CREATED, r0.content
-        upload_id = self._json_data(r0)["upload_id"]
+        upload_id = self._json_data(r0)["id"]
 
         self.client.put(
             f"{self.base}/{upload_id}/chunks/0/",
@@ -204,7 +208,7 @@ class TestChunkedUploadAPI(BaseAPITest):
             {"filename": "d.txt", "size": 5, "chunk_size": 5},
             format="json",
         )
-        upload_id = self._json_data(r0)["upload_id"]
+        upload_id = self._json_data(r0)["id"]
         self.client.put(
             f"{self.base}/{upload_id}/chunks/0/",
             data=b"abcde",
@@ -258,3 +262,103 @@ class TestChunkedUploadAPI(BaseAPITest):
         _, kwargs = mock_init.call_args
         assert kwargs["content_type"] is None
         assert kwargs["content_disposition"] is None
+
+
+class TestChunkedUploadInitClientUUID(BaseAPITest):
+    """Tests for the optional client-provided id field (ERA-13273 Part 1)."""
+
+    def setUp(self) -> None:
+        super().setUp()
+        self.client = APIClient()
+        self.token = self.create_access_token(self.app_user)
+        self.client.credentials(HTTP_AUTHORIZATION=self.create_authorization_header(self.token))
+        self.base = f"{self.api_base}/usercontent/chunked-uploads"
+
+    @staticmethod
+    def _json_data(response) -> dict:
+        return response.json()["data"]
+
+    @patch("usercontent.chunked_upload.resumable_upload.upload_chunk")
+    @patch("usercontent.chunked_upload.resumable_upload.initiate", return_value="https://gcs.example/resumable")
+    def test_init_honors_client_provided_upload_id(self, _mock_init, _mock_chunk) -> None:
+        """When id is supplied, the finalized FileContent row uses that exact UUID."""
+        client_uuid = str(uuid.uuid4())
+        r0 = self.client.post(
+            f"{self.base}/",
+            {"filename": "notes.txt", "size": 5, "chunk_size": 5, "id": client_uuid},
+            format="json",
+        )
+        assert r0.status_code == status.HTTP_201_CREATED, r0.content
+        assert self._json_data(r0)["id"] == client_uuid
+
+        self.client.put(
+            f"{self.base}/{client_uuid}/chunks/0/",
+            data=b"abcde",
+            content_type="application/octet-stream",
+        )
+        r2 = self.client.post(f"{self.base}/{client_uuid}/complete/")
+        assert r2.status_code == status.HTTP_200_OK, r2.content
+        assert FileContent.objects.filter(id=client_uuid).exists()
+
+    @patch("usercontent.chunked_upload.resumable_upload.initiate", return_value="https://gcs.example/resumable")
+    def test_init_falls_back_to_server_uuid_when_absent(self, _mock_init) -> None:
+        """When id is omitted, the server generates a uuid4."""
+        r = self.client.post(
+            f"{self.base}/",
+            {"filename": "notes.txt", "size": 5, "chunk_size": 5},
+            format="json",
+        )
+        assert r.status_code == status.HTTP_201_CREATED, r.content
+        server_uuid = self._json_data(r)["id"]
+        # Must be a valid UUID distinct from any client input
+        parsed = uuid.UUID(server_uuid)
+        assert str(parsed) == server_uuid
+
+    @patch("usercontent.chunked_upload.resumable_upload.initiate", return_value="https://gcs.example/resumable")
+    def test_init_rejects_upload_id_colliding_with_live_session(self, _mock_init) -> None:
+        """A client-supplied id that collides with an existing live session returns 409."""
+        client_uuid = str(uuid.uuid4())
+        # First init creates a session
+        r1 = self.client.post(
+            f"{self.base}/",
+            {"filename": "first.txt", "size": 5, "chunk_size": 5, "id": client_uuid},
+            format="json",
+        )
+        assert r1.status_code == status.HTTP_201_CREATED, r1.content
+
+        # Second init with the same UUID must be rejected
+        r2 = self.client.post(
+            f"{self.base}/",
+            {"filename": "second.txt", "size": 5, "chunk_size": 5, "id": client_uuid},
+            format="json",
+        )
+        assert r2.status_code == status.HTTP_409_CONFLICT
+
+    @patch("usercontent.chunked_upload.resumable_upload.upload_chunk")
+    @patch("usercontent.chunked_upload.resumable_upload.initiate", return_value="https://gcs.example/resumable")
+    def test_init_rejects_upload_id_colliding_with_finalized_row(self, _mock_init, _mock_chunk) -> None:
+        """A client-supplied id that collides with a finalized FileContent row returns 409."""
+        client_uuid = str(uuid.uuid4())
+        # Complete a full upload to create a FileContent row
+        r0 = self.client.post(
+            f"{self.base}/",
+            {"filename": "notes.txt", "size": 5, "chunk_size": 5, "id": client_uuid},
+            format="json",
+        )
+        assert r0.status_code == status.HTTP_201_CREATED
+        self.client.put(
+            f"{self.base}/{client_uuid}/chunks/0/",
+            data=b"abcde",
+            content_type="application/octet-stream",
+        )
+        r1 = self.client.post(f"{self.base}/{client_uuid}/complete/")
+        assert r1.status_code == status.HTTP_200_OK
+        assert FileContent.objects.filter(id=client_uuid).exists()
+
+        # Attempt a second init with the same UUID must be 409
+        r2 = self.client.post(
+            f"{self.base}/",
+            {"filename": "new_file.txt", "size": 5, "chunk_size": 5, "id": client_uuid},
+            format="json",
+        )
+        assert r2.status_code == status.HTTP_409_CONFLICT

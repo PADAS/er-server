@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import logging
 
 from versatileimagefield.serializers import VersatileImageFieldSerializer
@@ -122,6 +124,15 @@ def get_available_renditions(sizes=None):
 
 
 IMAGE_RENDITIONS = {"default": get_available_renditions(sizes="default")}
+
+
+def get_image_rendition_keys(rendition_set: str = "default") -> list[str]:
+    """Return the configured rendition keys for *rendition_set*.
+
+    Derived from VERSATILEIMAGEFIELD_RENDITION_KEY_SETS via IMAGE_RENDITIONS so the
+    list (e.g. original, icon, thumbnail, large, xlarge) stays in sync with settings.
+    """
+    return list(IMAGE_RENDITIONS.get(rendition_set, {}).keys())
 
 
 def get_stored_filename(file, rendition_set="default", rendition_key=None):
