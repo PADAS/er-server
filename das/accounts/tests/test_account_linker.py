@@ -123,6 +123,7 @@ class TestAccountLinkerLanding:
                 "https://example.com/auth/account-linker/callback/",
                 state=link_attempt,
                 connection="testsite",
+                prompt="login",
             )
 
     def test_magic_link_reuse_after_linking_returns_400(self, request_factory, active_user, caplog):
@@ -194,6 +195,7 @@ class TestAccountLinkerLanding:
                 "https://example.com/auth/account-linker/callback/",
                 state=link_attempt,
                 connection="testsite",
+                prompt="login",
             )
 
     def test_session_flow_already_linked_user_returns_400(self, request_factory, active_user, caplog):
