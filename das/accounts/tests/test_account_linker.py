@@ -647,3 +647,42 @@ class TestAccountLinkerCallback:
 
         assert result.status_code == 400
         assert b"Account linking is not available for this site" in result.content
+
+    @pytest.mark.parametrize("blank_org_id", [None, "", "  "])
+    def test_blank_org_id_allows_landing_to_initiate_pkce(
+        self, request_factory, active_user, mock_tenant_settings, blank_org_id
+    ):
+        """A None, empty, or whitespace-only idp_org_id does not block the landing view."""
+        mock_tenant_settings.feature_flags.idp_org_id = blank_org_id
+
+        token = create_magic_link_token(active_user.id)
+        request = request_factory.get(f"/auth/account-linker/?token={token}")
+        request.session = {}
+        request.build_absolute_uri = lambda path: f"https://example.com{path}"
+
+        with patch("accounts.account_linker._account_linker_auth0_client.auth0.authorize_redirect") as mock_redirect:
+            mock_redirect.return_value = HttpResponse("auth0_redirect")
+            result = account_linker_landing(request)
+
+        assert result.content == b"auth0_redirect"
+        mock_redirect.assert_called_once()
+
+    @pytest.mark.parametrize("blank_org_id", [None, "", "  "])
+    def test_blank_org_id_allows_successful_linking(
+        self, request_factory, active_user, mock_tenant_settings, blank_org_id
+    ):
+        """A None, empty, or whitespace-only idp_org_id does not block the callback view."""
+        mock_tenant_settings.feature_flags.idp_org_id = blank_org_id
+
+        request = request_factory.get(f"/auth/account-linker/callback/?state={FAKE_LINK_ATTEMPT}")
+        request.session = {f"{SESSION_KEY_PREFIX}{FAKE_LINK_ATTEMPT}": str(active_user.id)}
+
+        with patch(
+            "accounts.account_linker._account_linker_auth0_client.auth0.authorize_access_token"
+        ) as mock_exchange:
+            mock_exchange.return_value = self._make_mock_token()
+            result = account_linker_callback(request)
+
+        assert result.status_code == 302
+        active_user.refresh_from_db()
+        assert active_user.auth0_id == "auth0|new_sub_123"

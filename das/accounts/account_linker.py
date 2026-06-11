@@ -83,7 +83,8 @@ def _is_org_scoped_site() -> bool:
     the account linker only operates on common-DB sites where idp_org_id is
     absent.
     """
-    return bool(get_tenant_settings().feature_flags.idp_org_id)
+    org_id = get_tenant_settings().feature_flags.idp_org_id
+    return bool(org_id and org_id.strip())
 
 
 def create_magic_link_token(user_id):
