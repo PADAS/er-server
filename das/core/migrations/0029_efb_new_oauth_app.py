@@ -2,18 +2,17 @@
 
 import logging
 
-from django.apps import apps
 from django.db import migrations
 
 from core.models import DASTenant
 from utils.middleware import EFB_APPLICATION_ID
 from utils.tenant.exceptions import TenantNotFoundException
-from utils.tenant.managers import TenantContextManager, UnsetDASTenantContextManager
+from utils.tenant.managers import UnsetDASTenantContextManager
 
 logger = logging.getLogger(__name__)
 
 
-def create_efb_application(ignored, schema_editor):
+def create_efb_application(apps, schema_editor):
     db_alias = schema_editor.connection.alias
     Application = apps.get_model("core", "DASApplication")
 
@@ -28,18 +27,17 @@ def create_efb_application(ignored, schema_editor):
     with UnsetDASTenantContextManager():
         das_tenants = DASTenant.objects.all()
 
-    for tenant in das_tenants:
-        domain = tenant.domain
-        try:
-            with TenantContextManager(domain):
+        for tenant in das_tenants:
+            domain = tenant.domain
+            try:
                 Application.objects.using(db_alias).get_or_create(
-                    client_id=EFB_APPLICATION_ID, das_tenant=tenant, defaults=defaults
+                    client_id=EFB_APPLICATION_ID, das_tenant_id=tenant.id, defaults=defaults
                 )
-        except (DASTenant.DoesNotExist, TenantNotFoundException):
-            logger.warning(
-                "DASTenant with domain %s does not exist in TMS, when creating efb application for that domain",
-                domain,
-            )
+            except (DASTenant.DoesNotExist, TenantNotFoundException):
+                logger.warning(
+                    "DASTenant with domain %s does not exist in TMS, when creating efb application for that domain",
+                    domain,
+                )
 
 
 class Migration(migrations.Migration):
