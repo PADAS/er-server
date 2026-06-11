@@ -159,8 +159,8 @@ class TestAuth0JWTAuthentication:
         assert result[0] == das_user_with_auth0_id_for_test
         assert result[1] is None
 
-    def test_no_authorization_header_returns_anonymous_user_when_idp_required(self):
-        """Test that when require_idp=True but no Authorization header, should return AnonymousUser."""
+    def test_no_token_in_header_or_query_params_returns_anonymous_user(self):
+        """When require_idp=True but no token in header or query params, return AnonymousUser."""
         factory = RequestFactory()
         request_without_auth = factory.get("/api/test/")
 
@@ -289,6 +289,82 @@ class TestAuth0JWTAuthentication:
                 Auth0JWTAuthentication().authenticate(request)
 
         assert any("bypass_auth0=False" in message and application.client_id in message for message in caplog.messages)
+
+    def test_query_param_token_with_bypass_auth0_allows_fallback(self, mock_tenant_settings, user, application):
+        """
+        When require_idp=True and a DOT token is provided via ?auth= query param
+        (no Authorization header), the bypass_auth0 gate applies and returns None
+        to allow the DRF auth chain to continue to BearerTokenInUrlAuthentication.
+        """
+        assert application.bypass_auth0 is True
+
+        access_token = AccessTokenFactory(user=user, application=application)
+        factory = RequestFactory()
+        request = factory.get(f"/api/test/?auth={access_token.token}")
+
+        with patch(
+            "accounts.backends.ResourceProtector.validate_request",
+            side_effect=Exception("should not be called"),
+        ):
+            result = Auth0JWTAuthentication().authenticate(request)
+
+        assert result is None
+
+    def test_query_param_token_without_bypass_auth0_fails_closed(self, mock_tenant_settings, user, application):
+        """
+        When require_idp=True and a DOT token is provided via ?auth= but the
+        application has bypass_auth0=False, authenticate() fails closed.
+        """
+        application.bypass_auth0 = False
+        application.save()
+
+        access_token = AccessTokenFactory(user=user, application=application)
+        factory = RequestFactory()
+        request = factory.get(f"/api/test/?auth={access_token.token}")
+
+        with pytest.raises(AuthenticationFailed):
+            Auth0JWTAuthentication().authenticate(request)
+
+    def test_header_takes_precedence_over_query_param(self, mock_tenant_settings, user, application):
+        """
+        When both Authorization header and ?auth= are present, the header
+        token is used. Verified by giving the header token bypass_auth0=True
+        and the query param a non-DOT value — if the query param were chosen,
+        it would fall through to JWT validation and fail.
+        """
+        assert application.bypass_auth0 is True
+
+        header_token = AccessTokenFactory(user=user, application=application)
+        factory = RequestFactory()
+        request = factory.get(
+            "/api/test/?auth=query-param-value-should-be-ignored",
+            HTTP_AUTHORIZATION=f"Bearer {header_token.token}",
+        )
+
+        with patch(
+            "accounts.backends.ResourceProtector.validate_request",
+            side_effect=Exception("should not be called"),
+        ):
+            result = Auth0JWTAuthentication().authenticate(request)
+
+        assert result is None
+
+    @pytest.mark.parametrize(
+        "query_string",
+        [
+            pytest.param("?auth=", id="empty_auth_value"),
+            pytest.param("?auth", id="auth_key_no_value"),
+        ],
+    )
+    def test_empty_query_param_token_returns_anonymous(self, mock_tenant_settings, query_string):
+        """An empty or valueless ?auth= query param is treated as no token at all."""
+        factory = RequestFactory()
+        request = factory.get(f"/api/test/{query_string}")
+
+        result = Auth0JWTAuthentication().authenticate(request)
+
+        assert isinstance(result[0], AnonymousUser)
+        assert result[1] is None
 
     @pytest.mark.parametrize(
         "missing_sub",
