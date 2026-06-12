@@ -3,6 +3,8 @@ from __future__ import annotations
 import logging
 import secrets
 
+from django_ratelimit.decorators import ratelimit
+
 from django import forms
 from django.contrib.auth import authenticate
 from django.http import HttpRequest, HttpResponse
@@ -38,7 +40,13 @@ def _is_org_scoped_site() -> bool:
     return bool(org_id and org_id.strip())
 
 
+def _username_key(_group: str, request: HttpRequest) -> str:
+    """Rate-limit key: case-insensitive, stripped username from POST body."""
+    return (request.POST.get("username") or "").strip().lower()
+
+
 @require_enabled_idp_configs(message=_IDP_NOT_ENABLED_MESSAGE, status=400)
+@ratelimit(key=_username_key, rate="5/m", method="POST", block=True)
 def link_accounts(request: HttpRequest) -> HttpResponse:
     """Self-service page: legacy username+password -> Account Linker PKCE flow."""
 

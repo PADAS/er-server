@@ -46,6 +46,10 @@ def _clear_cache():
 
 @pytest.mark.django_db
 class TestLinkAccountsGet:
+    @pytest.fixture(autouse=True)
+    def _disable_ratelimit(self, settings):
+        settings.RATELIMIT_ENABLE = False
+
     def test_renders_form_on_idp_enabled_tenant(self):
         client = Client()
         mock_ts = _mock_tenant_settings(require_idp=True, idp_org_id="")
@@ -79,7 +83,8 @@ class TestLinkAccountsGet:
 class TestLinkAccountsPostAuth:
 
     @pytest.fixture(autouse=True)
-    def _tenant_mock(self):
+    def _tenant_mock(self, settings):
+        settings.RATELIMIT_ENABLE = False
         mock_ts = _mock_tenant_settings(require_idp=True, idp_org_id="")
         with patch("utils.tenant.decorators.get_tenant_settings", return_value=mock_ts):
             with patch("accounts.link_accounts.get_tenant_settings", return_value=mock_ts):
@@ -166,7 +171,50 @@ class TestLinkAccountsPostAuth:
 
 
 @pytest.mark.django_db
+class TestLinkAccountsRateLimit:
+
+    @pytest.fixture(autouse=True)
+    def _tenant_mock(self):
+        mock_ts = _mock_tenant_settings(require_idp=True, idp_org_id="")
+        with patch("utils.tenant.decorators.get_tenant_settings", return_value=mock_ts):
+            with patch("accounts.link_accounts.get_tenant_settings", return_value=mock_ts):
+                yield mock_ts
+
+    def test_username_rate_limit_blocks_after_5_requests(self):
+        client = Client()
+        for _ in range(5):
+            client.post(_LINK_ACCOUNTS_URL, {"username": "ratelimituser", "password": "any"})
+
+        response = client.post(_LINK_ACCOUNTS_URL, {"username": "ratelimituser", "password": "any"})
+
+        assert response.status_code == 403
+
+    def test_username_rate_limit_is_case_insensitive(self):
+        client = Client()
+        for _ in range(3):
+            client.post(_LINK_ACCOUNTS_URL, {"username": "testuser", "password": "any"})
+        for _ in range(2):
+            client.post(_LINK_ACCOUNTS_URL, {"username": "TestUser", "password": "any"})
+
+        response = client.post(_LINK_ACCOUNTS_URL, {"username": "TESTUSER", "password": "any"})
+
+        assert response.status_code == 403
+
+    def test_different_usernames_have_separate_buckets(self):
+        client = Client()
+        for _ in range(5):
+            client.post(_LINK_ACCOUNTS_URL, {"username": "alice_rl", "password": "wrongpass"})
+
+        response = client.post(_LINK_ACCOUNTS_URL, {"username": "bob_rl", "password": "any"})
+
+        assert response.status_code != 403
+
+
+@pytest.mark.django_db
 class TestLinkAccountsCSRF:
+    @pytest.fixture(autouse=True)
+    def _disable_ratelimit(self, settings):
+        settings.RATELIMIT_ENABLE = False
 
     def test_post_without_csrf_returns_403(self):
         mock_ts = _mock_tenant_settings(require_idp=True, idp_org_id="")
