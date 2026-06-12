@@ -16,7 +16,6 @@ def mock_tenant_settings():
     mock = Mock()
     mock.id = "test-tenant-id"
     mock.feature_flags.require_idp = True
-    mock.feature_flags.idp_org_id = "org_123"
     with patch("utils.tenant.decorators.get_tenant_settings", return_value=mock):
         yield mock
 
@@ -30,21 +29,6 @@ class TestAssertIdpConfigured:
     def test_raises_when_require_idp_falsy(self, mock_tenant_settings, falsy_value):
         mock_tenant_settings.feature_flags.require_idp = falsy_value
         with pytest.raises(IdpNotConfiguredError, match=r"^tenant test-tenant-id: require_idp is not enabled$"):
-            assert_idp_configured()
-
-    @pytest.mark.parametrize("falsy_value", [None, "", "  "])
-    def test_raises_when_idp_org_id_falsy(self, mock_tenant_settings, falsy_value):
-        mock_tenant_settings.feature_flags.idp_org_id = falsy_value
-        with pytest.raises(IdpNotConfiguredError, match=r"^tenant test-tenant-id: idp_org_id is not configured$"):
-            assert_idp_configured()
-
-    def test_raises_when_both_missing(self, mock_tenant_settings):
-        mock_tenant_settings.feature_flags.require_idp = False
-        mock_tenant_settings.feature_flags.idp_org_id = None
-        with pytest.raises(
-            IdpNotConfiguredError,
-            match=r"^tenant test-tenant-id: require_idp is not enabled; idp_org_id is not configured$",
-        ):
             assert_idp_configured()
 
 
@@ -66,9 +50,6 @@ class TestRequireEnabledIdpConfigs:
             ("require_idp", False),
             ("require_idp", None),
             ("require_idp", 0),
-            ("idp_org_id", None),
-            ("idp_org_id", ""),
-            ("idp_org_id", "  "),
         ],
     )
     def test_blocks_request_with_message_and_status(self, mock_tenant_settings, flag, falsy_value):

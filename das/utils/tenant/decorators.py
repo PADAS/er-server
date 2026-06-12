@@ -25,17 +25,14 @@ class IdpNotConfiguredError(Exception):
 
 
 def assert_idp_configured() -> None:
-    """Check that the tenant has IdP enabled with an org ID configured.
+    """Check that the tenant has IdP enabled.
 
-    Raises IdpNotConfiguredError if require_idp is falsy or idp_org_id is missing.
+    Raises IdpNotConfiguredError if `require_idp` is falsy.
     """
     ts = get_tenant_settings()
     problems = []
     if not ts.feature_flags.require_idp:
         problems.append("require_idp is not enabled")
-    org_id = ts.feature_flags.idp_org_id
-    if not org_id or not org_id.strip():
-        problems.append("idp_org_id is not configured")
     if problems:
         raise IdpNotConfiguredError(f"tenant {ts.id}: {'; '.join(problems)}")
 

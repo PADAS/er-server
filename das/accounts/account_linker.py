@@ -15,14 +15,17 @@ from authlib.integrations.django_client import OAuth
 from django.conf import settings
 from django.core import signing
 from django.core.exceptions import ValidationError
+from django.core.mail import send_mail
 from django.db import IntegrityError, transaction
+from django.db.models.functions import Trim
 from django.http import HttpResponse
 from django.shortcuts import redirect
+from django.template.loader import render_to_string
 from django.urls import reverse
 from django.views.decorators.csrf import csrf_exempt
 
 from accounts.models import User
-from utils.auth0.helpers import create_auth0_management_client, get_auth0_custom_domain
+from utils.auth0.helpers import get_auth0_custom_domain
 from utils.tenant import get_tenant_settings
 from utils.tenant.decorators import require_enabled_idp_configs
 
@@ -68,6 +71,20 @@ SESSION_KEY_PREFIX = "account_linker_attempt:"
 _IDP_NOT_ENABLED_MESSAGE = "Account linking is not available for this site. Please contact support."
 _INVALID_LINK_MESSAGE = "Invalid link. Please contact your site administrator."
 _UNABLE_TO_LINK_MESSAGE = "Unable to associate your accounts. Please contact support."
+_EMAIL_COLLISION_MESSAGE = (
+    "This email address is already associated with another account on this site. Please contact support."
+)
+
+
+def _is_org_scoped_site() -> bool:
+    """Return True if this tenant is org-scoped (has an idp_org_id configured).
+
+    Org-scoped sites manage Auth0 organisation membership through other means;
+    the account linker only operates on common-DB sites where idp_org_id is
+    absent.
+    """
+    org_id = get_tenant_settings().feature_flags.idp_org_id
+    return bool(org_id and org_id.strip())
 
 
 def create_magic_link_token(user_id):
@@ -91,6 +108,9 @@ def account_linker_landing(request):
     1. ``?token=<signed_token>`` — magic link flow: verify token, resolve user
     2. ``?session_ref=<ref>`` — session flow: caller stored user_id in session
     """
+    if _is_org_scoped_site():
+        return HttpResponse(_IDP_NOT_ENABLED_MESSAGE, status=400)
+
     token = request.GET.get("token")
 
     if token:
@@ -138,14 +158,18 @@ def account_linker_landing(request):
         callback_url,
         state=link_attempt,
         connection=get_tenant_settings().slug_name,
+        prompt="login",  # assure user can login; do not reuse any prior Auth0 UL session
     )
 
 
 @csrf_exempt
 @require_enabled_idp_configs(message=_IDP_NOT_ENABLED_MESSAGE, status=400)
 def account_linker_callback(request):
-    """Handle the Auth0 callback: exchange the authorization code, link the
-    user's Auth0 identity, and add them to the tenant's Auth0 organization."""
+    """Handle the Auth0 callback: exchange the authorization code and link the
+    user's Auth0 identity."""
+
+    if _is_org_scoped_site():
+        return HttpResponse(_IDP_NOT_ENABLED_MESSAGE, status=400)
 
     error = request.GET.get("error")
     if error:
@@ -174,13 +198,26 @@ def account_linker_callback(request):
             status=400,
         )
 
-    try:
-        userinfo = token.get("userinfo")
-        if not userinfo:
-            raise ValueError("No userinfo in token response")
-        auth0_sub = userinfo["sub"]
-    except (TypeError, KeyError, ValueError):
-        logger.exception("Could not extract sub claim from Auth0 token")
+    userinfo = token.get("userinfo")
+    if not userinfo:
+        logger.error("No userinfo in Auth0 token response")
+        return HttpResponse(
+            _UNABLE_TO_LINK_MESSAGE,
+            status=400,
+        )
+
+    auth0_sub = (userinfo.get("sub") or "").strip()
+    auth0_email = (userinfo.get("email") or "").strip()
+
+    if not auth0_sub:
+        logger.warning("Auth0 token has missing or empty sub claim")
+        return HttpResponse(
+            _UNABLE_TO_LINK_MESSAGE,
+            status=400,
+        )
+
+    if not auth0_email:
+        logger.warning("Auth0 token missing email claim for sub %s", auth0_sub)
         return HttpResponse(
             _UNABLE_TO_LINK_MESSAGE,
             status=400,
@@ -194,6 +231,25 @@ def account_linker_callback(request):
             _UNABLE_TO_LINK_MESSAGE,
             status=400,
         )
+
+    colliding_user = (
+        User.objects.annotate(trimmed_email=Trim("email"))
+        .filter(trimmed_email__iexact=auth0_email)
+        .exclude(id=user.id)
+        .values("id", "username", "is_active")
+        .first()
+    )
+    if colliding_user:
+        logger.warning(
+            "Email collision during account linking: user '%s' cannot use email '%s' "
+            "because it belongs to user '%s' (id=%s, active=%s)",
+            user.username,
+            auth0_email,
+            colliding_user["username"],
+            colliding_user["id"],
+            colliding_user["is_active"],
+        )
+        return HttpResponse(_EMAIL_COLLISION_MESSAGE, status=400)
 
     if user.auth0_id:
         if user.auth0_id != auth0_sub:
@@ -210,19 +266,25 @@ def account_linker_callback(request):
             )
         logger.info("User %s already has auth0_id=%s, skipping linking", user.username, user.auth0_id)
 
-    # When auth0_id is not yet set, save and org-add run atomically — if either
-    # fails, both roll back. The unique constraint on auth0_id rejects duplicates
-    # at save time, preventing a stolen sub from reaching the org-add call.
-    # When already linked (matching sub), only the org-add runs (idempotent).
+    current_email = user.email
+    should_notify = (
+        bool(current_email and current_email.strip()) and current_email.strip().lower() != auth0_email.strip().lower()
+    )
+
+    # The unique constraint on auth0_id rejects duplicates at save time,
+    # preventing a stolen sub from being persisted.
     try:
         with transaction.atomic():
             if not user.auth0_id:
                 user.auth0_id = auth0_sub
-                user.save(update_fields=["auth0_id"])
                 logger.info("Linked user %s to Auth0 sub %s", user.username, auth0_sub)
-            org_id = get_tenant_settings().feature_flags.idp_org_id
-            _add_user_to_auth0_org(user.auth0_id, org_id)
-            logger.info("Added user %s to Auth0 org %s", user.username, org_id)
+            if user.email != auth0_email:
+                user.email = auth0_email
+                logger.info("Updated email for user %s to %s", user.username, auth0_email)
+            user.save(update_fields=["auth0_id", "email"])
+
+            if should_notify:
+                transaction.on_commit(lambda: _send_email_changed_notification(current_email))
     except (IntegrityError, ValidationError):
         logger.warning(
             "Auth0 sub %s is already linked to another user; cannot link to user %s",
@@ -237,7 +299,18 @@ def account_linker_callback(request):
     return redirect("/")
 
 
-def _add_user_to_auth0_org(auth0_sub, org_id):
-    """Add an Auth0 user to an Auth0 organization via the Management API."""
-    client = create_auth0_management_client()
-    client.organizations.members.create(org_id, members=[auth0_sub])
+def _send_email_changed_notification(prior_email: str) -> None:
+    """Send a notification to the prior email address about the change.
+
+    Failures are logged but swallowed — the link has already been committed
+    and a send error must not turn a successful link into a 500.
+    """
+    try:
+        site_name = get_tenant_settings().domain
+        recipient = prior_email.strip()
+        context = {"site_name": site_name}
+        subject = render_to_string("registration/account_linker_email_changed_subject.txt", context).strip()
+        body = render_to_string("registration/account_linker_email_changed_email.html", context)
+        send_mail(subject, body, settings.DEFAULT_FROM_EMAIL, [recipient])
+    except Exception:
+        logger.exception("Failed to send email-changed notification to %s", prior_email)

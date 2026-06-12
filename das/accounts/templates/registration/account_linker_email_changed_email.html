@@ -1,0 +1,5 @@
+{% load i18n %}{% autoescape off %}
+{% blocktranslate %}Hello,{% endblocktranslate %}
+{% blocktranslate with site_name=site_name %}Your email address on {{ site_name }} has been updated.{% endblocktranslate %}
+{% blocktranslate %}If you did not make this change, please contact support@earthranger.com{% endblocktranslate %}
+{% endautoescape %}

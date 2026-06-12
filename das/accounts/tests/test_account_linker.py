@@ -11,12 +11,14 @@ from unittest.mock import Mock, patch
 
 import pytest
 
+from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.core import signing
 from django.http import HttpResponse
 from django.test import RequestFactory
 
 from accounts.account_linker import (
+    _EMAIL_COLLISION_MESSAGE,
     MAGIC_LINK_SALT,
     SESSION_KEY_PREFIX,
     account_linker_callback,
@@ -39,7 +41,7 @@ def request_factory():
 def active_user():
     return User.objects.create_user(
         username="linkuser",
-        email="link@example.com",
+        email="prioremail@example.com",
         is_active=True,
     )
 
@@ -49,8 +51,9 @@ def mock_tenant_settings():
     with patch("accounts.account_linker.get_tenant_settings") as mock_ts:
         mock = Mock()
         mock.feature_flags.require_idp = True
-        mock.feature_flags.idp_org_id = "org_test456"
+        mock.feature_flags.idp_org_id = None
         mock.slug_name = "testsite"
+        mock.domain = "testsite.pamdas.org"
         mock.url = "https://testsite.pamdas.org"
         mock_ts.return_value = mock
         with patch("utils.tenant.decorators.get_tenant_settings", return_value=mock):
@@ -123,6 +126,7 @@ class TestAccountLinkerLanding:
                 "https://example.com/auth/account-linker/callback/",
                 state=link_attempt,
                 connection="testsite",
+                prompt="login",
             )
 
     def test_magic_link_reuse_after_linking_returns_400(self, request_factory, active_user, caplog):
@@ -194,6 +198,7 @@ class TestAccountLinkerLanding:
                 "https://example.com/auth/account-linker/callback/",
                 state=link_attempt,
                 connection="testsite",
+                prompt="login",
             )
 
     def test_session_flow_already_linked_user_returns_400(self, request_factory, active_user, caplog):
@@ -241,92 +246,173 @@ class TestAccountLinkerLanding:
 @pytest.mark.django_db
 class TestAccountLinkerCallback:
 
-    def _make_mock_token(self, sub="auth0|new_sub_123"):
+    def _make_mock_token(self, sub: str = "auth0|new_sub_123", email: str = "newauth0email@example.com"):
         token = Mock()
-        token.get = lambda key, default=None: {"userinfo": {"sub": sub}}.get(key, default)
+        token.get = lambda key, default=None: {"userinfo": {"sub": sub, "email": email}}.get(key, default)
         return token
 
-    def test_successful_linking(self, request_factory, active_user, mock_tenant_settings):
+    def test_successful_linking(self, request_factory, active_user):
         request = request_factory.get(f"/auth/account-linker/callback/?state={FAKE_LINK_ATTEMPT}")
         session_key = f"{SESSION_KEY_PREFIX}{FAKE_LINK_ATTEMPT}"
         request.session = {session_key: str(active_user.id)}
 
-        mock_management_client = Mock()
+        with patch(
+            "accounts.account_linker._account_linker_auth0_client.auth0.authorize_access_token"
+        ) as mock_exchange:
+            mock_exchange.return_value = self._make_mock_token()
+
+            result = account_linker_callback(request)
+
+            active_user.refresh_from_db()
+            assert active_user.auth0_id == "auth0|new_sub_123"
+            assert result.status_code == 302
+            assert result.url == "/"
+            assert session_key not in request.session
+
+    def test_successful_linking_writes_email(self, request_factory, active_user):
+        request = request_factory.get(f"/auth/account-linker/callback/?state={FAKE_LINK_ATTEMPT}")
+        request.session = {f"{SESSION_KEY_PREFIX}{FAKE_LINK_ATTEMPT}": str(active_user.id)}
 
         with patch(
             "accounts.account_linker._account_linker_auth0_client.auth0.authorize_access_token"
         ) as mock_exchange:
-            with patch("accounts.account_linker.create_auth0_management_client", return_value=mock_management_client):
-                mock_exchange.return_value = self._make_mock_token()
+            mock_exchange.return_value = self._make_mock_token(email="newauth0email@example.com")
 
+            result = account_linker_callback(request)
+
+        assert result.status_code == 302
+        active_user.refresh_from_db()
+        assert active_user.email == "newauth0email@example.com"
+
+    @pytest.mark.parametrize(
+        "db_email, auth0_email",
+        [
+            ("taken@example.com", "taken@example.com"),
+            ("taken@example.com", "Taken@Example.COM"),
+            ("TAKEN@EXAMPLE.COM", "taken@example.com"),
+            (" taken@example.com ", "taken@example.com"),
+            ("taken@example.com", " taken@example.com "),
+        ],
+    )
+    @pytest.mark.parametrize("is_active", [True, False])
+    def test_email_collision_returns_400(self, request_factory, active_user, caplog, db_email, auth0_email, is_active):
+        other_user = User.objects.create_user(
+            username="collidinguser",
+            email="placeholder@example.com",
+            is_active=is_active,
+        )
+        # Force the exact db_email into the DB, bypassing create_user normalisation
+        User.objects.filter(id=other_user.id).update(email=db_email)
+
+        request = request_factory.get(f"/auth/account-linker/callback/?state={FAKE_LINK_ATTEMPT}")
+        request.session = {f"{SESSION_KEY_PREFIX}{FAKE_LINK_ATTEMPT}": str(active_user.id)}
+
+        with patch(
+            "accounts.account_linker._account_linker_auth0_client.auth0.authorize_access_token"
+        ) as mock_exchange:
+            mock_exchange.return_value = self._make_mock_token(email=auth0_email)
+
+            with caplog.at_level(logging.WARNING, logger="accounts.account_linker"):
                 result = account_linker_callback(request)
 
-                active_user.refresh_from_db()
-                assert active_user.auth0_id == "auth0|new_sub_123"
-                mock_management_client.organizations.members.create.assert_called_once_with(
-                    "org_test456", members=["auth0|new_sub_123"]
-                )
-                assert result.status_code == 302
-                assert result.url == "/"
-                assert session_key not in request.session
+        assert result.status_code == 400
+        assert result.content == _EMAIL_COLLISION_MESSAGE.encode()
+        assert "Email collision during account linking" in caplog.text
+        assert f"user '{active_user.username}'" in caplog.text
+        assert f"user '{other_user.username}'" in caplog.text
+        assert f"id={other_user.id}" in caplog.text
+        assert f"active={is_active}" in caplog.text
+        active_user.refresh_from_db()
+        assert active_user.auth0_id is None
 
-    def test_already_linked_matching_sub_adds_to_org(self, request_factory, active_user, mock_tenant_settings, caplog):
+    @pytest.mark.parametrize(
+        "userinfo",
+        [
+            {"sub": "auth0|new_sub_123"},
+            {"sub": "auth0|new_sub_123", "email": None},
+        ],
+    )
+    def test_missing_or_null_email_in_userinfo_returns_400(self, request_factory, active_user, caplog, userinfo):
+        request = request_factory.get(f"/auth/account-linker/callback/?state={FAKE_LINK_ATTEMPT}")
+        request.session = {f"{SESSION_KEY_PREFIX}{FAKE_LINK_ATTEMPT}": str(active_user.id)}
+
+        mock_token = Mock()
+        mock_token.get = lambda key, default=None: {"userinfo": userinfo}.get(key, default)
+
+        with patch(
+            "accounts.account_linker._account_linker_auth0_client.auth0.authorize_access_token"
+        ) as mock_exchange:
+            mock_exchange.return_value = mock_token
+
+            with caplog.at_level(logging.WARNING, logger="accounts.account_linker"):
+                result = account_linker_callback(request)
+
+        assert result.status_code == 400
+        assert b"Unable to associate your accounts" in result.content
+        assert "Auth0 token missing email claim" in caplog.text
+
+    def test_already_linked_matching_sub_updates_email(self, request_factory, active_user):
+        active_user.auth0_id = "auth0|existing"
+        active_user.save(update_fields=["auth0_id"])
+        assert active_user.email == "prioremail@example.com"
+
+        request = request_factory.get(f"/auth/account-linker/callback/?state={FAKE_LINK_ATTEMPT}")
+        request.session = {f"{SESSION_KEY_PREFIX}{FAKE_LINK_ATTEMPT}": str(active_user.id)}
+
+        with patch(
+            "accounts.account_linker._account_linker_auth0_client.auth0.authorize_access_token"
+        ) as mock_exchange:
+            mock_exchange.return_value = self._make_mock_token(sub="auth0|existing", email="newemail@example.com")
+
+            result = account_linker_callback(request)
+
+        assert result.status_code == 302
+        active_user.refresh_from_db()
+        assert active_user.email == "newemail@example.com"
+
+    def test_already_linked_matching_sub_redirects(self, request_factory, active_user, caplog):
         active_user.auth0_id = "auth0|existing"
         active_user.save(update_fields=["auth0_id"])
 
         request = request_factory.get(f"/auth/account-linker/callback/?state={FAKE_LINK_ATTEMPT}")
         request.session = {f"{SESSION_KEY_PREFIX}{FAKE_LINK_ATTEMPT}": str(active_user.id)}
 
-        mock_management_client = Mock()
-
         with patch(
             "accounts.account_linker._account_linker_auth0_client.auth0.authorize_access_token"
         ) as mock_exchange:
-            with patch("accounts.account_linker.create_auth0_management_client", return_value=mock_management_client):
-                mock_exchange.return_value = self._make_mock_token(sub="auth0|existing")
+            mock_exchange.return_value = self._make_mock_token(sub="auth0|existing")
 
-                with caplog.at_level(logging.INFO, logger="accounts.account_linker"):
-                    result = account_linker_callback(request)
+            with caplog.at_level(logging.INFO, logger="accounts.account_linker"):
+                result = account_linker_callback(request)
 
         active_user.refresh_from_db()
         assert active_user.auth0_id == "auth0|existing"
-        mock_management_client.organizations.members.create.assert_called_once_with(
-            "org_test456", members=["auth0|existing"]
-        )
         assert result.status_code == 302
         assert result.url == "/"
         assert "already has auth0_id" in caplog.text
 
-    def test_already_linked_mismatched_sub_returns_error(
-        self, request_factory, active_user, mock_tenant_settings, caplog
-    ):
+    def test_already_linked_mismatched_sub_returns_error(self, request_factory, active_user, caplog):
         active_user.auth0_id = "auth0|existing"
         active_user.save(update_fields=["auth0_id"])
 
         request = request_factory.get(f"/auth/account-linker/callback/?state={FAKE_LINK_ATTEMPT}")
         request.session = {f"{SESSION_KEY_PREFIX}{FAKE_LINK_ATTEMPT}": str(active_user.id)}
 
-        mock_management_client = Mock()
-
         with patch(
             "accounts.account_linker._account_linker_auth0_client.auth0.authorize_access_token"
         ) as mock_exchange:
-            with patch("accounts.account_linker.create_auth0_management_client", return_value=mock_management_client):
-                mock_exchange.return_value = self._make_mock_token(sub="auth0|different")
+            mock_exchange.return_value = self._make_mock_token(sub="auth0|different")
 
-                with caplog.at_level(logging.WARNING, logger="accounts.account_linker"):
-                    result = account_linker_callback(request)
+            with caplog.at_level(logging.WARNING, logger="accounts.account_linker"):
+                result = account_linker_callback(request)
 
         active_user.refresh_from_db()
         assert active_user.auth0_id == "auth0|existing"
-        mock_management_client.organizations.members.create.assert_not_called()
         assert result.status_code == 400
         assert b"Unable to associate your accounts" in result.content
         assert "Auth0 subject mismatch" in caplog.text
 
-    def test_auth0_sub_already_linked_to_another_user_returns_error(
-        self, request_factory, active_user, mock_tenant_settings, caplog
-    ):
+    def test_auth0_sub_already_linked_to_another_user_returns_error(self, request_factory, active_user, caplog):
         other_user = User.objects.create_user(
             username="otheruser",
             email="other@example.com",
@@ -338,20 +424,16 @@ class TestAccountLinkerCallback:
         request = request_factory.get(f"/auth/account-linker/callback/?state={FAKE_LINK_ATTEMPT}")
         request.session = {f"{SESSION_KEY_PREFIX}{FAKE_LINK_ATTEMPT}": str(active_user.id)}
 
-        mock_management_client = Mock()
-
         with patch(
             "accounts.account_linker._account_linker_auth0_client.auth0.authorize_access_token"
         ) as mock_exchange:
-            with patch("accounts.account_linker.create_auth0_management_client", return_value=mock_management_client):
-                mock_exchange.return_value = self._make_mock_token(sub="auth0|taken_sub")
+            mock_exchange.return_value = self._make_mock_token(sub="auth0|taken_sub")
 
-                with caplog.at_level(logging.WARNING, logger="accounts.account_linker"):
-                    result = account_linker_callback(request)
+            with caplog.at_level(logging.WARNING, logger="accounts.account_linker"):
+                result = account_linker_callback(request)
 
         active_user.refresh_from_db()
         assert active_user.auth0_id is None
-        mock_management_client.organizations.members.create.assert_not_called()
         assert result.status_code == 400
         assert b"Unable to associate your accounts" in result.content
         assert "already linked to another user" in caplog.text
@@ -410,7 +492,7 @@ class TestAccountLinkerCallback:
         assert b"Unable to associate your accounts" in result.content
         assert "Error exchanging authorization code in account linker" in caplog.text
 
-    def test_missing_sub_claim_returns_400(self, request_factory, active_user, caplog):
+    def test_missing_userinfo_returns_400(self, request_factory, active_user, caplog):
         request = request_factory.get(f"/auth/account-linker/callback/?state={FAKE_LINK_ATTEMPT}")
         request.session = {f"{SESSION_KEY_PREFIX}{FAKE_LINK_ATTEMPT}": str(active_user.id)}
 
@@ -427,34 +509,132 @@ class TestAccountLinkerCallback:
 
         assert result.status_code == 400
         assert b"Unable to associate your accounts" in result.content
-        assert "Could not extract sub claim from Auth0 token" in caplog.text
+        assert "No userinfo in Auth0 token response" in caplog.text
 
-    def test_org_membership_failure_does_not_save_auth0_id(
-        self, request_factory, active_user, mock_tenant_settings, caplog
-    ):
+    @pytest.mark.parametrize("bad_sub", [None, "", "  "])
+    def test_null_or_empty_sub_claim_returns_400(self, request_factory, active_user, caplog, bad_sub):
         request = request_factory.get(f"/auth/account-linker/callback/?state={FAKE_LINK_ATTEMPT}")
         request.session = {f"{SESSION_KEY_PREFIX}{FAKE_LINK_ATTEMPT}": str(active_user.id)}
 
-        mock_management_client = Mock()
-        mock_management_client.organizations.members.create.side_effect = Exception("Management API error")
+        mock_token = Mock()
+        mock_token.get = lambda key, default=None: {
+            "userinfo": {"sub": bad_sub, "email": "newauth0email@example.com"}
+        }.get(key, default)
 
-        with caplog.at_level(logging.ERROR, logger="accounts.account_linker"):
+        with caplog.at_level(logging.WARNING, logger="accounts.account_linker"):
             with patch(
                 "accounts.account_linker._account_linker_auth0_client.auth0.authorize_access_token"
             ) as mock_exchange:
-                with patch(
-                    "accounts.account_linker.create_auth0_management_client",
-                    return_value=mock_management_client,
-                ):
-                    mock_exchange.return_value = self._make_mock_token()
+                mock_exchange.return_value = mock_token
+                result = account_linker_callback(request)
 
-                    result = account_linker_callback(request)
-
-        active_user.refresh_from_db()
-        assert active_user.auth0_id is None
         assert result.status_code == 400
         assert b"Unable to associate your accounts" in result.content
-        assert "Failed to link user" in caplog.text
+        assert "missing or empty sub claim" in caplog.text
+
+    def test_email_change_sends_notification_to_prior_address(self, request_factory, active_user):
+        request = request_factory.get(f"/auth/account-linker/callback/?state={FAKE_LINK_ATTEMPT}")
+        request.session = {f"{SESSION_KEY_PREFIX}{FAKE_LINK_ATTEMPT}": str(active_user.id)}
+
+        with patch(
+            "accounts.account_linker._account_linker_auth0_client.auth0.authorize_access_token"
+        ) as mock_exchange:
+            mock_exchange.return_value = self._make_mock_token(email="newauth0email@example.com")
+
+            with patch("accounts.account_linker.send_mail") as mock_send_mail:
+                with patch(
+                    "accounts.account_linker.transaction.on_commit",
+                    side_effect=lambda func: func(),
+                ):
+                    result = account_linker_callback(request)
+
+        assert result.status_code == 302
+        mock_send_mail.assert_called_once()
+        call_args = mock_send_mail.call_args
+        assert call_args[0][2] == settings.DEFAULT_FROM_EMAIL  # from address
+        assert call_args[0][3] == ["prioremail@example.com"]  # to address
+        assert "testsite.pamdas.org" in call_args[0][0]  # site_name in subject
+        assert "newauth0email@example.com" not in call_args[0][1]  # new email must not leak
+
+    def test_notification_strips_whitespace_from_prior_email(self, request_factory, active_user):
+        User.objects.filter(id=active_user.id).update(email=" prioremail@example.com ")
+
+        request = request_factory.get(f"/auth/account-linker/callback/?state={FAKE_LINK_ATTEMPT}")
+        request.session = {f"{SESSION_KEY_PREFIX}{FAKE_LINK_ATTEMPT}": str(active_user.id)}
+
+        with patch(
+            "accounts.account_linker._account_linker_auth0_client.auth0.authorize_access_token"
+        ) as mock_exchange:
+            mock_exchange.return_value = self._make_mock_token(email="newauth0email@example.com")
+
+            with patch("accounts.account_linker.send_mail") as mock_send_mail:
+                with patch(
+                    "accounts.account_linker.transaction.on_commit",
+                    side_effect=lambda func: func(),
+                ):
+                    result = account_linker_callback(request)
+
+        assert result.status_code == 302
+        mock_send_mail.assert_called_once()
+        assert mock_send_mail.call_args[0][3] == ["prioremail@example.com"]
+
+    def test_notification_send_failure_does_not_break_linking(self, request_factory, active_user, caplog):
+        request = request_factory.get(f"/auth/account-linker/callback/?state={FAKE_LINK_ATTEMPT}")
+        request.session = {f"{SESSION_KEY_PREFIX}{FAKE_LINK_ATTEMPT}": str(active_user.id)}
+
+        with patch(
+            "accounts.account_linker._account_linker_auth0_client.auth0.authorize_access_token"
+        ) as mock_exchange:
+            mock_exchange.return_value = self._make_mock_token(email="newauth0email@example.com")
+
+            with patch(
+                "accounts.account_linker.send_mail",
+                side_effect=Exception("SMTP connection refused"),
+            ):
+                with patch(
+                    "accounts.account_linker.transaction.on_commit",
+                    side_effect=lambda func: func(),
+                ):
+                    with caplog.at_level(logging.ERROR, logger="accounts.account_linker"):
+                        result = account_linker_callback(request)
+
+        assert result.status_code == 302
+        active_user.refresh_from_db()
+        assert active_user.auth0_id == "auth0|new_sub_123"
+        assert active_user.email == "newauth0email@example.com"
+        assert "Failed to send email-changed notification" in caplog.text
+
+    @pytest.mark.parametrize(
+        "db_email, auth0_email",
+        [
+            ("prioremail@example.com", "prioremail@example.com"),
+            ("PriorEmail@Example.com", "prioremail@example.com"),
+            (" prioremail@example.com ", "prioremail@example.com"),
+            ("   ", "newauth0email@example.com"),
+        ],
+    )
+    def test_does_not_send_notification_for_non_substantive_change(
+        self, request_factory, active_user, db_email, auth0_email
+    ):
+        User.objects.filter(id=active_user.id).update(email=db_email)
+
+        request = request_factory.get(f"/auth/account-linker/callback/?state={FAKE_LINK_ATTEMPT}")
+        request.session = {f"{SESSION_KEY_PREFIX}{FAKE_LINK_ATTEMPT}": str(active_user.id)}
+
+        with patch(
+            "accounts.account_linker._account_linker_auth0_client.auth0.authorize_access_token"
+        ) as mock_exchange:
+            mock_exchange.return_value = self._make_mock_token(email=auth0_email)
+
+            with patch("accounts.account_linker.send_mail") as mock_send_mail:
+                with patch(
+                    "accounts.account_linker.transaction.on_commit",
+                    side_effect=lambda func: func(),
+                ):
+                    result = account_linker_callback(request)
+
+        assert result.status_code == 302
+        mock_send_mail.assert_not_called()
 
     @pytest.mark.parametrize(
         "view_func, path",
@@ -468,10 +648,67 @@ class TestAccountLinkerCallback:
         request.session = {}
 
         mock_ts = Mock()
-        mock_ts.feature_flags.require_idp = True
-        mock_ts.feature_flags.idp_org_id = None
+        mock_ts.feature_flags.require_idp = False
         with patch("utils.tenant.decorators.get_tenant_settings", return_value=mock_ts):
             result = view_func(request)
 
         assert result.status_code == 400
         assert b"Account linking is not available for this site" in result.content
+
+    @pytest.mark.parametrize(
+        "view_func, path",
+        [
+            (account_linker_landing, "/auth/account-linker/"),
+            (account_linker_callback, "/auth/account-linker/callback/"),
+        ],
+    )
+    def test_org_scoped_site_returns_400(self, request_factory, mock_tenant_settings, view_func, path):
+        """Both views must reject requests when the tenant has an idp_org_id set."""
+        mock_tenant_settings.feature_flags.idp_org_id = "org_rcuksa_abc123"
+
+        request = request_factory.get(path)
+        request.session = {}
+
+        result = view_func(request)
+
+        assert result.status_code == 400
+        assert b"Account linking is not available for this site" in result.content
+
+    @pytest.mark.parametrize("blank_org_id", [None, "", "  "])
+    def test_blank_org_id_allows_landing_to_initiate_pkce(
+        self, request_factory, active_user, mock_tenant_settings, blank_org_id
+    ):
+        """A None, empty, or whitespace-only idp_org_id does not block the landing view."""
+        mock_tenant_settings.feature_flags.idp_org_id = blank_org_id
+
+        token = create_magic_link_token(active_user.id)
+        request = request_factory.get(f"/auth/account-linker/?token={token}")
+        request.session = {}
+        request.build_absolute_uri = lambda path: f"https://example.com{path}"
+
+        with patch("accounts.account_linker._account_linker_auth0_client.auth0.authorize_redirect") as mock_redirect:
+            mock_redirect.return_value = HttpResponse("auth0_redirect")
+            result = account_linker_landing(request)
+
+        assert result.content == b"auth0_redirect"
+        mock_redirect.assert_called_once()
+
+    @pytest.mark.parametrize("blank_org_id", [None, "", "  "])
+    def test_blank_org_id_allows_successful_linking(
+        self, request_factory, active_user, mock_tenant_settings, blank_org_id
+    ):
+        """A None, empty, or whitespace-only idp_org_id does not block the callback view."""
+        mock_tenant_settings.feature_flags.idp_org_id = blank_org_id
+
+        request = request_factory.get(f"/auth/account-linker/callback/?state={FAKE_LINK_ATTEMPT}")
+        request.session = {f"{SESSION_KEY_PREFIX}{FAKE_LINK_ATTEMPT}": str(active_user.id)}
+
+        with patch(
+            "accounts.account_linker._account_linker_auth0_client.auth0.authorize_access_token"
+        ) as mock_exchange:
+            mock_exchange.return_value = self._make_mock_token()
+            result = account_linker_callback(request)
+
+        assert result.status_code == 302
+        active_user.refresh_from_db()
+        assert active_user.auth0_id == "auth0|new_sub_123"
