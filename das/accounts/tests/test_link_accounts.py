@@ -31,7 +31,6 @@ def _mock_tenant_settings(*, require_idp: bool = True, idp_org_id: str = "") -> 
     mock = Mock()
     mock.feature_flags.require_idp = require_idp
     mock.feature_flags.idp_org_id = idp_org_id
-    mock.slug_name = "testsite"
     mock.domain = "testsite.pamdas.org"
     mock.url = "https://testsite.pamdas.org"
     return mock
