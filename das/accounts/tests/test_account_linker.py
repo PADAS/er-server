@@ -294,11 +294,12 @@ class TestAccountLinkerCallback:
             ("taken@example.com", " taken@example.com "),
         ],
     )
-    def test_email_collision_returns_400(self, request_factory, active_user, caplog, db_email, auth0_email):
+    @pytest.mark.parametrize("is_active", [True, False])
+    def test_email_collision_returns_400(self, request_factory, active_user, caplog, db_email, auth0_email, is_active):
         other_user = User.objects.create_user(
             username="collidinguser",
             email="placeholder@example.com",
-            is_active=True,
+            is_active=is_active,
         )
         # Force the exact db_email into the DB, bypassing create_user normalisation
         User.objects.filter(id=other_user.id).update(email=db_email)
@@ -317,6 +318,10 @@ class TestAccountLinkerCallback:
         assert result.status_code == 400
         assert result.content == _EMAIL_COLLISION_MESSAGE.encode()
         assert "Email collision during account linking" in caplog.text
+        assert f"user '{active_user.username}'" in caplog.text
+        assert f"user '{other_user.username}'" in caplog.text
+        assert f"id={other_user.id}" in caplog.text
+        assert f"active={is_active}" in caplog.text
         active_user.refresh_from_db()
         assert active_user.auth0_id is None
 

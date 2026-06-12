@@ -232,16 +232,22 @@ def account_linker_callback(request):
             status=400,
         )
 
-    if (
+    colliding_user = (
         User.objects.annotate(trimmed_email=Trim("email"))
-        .filter(trimmed_email__iexact=auth0_email, is_active=True)
+        .filter(trimmed_email__iexact=auth0_email)
         .exclude(id=user.id)
-        .exists()
-    ):
+        .values("id", "username", "is_active")
+        .first()
+    )
+    if colliding_user:
         logger.warning(
-            "Email collision during account linking for user %s: email %s already belongs to another active user",
+            "Email collision during account linking: user '%s' cannot use email '%s' "
+            "because it belongs to user '%s' (id=%s, active=%s)",
             user.username,
             auth0_email,
+            colliding_user["username"],
+            colliding_user["id"],
+            colliding_user["is_active"],
         )
         return HttpResponse(_EMAIL_COLLISION_MESSAGE, status=400)
 
