@@ -153,6 +153,10 @@ def initiate_auth0_admin_login(request):
     """
     Initiates Auth0 login for Django Admin.
     Stores the 'next' parameter in session for retrieval after OAuth callback.
+
+    For org-based connections (org_id present) the organization is passed through to Auth0.
+    Common-DB tenants (no org_id) omit the parameter entirely so Auth0 uses the tenant's
+    Default Directory.
     """
     next_param = _get_safe_next_url(request)
     request.session["auth0_admin_next"] = next_param
@@ -161,8 +165,12 @@ def initiate_auth0_admin_login(request):
 
     auth0_callback_url = request.build_absolute_uri(reverse("auth0_callback"))
 
-    logger.debug("Using organization ID for Auth0 admin login: %s", org_id)
-    return _admin_auth0_client.auth0.authorize_redirect(request, auth0_callback_url, organization=org_id)
+    extra_params = {}
+    if org_id:
+        extra_params["organization"] = org_id
+        logger.debug("Initiating Auth0 admin login with organization %s", org_id)
+
+    return _admin_auth0_client.auth0.authorize_redirect(request, auth0_callback_url, **extra_params)
 
 
 @csrf_exempt

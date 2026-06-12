@@ -291,8 +291,9 @@ class TestInitiateAuth0AdminLogin:
             # Check that organization parameter is passed
             assert call_args[1]["organization"] == "org_test123"
 
-    def test_missing_org_id_parameter(self, request_factory):
-        """Test that missing org_id parameter passes None as organization."""
+    def test_missing_org_id_omits_organization_parameter(self, request_factory):
+        """Common-DB sites (no org_id) must omit the organization parameter entirely,
+        rather than passing organization=None, so Auth0 uses the tenant's Default Directory."""
         request = request_factory.get("/auth/admin-login/")
         request.session = {}
         request.build_absolute_uri = lambda path: f"https://example.com{path}"
@@ -306,8 +307,8 @@ class TestInitiateAuth0AdminLogin:
             call_args = mock_redirect.call_args
             assert call_args[0][0] == request  # First arg is request
             assert call_args[0][1] == "https://example.com/auth/callback/"  # Second arg is callback URL
-            # Check that organization parameter is None when org_id missing
-            assert call_args[1]["organization"] is None
+            # organization must not be passed at all when org_id is missing
+            assert "organization" not in call_args[1]
 
 
 @pytest.mark.django_db
