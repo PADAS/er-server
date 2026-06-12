@@ -131,19 +131,21 @@ class TestAdminLoginEntrypoint:
         assert parsed.get("next", [""])[0] == "/admin/custom/path"
         assert parsed.get("org_id", [""])[0] == "org_test123"
 
-    def test_require_idp_true_no_org_id_uses_django_admin(
+    def test_require_idp_true_no_org_id_redirects_to_auth0_without_org_id(
         self, request_factory, mock_tenant_settings_require_idp_true_no_org
     ):
-        """Test that when require_idp=True but org_id is None, Django admin is used."""
-        request = request_factory.get("/admin/login/")
+        """Common-DB sites (require_idp=True, no idp_org_id) route to the Auth0 initiator
+        without an organization parameter, rather than falling back to Django admin."""
+        request = request_factory.get("/admin/login/?next=/admin/some/page")
         request.user = AnonymousUser()
 
-        with patch("accounts.auth0_admin.admin.site.login") as mock_admin_login:
-            mock_admin_login.return_value = HttpResponse("django_admin_response")
-            result = admin_login_entrypoint(request)
+        result = admin_login_entrypoint(request)
 
-            mock_admin_login.assert_called_once_with(request)
-            assert result.content == b"django_admin_response"
+        assert result.status_code == 302
+        assert reverse(INITIATE_AUTH0_ADMIN_LOGIN_URL_NAME) in result.url
+        parsed = urllib.parse.parse_qs(urllib.parse.urlparse(result.url).query)
+        assert parsed.get("next", [""])[0] == "/admin/some/page"
+        assert "org_id" not in parsed
 
     def test_handles_tenant_settings_error(self, request_factory):
         """Test that tenant settings errors fall back to Django admin login."""

@@ -69,7 +69,9 @@ def admin_login_entrypoint(request):
     If require_idp=True and the user is already authenticated, creates the token cookie and redirects
     to the intended destination without a redundant Auth0 round-trip.
 
-    If require_idp=True and the user is not authenticated, redirects to Auth0 login.
+    If require_idp=True and the user is not authenticated, redirects to Auth0 login. When the ER site
+    has an idp_org_id (org-based connection), the organization is passed through to the initiator;
+    otherwise the org_id is omitted.
     If require_idp=False, uses Django's default admin login.
 
     This function replaces the default admin login URL handler.
@@ -85,14 +87,17 @@ def admin_login_entrypoint(request):
     user = getattr(request, "user", None)
     next_param = _get_safe_next_url(request)
 
-    if require_idp and org_id:
+    if require_idp:
         session = getattr(request, "session", {})
         authenticated_via_auth0 = (
             user and user.is_authenticated and user.is_staff and session.get(BACKEND_SESSION_KEY) == AUTH0_BACKEND_PATH
         )
         if not authenticated_via_auth0:
             logger.debug("Redirecting to Auth0 admin login for tenant with require_idp=True")
-            query = urllib.parse.urlencode({"next": next_param, "org_id": org_id})
+            query_params = {"next": next_param}
+            if org_id:
+                query_params["org_id"] = org_id
+            query = urllib.parse.urlencode(query_params)
             return redirect(f"{reverse(INITIATE_AUTH0_ADMIN_LOGIN_URL_NAME)}?{query}")
     elif not (user and user.is_authenticated and user.is_staff):
         return _use_default_django_admin_login(request)
