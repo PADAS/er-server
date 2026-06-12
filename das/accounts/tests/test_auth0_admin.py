@@ -348,6 +348,29 @@ class TestAuth0Callback:
 
                         assert "auth0_admin_next" not in request.session
 
+    def test_common_db_user_without_org_id_claim_authenticates(self, request_factory, admin_user_with_auth0_id):
+        """Common-DB tokens carry no org_id claim. The callback - and the real staff backend,
+        which keys only on the sub claim since ERA-13339 - must still authenticate the user.
+        Only the token exchange is mocked here, so the backend's auth0_id lookup runs for real."""
+        request = request_factory.get("/auth/callback/")
+        request.session = {"auth0_admin_next": "/admin/target"}
+
+        common_db_token = Mock()
+        # No org_id claim in userinfo - this is what distinguishes a common-DB token.
+        common_db_token.get.return_value = {"sub": "auth0|123456789", "email": "admin@example.com"}
+
+        with patch("accounts.auth0_admin._admin_auth0_client.auth0.authorize_access_token") as mock_token_exchange:
+            with patch("accounts.auth0_admin.login") as mock_login:
+                with patch("accounts.auth0_admin.set_efb_token_cookie"):
+
+                    mock_token_exchange.return_value = common_db_token
+
+                    result = auth0_callback(request)
+
+                    mock_login.assert_called_once_with(request, admin_user_with_auth0_id, backend=AUTH0_BACKEND_PATH)
+                    assert result.status_code == 302
+                    assert result.url == "/admin/target"
+
     def test_authentication_failure_returns_403(self, request_factory):
         """Test that authentication failure returns 403."""
         request = request_factory.get("/auth/callback/")
