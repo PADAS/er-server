@@ -30,6 +30,24 @@ from utils.tenant.thread import Tenant, get_tenant_settings
 
 
 class TestRequestLoggingMiddlewareLogLevel:
+    def test_process_response_redacts_sensitive_query_params(self, rf, caplog) -> None:
+        """The `path` field in the log record must not contain the raw credential value
+        when the request URL carries a sensitive query parameter such as `auth=`."""
+        request = rf.get("/api/v1.0/subjects/kml", {"auth": "secrettoken"})
+        middleware = RequestLoggingMiddleware(lambda r: HttpResponse())
+        with (
+            patch("utils.middleware.get_tenant_settings") as mock_ts,
+            caplog.at_level(logging.INFO, logger="django.request"),
+        ):
+            mock_ts.return_value.domain = "testdomain"
+            middleware.process_response(request, HttpResponse(status=200))
+
+        request_records = [r for r in caplog.records if r.name == "django.request"]
+        assert len(request_records) == 1
+        record = request_records[0]
+        assert "secrettoken" not in record.path
+        assert "%2A%2A%2AREDACTED%2A%2A%2A" in record.path
+
     def test_process_response_logs_at_info_level(self, rf, caplog):
         """RequestLoggingMiddleware must log at INFO, not DEBUG, and may drive log-based metrics."""
         request = rf.get("/test/path/")
