@@ -495,29 +495,44 @@ class TestSectionReferenceValidation:
             pytest.fail(f"Validation failed unexpectedly even when section validation was disabled: {e}")
 
 
-class TestAttachmentFieldFormatValidation:
-    """Tests for attachment field JSON schema validation after format was removed.
+class TestAttachmentFieldJsonSchemaValidation:
+    """Tests for the attachment field JSON schema validation using the array-of-objects shape.
 
     Background
     ----------
-    The attachment field json subschema (``attachmentFieldJSONSchema``) only
-    permits ``deprecated``, ``title``, and ``type`` (``additionalProperties:
-    False``).  After a file is uploaded the attachment value becomes an opaque
-    string handle (a UUID or a URI); ``format`` was therefore dropped from the
-    attachment json subschema because it described the wire value, not the
-    field definition.
+    The attachment field json subschema (``attachmentFieldJSONSchema``) now
+    represents an attachment field as an **array of objects** — each object
+    has a required ``uploadId`` property (a UUID string) that references an
+    uploaded file:
 
-    Limitation: the json meta-schema cannot distinguish an ATTACHMENT field
-    from a TEXT field — both have ``"type": "string"`` in their json
-    subschemas.  The ATTACHMENT discriminator lives only in the UI block
-    (``ui.fields.<key>.type == "ATTACHMENT"``), which the field-level json
-    subschemas never consult.  As a result, ``format: "uuid"`` or ``format:
-    "uri"`` on an attachment-shaped json field is silently accepted because it
-    matches the ``textFieldJSONSchema`` (which explicitly permits those format
-    values).  Identity and format enforcement of actual attachment *values* is
-    handled at the serializer layer in
-    ``EventDetailsSerializer._validate_v2_attachment_fields``; see
-    ``test_event_details_attachment_v2.py`` for coverage of that path.
+        {
+            "deprecated": <bool>,          # required
+            "items": {                      # required — exact const shape
+                "properties": {
+                    "uploadId": {
+                        "format": "uuid",   #   const
+                        "type": "string"    #   const
+                    }
+                },
+                "required": ["uploadId"],  #   const
+                "type": "object",          #   const
+                "unevaluatedProperties": false  # const
+            },
+            "maxItems": <int>,             # optional
+            "minItems": <int>,             # optional
+            "title": <str>,                # required, max 1000 chars
+            "type": "array",               # required const
+            "uniqueItems": true            # required const
+        }
+
+    The ``items`` shape is a const enforced by the meta-schema: any deviation
+    from the exact ``uploadId``/uuid structure causes all ``anyOf`` branches to
+    fail.
+
+    Note: ``additionalProperties: False`` is set on the attachment subschema
+    and on both other ``type: array`` subschemas (``multipleChoiceListField``
+    and ``collectionField``), so extra properties cause the ``anyOf`` to fail
+    for all branches.
     """
 
     _VALID_UI = {
@@ -541,100 +556,282 @@ class TestAttachmentFieldFormatValidation:
         },
     }
 
-    def _attachment_schema_without_format(self) -> dict[str, Any]:
-        """Build a minimal V2 schema with an attachment field and no format key."""
+    _VALID_ITEMS = {
+        "properties": {"uploadId": {"format": "uuid", "type": "string"}},
+        "required": ["uploadId"],
+        "type": "object",
+        "unevaluatedProperties": False,
+    }
+
+    def _build_schema(self, photo_field: dict[str, Any]) -> dict[str, Any]:
+        """Build a minimal V2 schema with the given attachment field definition."""
         return {
             "json": {
                 "$schema": "https://json-schema.org/draft/2020-12/schema",
                 "type": "object",
-                "properties": {
-                    "photo": {
-                        "deprecated": False,
-                        "title": "Photo",
-                        "type": "string",
-                    }
-                },
+                "properties": {"photo": photo_field},
                 "required": [],
                 "unevaluatedProperties": False,
             },
             "ui": self._VALID_UI,
         }
 
-    def _attachment_schema_with_format(self, format_value: str) -> dict[str, Any]:
-        """Build a minimal V2 schema with an attachment field carrying a format key."""
-        return {
-            "json": {
-                "$schema": "https://json-schema.org/draft/2020-12/schema",
-                "type": "object",
-                "properties": {
-                    "photo": {
-                        "deprecated": False,
-                        "format": format_value,
-                        "title": "Photo",
-                        "type": "string",
-                    }
-                },
-                "required": [],
-                "unevaluatedProperties": False,
-            },
-            "ui": self._VALID_UI,
-        }
-
-    def test_attachment_without_format_is_accepted(self) -> None:
-        """An attachment field without 'format' is valid under the updated meta-schema."""
-        schema = self._attachment_schema_without_format()
+    def test_fully_specified_attachment_field_is_accepted(self) -> None:
+        """A fully-specified attachment field with all optional keys is accepted."""
+        schema = self._build_schema(
+            {
+                "deprecated": False,
+                "description": "Upload a photo",
+                "items": self._VALID_ITEMS,
+                "maxItems": 5,
+                "minItems": 1,
+                "title": "Photos",
+                "type": "array",
+                "uniqueItems": True,
+            }
+        )
         field = JSONSchemaField(meta_schema=main_event_type_schema)
         result = field.to_internal_value(schema)
         assert result is not None
 
-    def test_attachment_field_with_format_is_still_accepted_via_text_subschema(self) -> None:
-        """An attachment-shaped field carrying format: 'uuid' is accepted, not rejected.
+    def test_minimal_attachment_field_with_only_required_keys_is_accepted(self) -> None:
+        """A minimal attachment field with only the required keys is accepted.
 
-        The json meta-schema cannot distinguish an ATTACHMENT field from a TEXT
-        field (both use ``"type": "string"``).  A field definition that would
-        fail ``attachmentFieldJSONSchema`` (because ``format`` is an additional
-        property there) still passes because the validator's ``anyOf`` falls
-        through to ``textFieldJSONSchema``, which explicitly allows ``format``
-        values of ``"uri"``, ``"uuid"``, and ``"email"``.  The ATTACHMENT
-        discriminator is the UI ``type`` key, not the json subschema.
+        ``description``, ``minItems``, and ``maxItems`` are optional and may be omitted.
         """
-        for format_value in ("uuid", "uri"):
-            schema = self._attachment_schema_with_format(format_value)
-            field = JSONSchemaField(meta_schema=main_event_type_schema)
-            # Must NOT raise — the text subschema accepts this.
-            result = field.to_internal_value(schema)
-            assert result is not None
+        schema = self._build_schema(
+            {
+                "deprecated": False,
+                "items": self._VALID_ITEMS,
+                "title": "Photo",
+                "type": "array",
+                "uniqueItems": True,
+            }
+        )
+        field = JSONSchemaField(meta_schema=main_event_type_schema)
+        result = field.to_internal_value(schema)
+        assert result is not None
 
-    def test_attachment_field_with_unsupported_property_is_rejected(self) -> None:
-        """An attachment-shaped field with a truly unsupported property is rejected.
+    def test_attachment_field_with_uniqueItems_false_is_rejected(self) -> None:
+        """An attachment field with ``uniqueItems: false`` is rejected.
 
-        ``maxLength`` is not a top-level property in any string field
-        subschema (``attachmentFieldJSONSchema``, ``textFieldJSONSchema``).
-        All string subschemas use ``additionalProperties: False``, so none of
-        the ``anyOf`` branches accept it and the meta-schema raises a
-        validation error.
+        ``attachmentFieldJSONSchema`` requires ``uniqueItems: {const: true}``, so
+        ``false`` fails the const check there.  ``multipleChoiceListFieldJSONSchema``
+        rejects first at the ``items`` level: its ``items`` sub-schema requires
+        ``{anyOf, type: 'string'}`` with ``additionalProperties: False``, and the
+        test input's items object ``{properties, required, type: 'object',
+        unevaluatedProperties}`` matches none of those keys.
+        ``collectionFieldJSONSchema`` fails at the outer field level: ``uniqueItems``
+        is not in its ``properties`` map (``additionalProperties: False`` rejects it)
+        and ``unevaluatedItems`` is required but absent.  All ``anyOf`` branches fail.
         """
-        schema = {
-            "json": {
-                "$schema": "https://json-schema.org/draft/2020-12/schema",
-                "type": "object",
-                "properties": {
-                    "photo": {
-                        "deprecated": False,
-                        "maxLength": 5,
-                        "title": "Photo",
-                        "type": "string",
-                    }
-                },
-                "required": [],
-                "unevaluatedProperties": False,
-            },
-            "ui": self._VALID_UI,
-        }
+        schema = self._build_schema(
+            {
+                "deprecated": False,
+                "items": self._VALID_ITEMS,
+                "title": "Photo",
+                "type": "array",
+                "uniqueItems": False,
+            }
+        )
         field = JSONSchemaField(meta_schema=main_event_type_schema)
         with pytest.raises(ValidationError) as exc_info:
             field.to_internal_value(schema)
         assert "is not valid under any of the given schemas" in str(exc_info.value)
+
+    def test_attachment_field_with_wrong_items_format_is_rejected(self) -> None:
+        """An attachment field whose ``items.properties.uploadId`` carries ``format: "uri"`` is rejected.
+
+        ``attachmentFieldJSONSchema.items.properties.uploadId`` requires
+        ``{"const": "uuid"}`` for ``format``, so ``"uri"`` fails the const check.
+        ``multipleChoiceListFieldJSONSchema`` rejects at the ``items`` level: its
+        ``items`` sub-schema requires ``{anyOf, type: 'string'}`` with
+        ``additionalProperties: False``, and the test input's items object
+        ``{properties, required, type: 'object', unevaluatedProperties}`` matches
+        none of those keys.  ``collectionFieldJSONSchema`` fails at the outer field
+        level: ``uniqueItems`` is not in its ``properties`` map
+        (``additionalProperties: False`` rejects it) and ``unevaluatedItems`` is
+        required but absent.  All ``anyOf`` branches fail.
+        """
+        schema = self._build_schema(
+            {
+                "deprecated": False,
+                "items": {
+                    "properties": {"uploadId": {"format": "uri", "type": "string"}},
+                    "required": ["uploadId"],
+                    "type": "object",
+                    "unevaluatedProperties": False,
+                },
+                "title": "Photo",
+                "type": "array",
+                "uniqueItems": True,
+            }
+        )
+        field = JSONSchemaField(meta_schema=main_event_type_schema)
+        with pytest.raises(ValidationError) as exc_info:
+            field.to_internal_value(schema)
+        assert "is not valid under any of the given schemas" in str(exc_info.value)
+
+    def test_attachment_field_with_items_missing_format_is_rejected(self) -> None:
+        """An attachment field whose ``items.properties.uploadId`` omits ``format`` is rejected.
+
+        ``attachmentFieldJSONSchema.items.properties.uploadId`` requires both ``format``
+        (const ``"uuid"``) and ``type`` (const ``"string"``).  Without ``format``, validation
+        fails the ``required`` check inside the ``uploadId`` schema.  The other ``anyOf``
+        branches also reject this shape (see ``test_attachment_field_with_wrong_items_format_is_rejected``
+        for the cross-branch analysis).  All ``anyOf`` branches fail.
+        """
+        schema = self._build_schema(
+            {
+                "deprecated": False,
+                "items": {
+                    "properties": {"uploadId": {"type": "string"}},
+                    "required": ["uploadId"],
+                    "type": "object",
+                    "unevaluatedProperties": False,
+                },
+                "title": "Photo",
+                "type": "array",
+                "uniqueItems": True,
+            }
+        )
+        field = JSONSchemaField(meta_schema=main_event_type_schema)
+        with pytest.raises(ValidationError) as exc_info:
+            field.to_internal_value(schema)
+        assert "is not valid under any of the given schemas" in str(exc_info.value)
+
+    def test_attachment_field_missing_required_key_items_is_rejected(self) -> None:
+        """An attachment field that omits the required ``items`` key is rejected.
+
+        ``attachmentFieldJSONSchema`` requires ``items``.  ``multipleChoiceListField``
+        also requires ``items``.  ``collectionFieldJSONSchema`` also requires ``items``.
+        A ``type: array`` object without ``items`` satisfies none of the array
+        subschemas.  All ``anyOf`` branches fail.
+        """
+        schema = self._build_schema(
+            {
+                "deprecated": False,
+                "title": "Photo",
+                "type": "array",
+                "uniqueItems": True,
+            }
+        )
+        field = JSONSchemaField(meta_schema=main_event_type_schema)
+        with pytest.raises(ValidationError) as exc_info:
+            field.to_internal_value(schema)
+        assert "is not valid under any of the given schemas" in str(exc_info.value)
+
+    def test_attachment_field_missing_required_key_uniqueItems_is_rejected(self) -> None:
+        """An attachment field that omits the required ``uniqueItems`` key is rejected.
+
+        ``attachmentFieldJSONSchema`` requires ``uniqueItems`` in its ``required``
+        list.  Omitting the key (as opposed to setting it to ``false``) triggers the
+        required-property check independently of the const check.
+        ``multipleChoiceListFieldJSONSchema`` also requires ``uniqueItems`` and
+        additionally rejects the items shape.  ``collectionFieldJSONSchema`` rejects
+        at the outer field level: ``unevaluatedItems`` is required but absent.  All
+        ``anyOf`` branches fail.
+        """
+        schema = self._build_schema(
+            {
+                "deprecated": False,
+                "items": self._VALID_ITEMS,
+                "title": "Photo",
+                "type": "array",
+            }
+        )
+        field = JSONSchemaField(meta_schema=main_event_type_schema)
+        with pytest.raises(ValidationError) as exc_info:
+            field.to_internal_value(schema)
+        assert "is not valid under any of the given schemas" in str(exc_info.value)
+
+    def test_attachment_field_with_additional_property_is_rejected(self) -> None:
+        """An attachment field with an unsupported additional property is rejected.
+
+        ``attachmentFieldJSONSchema`` has ``additionalProperties: False``, so
+        ``maxLength`` (not in the allowed property list) is rejected there.
+        ``multipleChoiceListFieldJSONSchema`` and ``collectionFieldJSONSchema`` also
+        have ``additionalProperties: False`` and do not permit ``maxLength``.
+        All ``anyOf`` branches that accept ``type: array`` fail.
+        """
+        schema = self._build_schema(
+            {
+                "deprecated": False,
+                "items": self._VALID_ITEMS,
+                "maxLength": 100,
+                "title": "Photo",
+                "type": "array",
+                "uniqueItems": True,
+            }
+        )
+        field = JSONSchemaField(meta_schema=main_event_type_schema)
+        with pytest.raises(ValidationError) as exc_info:
+            field.to_internal_value(schema)
+        assert "is not valid under any of the given schemas" in str(exc_info.value)
+
+    def test_attachment_field_with_negative_min_items_is_rejected(self) -> None:
+        """An attachment field with ``minItems: -1`` is rejected.
+
+        ``attachmentFieldJSONSchema`` constrains ``minItems`` to ``minimum: 0``,
+        so a negative value is invalid there.  All other ``anyOf`` branches that
+        accept ``type: array`` also reject this shape.
+        """
+        schema = self._build_schema(
+            {
+                "deprecated": False,
+                "items": self._VALID_ITEMS,
+                "minItems": -1,
+                "title": "Photo",
+                "type": "array",
+                "uniqueItems": True,
+            }
+        )
+        field = JSONSchemaField(meta_schema=main_event_type_schema)
+        with pytest.raises(ValidationError) as exc_info:
+            field.to_internal_value(schema)
+        assert "is not valid under any of the given schemas" in str(exc_info.value)
+
+    def test_attachment_field_with_negative_max_items_is_rejected(self) -> None:
+        """An attachment field with ``maxItems: -1`` is rejected.
+
+        ``attachmentFieldJSONSchema`` constrains ``maxItems`` to ``minimum: 0``,
+        so a negative value is invalid there.  All other ``anyOf`` branches that
+        accept ``type: array`` also reject this shape.
+        """
+        schema = self._build_schema(
+            {
+                "deprecated": False,
+                "items": self._VALID_ITEMS,
+                "maxItems": -1,
+                "title": "Photo",
+                "type": "array",
+                "uniqueItems": True,
+            }
+        )
+        field = JSONSchemaField(meta_schema=main_event_type_schema)
+        with pytest.raises(ValidationError) as exc_info:
+            field.to_internal_value(schema)
+        assert "is not valid under any of the given schemas" in str(exc_info.value)
+
+    def test_attachment_field_with_zero_min_items_and_max_items_is_accepted(self) -> None:
+        """An attachment field with ``minItems: 0`` and ``maxItems: 0`` is accepted.
+
+        Zero is the lower bound for both constraints, so it must be a valid value.
+        """
+        schema = self._build_schema(
+            {
+                "deprecated": False,
+                "items": self._VALID_ITEMS,
+                "maxItems": 0,
+                "minItems": 0,
+                "title": "Photo",
+                "type": "array",
+                "uniqueItems": True,
+            }
+        )
+        field = JSONSchemaField(meta_schema=main_event_type_schema)
+        result = field.to_internal_value(schema)
+        assert result is not None
 
 
 class TestMetaSchemaPropertyConstraints:
@@ -919,6 +1116,55 @@ class TestCollectionFieldMetaSchemaConstraints:
         error_message = str(exc_info.value)
         assert "is not valid under any of the given schemas" in error_message
         assert "test_collection" in error_message
+
+    # --- minItems / maxItems lower-bound constraint ---
+
+    def test_collection_field_with_negative_min_items_is_rejected(self):
+        """A collection field with ``minItems: -1`` is rejected.
+
+        ``collectionFieldJSONSchema`` constrains ``minItems`` to ``minimum: 0``,
+        so a negative value must fail all ``anyOf`` branches.
+        """
+        schema = self._build_collection_schema()
+        schema["json"]["properties"]["test_collection"]["minItems"] = -1
+
+        field = JSONSchemaField(meta_schema=main_event_type_schema)
+        with pytest.raises(ValidationError) as exc_info:
+            field.to_internal_value(schema)
+
+        error_message = str(exc_info.value)
+        assert "is not valid under any of the given schemas" in error_message
+        assert "test_collection" in error_message
+
+    def test_collection_field_with_negative_max_items_is_rejected(self):
+        """A collection field with ``maxItems: -1`` is rejected.
+
+        ``collectionFieldJSONSchema`` constrains ``maxItems`` to ``minimum: 0``,
+        so a negative value must fail all ``anyOf`` branches.
+        """
+        schema = self._build_collection_schema()
+        schema["json"]["properties"]["test_collection"]["maxItems"] = -1
+
+        field = JSONSchemaField(meta_schema=main_event_type_schema)
+        with pytest.raises(ValidationError) as exc_info:
+            field.to_internal_value(schema)
+
+        error_message = str(exc_info.value)
+        assert "is not valid under any of the given schemas" in error_message
+        assert "test_collection" in error_message
+
+    def test_collection_field_with_zero_min_items_and_max_items_is_accepted(self):
+        """A collection field with ``minItems: 0`` and ``maxItems: 0`` is accepted.
+
+        Zero is the lower bound for both constraints, so it must be a valid value.
+        """
+        schema = self._build_collection_schema()
+        schema["json"]["properties"]["test_collection"]["minItems"] = 0
+        schema["json"]["properties"]["test_collection"]["maxItems"] = 0
+
+        field = JSONSchemaField(meta_schema=main_event_type_schema)
+        result = field.to_internal_value(schema)
+        assert result is not None
 
 
 class TestAdditionalKeyWildcardInRefAllowlist:

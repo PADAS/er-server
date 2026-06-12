@@ -71,8 +71,15 @@
                         },
                         "arrestee_photo": {
                             "deprecated": false,
+                            "items": {
+                                "properties": { "uploadId": { "format": "uuid", "type": "string" } },
+                                "required": ["uploadId"],
+                                "type": "object",
+                                "unevaluatedProperties": false
+                            },
                             "title": "Photo",
-                            "type": "string"
+                            "type": "array",
+                            "uniqueItems": true
                         }
                     },
                     "required": [
@@ -117,8 +124,15 @@
             },
             "photo": {
                 "deprecated": false,
+                "items": {
+                    "properties": { "uploadId": { "format": "uuid", "type": "string" } },
+                    "required": ["uploadId"],
+                    "type": "object",
+                    "unevaluatedProperties": false
+                },
                 "title": "Photo",
-                "type": "string"
+                "type": "array",
+                "uniqueItems": true
             },
             "ammunition_used_by_patrol": {
                 "default": "",

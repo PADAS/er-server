@@ -219,20 +219,29 @@ V2 eventtypes use a two-section structure: `json` for data schema and `ui` for i
 ```
 
 #### Attachment Fields
+An attachment field is an array of objects — each object has a required `uploadId` property (a UUID string) referencing an uploaded file (see [Submitting Events with Attachments](#submitting-events-with-attachments)). `deprecated`, `items`, `title`, `type`, and `uniqueItems` are required; `description`, `minItems`, and `maxItems` (non-negative integers) are optional. The `items` shape is a constant enforced by the schema.
+
 ```json
 {
   "field_name": {
     "type": "array",
     "title": "Attachment Field",
     "description": "Upload files",
+    "deprecated": false,
     "items": {
-      "type": "object",
       "properties": {
-        "filename": {"type": "string"},
-        "content_type": {"type": "string"},
-        "size": {"type": "integer"}
-      }
-    }
+        "uploadId": {
+          "format": "uuid",
+          "type": "string"
+        }
+      },
+      "required": ["uploadId"],
+      "type": "object",
+      "unevaluatedProperties": false
+    },
+    "uniqueItems": true,
+    "minItems": 0,
+    "maxItems": 5
   }
 }
 ```

@@ -37,11 +37,39 @@ attachment_field_json_schema = {
     "properties": {
         "deprecated": {"type": "boolean"},
         "description": {"type": "string"},
-        "format": {"const": "uri"},
+        "items": {
+            "type": "object",
+            "properties": {
+                "properties": {
+                    "type": "object",
+                    "properties": {
+                        "uploadId": {
+                            "type": "object",
+                            "properties": {
+                                "format": {"const": "uuid"},
+                                "type": {"const": "string"},
+                            },
+                            "required": ["format", "type"],
+                            "additionalProperties": False,
+                        }
+                    },
+                    "required": ["uploadId"],
+                    "additionalProperties": False,
+                },
+                "required": {"const": ["uploadId"]},
+                "type": {"const": "object"},
+                "unevaluatedProperties": {"const": False},
+            },
+            "required": ["properties", "required", "type", "unevaluatedProperties"],
+            "additionalProperties": False,
+        },
+        "maxItems": {"type": "integer", "minimum": 0},
+        "minItems": {"type": "integer", "minimum": 0},
         "title": {"type": "string", "maxLength": FIELD_TITLE_MAX_LENGTH},
-        "type": {"const": "string"},
+        "type": {"const": "array"},
+        "uniqueItems": {"const": True},
     },
-    "required": ["deprecated", "title", "type"],
+    "required": ["deprecated", "items", "title", "type", "uniqueItems"],
     "additionalProperties": False,
 }
 
@@ -374,8 +402,8 @@ collection_field_json_schema = {
             "required": ["properties", "required", "type", "unevaluatedProperties"],
             "additionalProperties": False,
         },
-        "maxItems": {"type": "integer"},
-        "minItems": {"type": "integer"},
+        "maxItems": {"type": "integer", "minimum": 0},
+        "minItems": {"type": "integer", "minimum": 0},
         "title": {"type": "string", "maxLength": FIELD_TITLE_MAX_LENGTH},
         "type": {"const": "array"},
         "unevaluatedItems": {"const": False},
