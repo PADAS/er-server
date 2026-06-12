@@ -4,6 +4,7 @@ from datetime import datetime, timedelta, timezone
 from versatileimagefield.image_warmer import VersatileImageFieldWarmer
 
 import django.contrib.auth
+from django.conf import settings as django_settings
 from django.db.models import DateTimeField, ExpressionWrapper, F, Q
 
 from activity.alerting.message import (
@@ -219,6 +220,7 @@ def periodically_maintain_patrol_state():
 @celery.app.task(base=OverAllTenantTask, once={"graceful": True})
 def automatically_update_event_state():
     now = datetime.now(tz=timezone.utc)
+    batch_size = max(1, getattr(django_settings, "AUTO_RESOLVE_BATCH_SIZE", 500))
     expr = ExpressionWrapper(
         F("created_at") + timedelta(hours=1) * F("event_type__resolve_time"), output_field=DateTimeField()
     )
@@ -228,12 +230,36 @@ def automatically_update_event_state():
         Event.objects.annotate(resolve_dt=expr)
         .filter(resolve_dt__lte=now, event_type__auto_resolve=True)
         .exclude(state=SC_RESOLVED)
+        .order_by("-resolve_dt")
     )
+
+    # Fetch one extra row so we can detect a capped run without a separate COUNT query.
+    batch = list(events[: batch_size + 1])
+    capped = len(batch) > batch_size
+    batch = batch[:batch_size]
+
     er_system_user = get_er_user()
-    for e in events:
-        e.state = SC_RESOLVED
-        setattr(e, "revision_user", er_system_user)
-        e.save()
+    resolved = 0
+    for e in batch:
+        try:
+            e.state = SC_RESOLVED
+            setattr(e, "revision_user", er_system_user)
+            e.save()
+            resolved += 1
+        except Exception:
+            logger.exception(
+                "Failed to auto-resolve event",
+                extra={"event_pk": e.pk, "tenant": get_tenant_settings().domain},
+            )
+            continue
+
+    logger.info(
+        "Auto-resolved events for tenant %s: resolved=%d capped=%s batch_size=%d",
+        get_tenant_settings().domain,
+        resolved,
+        capped,
+        batch_size,
+    )
 
 
 def execute_automatically_update_event_state(*args, **kwargs):

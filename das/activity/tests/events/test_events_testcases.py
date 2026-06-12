@@ -24,7 +24,7 @@ from django.contrib.auth.models import Permission
 from django.contrib.gis.geos import Point, Polygon
 from django.core.management import call_command
 from django.db import connection
-from django.test import TestCase
+from django.test import TestCase, override_settings
 from django.test.utils import CaptureQueriesContext
 from django.urls import reverse
 from django.utils import dateparse, lorem_ipsum
@@ -71,6 +71,7 @@ from choices.models import Choice, DynamicChoice
 from client_http import HTTPClient
 from core.tests import BaseAPITest
 from core.utils import DASTenantManagement
+from factories import EventFactory, EventTypeFactory
 from observations.models import Subject, SubjectSubType, SubjectType
 from observations.serializers import SubjectSerializer
 from utils.categories import (
@@ -3832,3 +3833,105 @@ class TestEventView2(BaseTestToolMixin):
         json_schema = events_view._get_json_schema(event_type)
 
         assert json_schema == schema_waited
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("tenant_settings", "das_tenant_monkeypatch")
+class TestAutomaticallyUpdateEventState:
+    """Batch-update behaviour of the automatically_update_event_state task (ERA-13358)."""
+
+    task = staticmethod(automatically_update_event_state.__wrapped__)
+
+    def _make_overdue_events(self, count, resolve_time=1, created_at=None):
+        """Create `count` auto-resolvable events already past their resolve deadline."""
+        event_type = EventTypeFactory(das_tenant=self.das_tenant, auto_resolve=True, resolve_time=resolve_time)
+        events = [
+            EventFactory(das_tenant=self.das_tenant, event_type=event_type, state=Event.SC_NEW) for _ in range(count)
+        ]
+        if created_at is None:
+            created_at = datetime.now(tz=timezone.utc) - timedelta(hours=resolve_time + 1)
+        Event.objects.filter(id__in=[e.id for e in events]).update(created_at=created_at)
+        return event_type, events
+
+    def _resolved_count(self):
+        return Event.objects.filter(state=Event.SC_RESOLVED).count()
+
+    @override_settings(AUTO_RESOLVE_BATCH_SIZE=3)
+    def test_batch_size_limits_resolutions(self):
+        self._make_overdue_events(5)
+
+        self.task()
+
+        assert self._resolved_count() == 3
+
+    @override_settings(AUTO_RESOLVE_BATCH_SIZE=3)
+    def test_second_run_drains_remainder(self):
+        self._make_overdue_events(5)
+
+        self.task()
+        assert self._resolved_count() == 3
+
+        self.task()
+        assert self._resolved_count() == 5
+
+    @override_settings(AUTO_RESOLVE_BATCH_SIZE=10)
+    def test_failing_save_does_not_abort_batch(self):
+        _, events = self._make_overdue_events(3)
+
+        real_save = Event.save
+        calls = {"n": 0}
+
+        def flaky_save(self, *args, **kwargs):
+            calls["n"] += 1
+            if calls["n"] == 1:
+                raise RuntimeError("boom")
+            return real_save(self, *args, **kwargs)
+
+        with patch("activity.models.Event.save", autospec=True, side_effect=flaky_save):
+            self.task()
+
+        # First save raised, the remaining two still resolved.
+        assert self._resolved_count() == 2
+
+    @override_settings(AUTO_RESOLVE_BATCH_SIZE=0)
+    def test_batch_size_zero_resolves_at_least_one(self):
+        self._make_overdue_events(3)
+
+        self.task()
+
+        assert self._resolved_count() == 1
+
+    @override_settings(AUTO_RESOLVE_BATCH_SIZE=-5)
+    def test_negative_batch_size_resolves_at_least_one(self):
+        self._make_overdue_events(3)
+
+        self.task()
+
+        assert self._resolved_count() == 1
+
+    @override_settings(AUTO_RESOLVE_BATCH_SIZE=10)
+    def test_events_before_deadline_are_untouched(self):
+        # resolve_time of 1 hour, but created just now -> not yet due.
+        self._make_overdue_events(3, created_at=datetime.now(tz=timezone.utc))
+
+        self.task()
+
+        assert self._resolved_count() == 0
+
+    @override_settings(AUTO_RESOLVE_BATCH_SIZE=2)
+    def test_ordering_most_recently_due_first(self):
+        event_type = EventTypeFactory(das_tenant=self.das_tenant, auto_resolve=True, resolve_time=1)
+        events = [EventFactory(das_tenant=self.das_tenant, event_type=event_type, state=Event.SC_NEW) for _ in range(3)]
+        base = datetime.now(tz=timezone.utc) - timedelta(hours=10)
+        # Stagger created_at: events[0] oldest, events[2] newest. All past the deadline.
+        # resolve_dt == created_at + resolve_time, so newest created_at == most-recently-due.
+        for offset, event in enumerate(events):
+            Event.objects.filter(id=event.id).update(created_at=base + timedelta(hours=offset))
+
+        self.task()
+
+        states = {e.id: Event.objects.get(id=e.id).state for e in events}
+        # Cap of 2 -> the two newest (most-recently-due) resolve, oldest is left alone.
+        assert states[events[2].id] == Event.SC_RESOLVED
+        assert states[events[1].id] == Event.SC_RESOLVED
+        assert states[events[0].id] == Event.SC_NEW

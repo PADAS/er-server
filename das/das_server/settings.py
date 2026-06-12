@@ -469,6 +469,9 @@ CELERY_TASK_TRACK_STARTED = True
 
 # Max observation UUIDs per post-save segment Celery message (create/update batches).
 OBSERVATION_SEGMENT_POST_SAVE_BATCH_SIZE = env.int("OBSERVATION_SEGMENT_POST_SAVE_BATCH_SIZE", 200)
+# Max events auto-resolved per run of automatically_update_event_state.
+# At the 5-minute cadence this drains backlogs gradually rather than all at once.
+AUTO_RESOLVE_BATCH_SIZE = env.int("AUTO_RESOLVE_BATCH_SIZE", 50)
 # Lag (seconds) at which a segment task increments observation_segment.backlog_threshold_breach.
 OBSERVATION_SEGMENT_BACKLOG_LAG_WARN_SECONDS = env.int("OBSERVATION_SEGMENT_BACKLOG_LAG_WARN_SECONDS", 300)
 # Daily reconciliation looks back this many hours per tenant to verify segment coverage.
