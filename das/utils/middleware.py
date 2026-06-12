@@ -30,6 +30,7 @@ from utils import add_base_url, stats
 from utils.categories import should_apply_geographic_features
 from utils.efb_token import EFB_APPLICATION_ID, EFB_COOKIE_NAME, set_efb_token_cookie
 from utils.gis import convert_to_point
+from utils.log_redaction import redact_sensitive_query_string
 from utils.tenant import get_tenant_settings
 from utils.tenant.exceptions import TenantNotFoundException
 from utils.tenant.managers import set_tenant_by_request
@@ -89,7 +90,8 @@ class RequestLoggingMiddleware(object):
             status_code = response.status_code
             request_path = request.path
             query_string = request.META.get("QUERY_STRING", "")
-            full_path = f"{request_path}?{query_string}" if query_string else request_path
+            safe_query_string = redact_sensitive_query_string(query_string)
+            full_path = f"{request_path}?{safe_query_string}" if safe_query_string else request_path
             host = request.get_host()
             method = request.method
             protocol = request.META.get("SERVER_PROTOCOL", "")
