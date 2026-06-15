@@ -7,6 +7,7 @@ PKCE Account Linker flow by supplying their legacy username/password.
 
 from __future__ import annotations
 
+import re
 from unittest.mock import Mock, patch
 
 import pytest
@@ -33,6 +34,7 @@ def _mock_tenant_settings(*, require_idp: bool = True, idp_org_id: str = "") -> 
     mock.feature_flags.idp_org_id = idp_org_id
     mock.domain = "testsite.pamdas.org"
     mock.url = "https://testsite.pamdas.org"
+    mock.name = "Test Site"
     return mock
 
 
@@ -93,18 +95,43 @@ class TestLinkAccountsPostAuth:
             with patch("accounts.link_accounts.get_tenant_settings", return_value=mock_ts):
                 yield mock_ts
 
-    def test_valid_creds_redirects_to_account_linker(self):
+    def test_valid_creds_renders_confirmation_page(self):
         user = User.objects.create_user(username="linkme", password="secret123")
         client = Client()
 
         response = client.post(_LINK_ACCOUNTS_URL, {"username": "linkme", "password": "secret123"})
 
-        assert response.status_code == 302
-        location = response["Location"]
-        assert location.startswith("/auth/account-linker/?session_ref=")
+        assert response.status_code == 200
+        content = response.content.decode()
 
-        session_ref = location.split("session_ref=", 1)[1]
+        # The page embeds a single-use session_ref; it must not be cached.
+        assert "no-store" in response.headers.get("Cache-Control", "")
+
+        # The Next button is a GET link to the Account Linker landing.
+        match = re.search(r'href="(/auth/account-linker/\?session_ref=[^"]+)"', content)
+        assert match, "confirmation page is missing the Next link to the account linker"
+        href = match.group(1)
+
+        session_ref = href.split("session_ref=", 1)[1]
         assert client.session[f"{SESSION_KEY_PREFIX}{session_ref}"] == str(user.id)
+
+        # User-facing chrome: honest "single sign-on" phrasing + site name from tenant settings.
+        assert "Test Site has enabled single sign-on" in content
+        # Always the DAS username (not the email, which may differ in Auth0).
+        assert "linkme" in content
+
+    def test_blank_site_name_falls_back_to_generic_heading(self, _tenant_mock):
+        _tenant_mock.name = ""
+        User.objects.create_user(username="blanksite", password="secret123")
+        client = Client()
+
+        response = client.post(_LINK_ACCOUNTS_URL, {"username": "blanksite", "password": "secret123"})
+
+        assert response.status_code == 200
+        content = response.content.decode()
+        assert "Single sign-on is enabled for your site" in content
+        # The site-named heading must not render when the name is blank.
+        assert "has enabled single sign-on" not in content
 
     def test_invalid_password_returns_400(self):
         User.objects.create_user(username="linkme2", password="correct")

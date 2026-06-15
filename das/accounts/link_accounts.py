@@ -8,8 +8,9 @@ from django_ratelimit.decorators import ratelimit
 from django import forms
 from django.contrib.auth import authenticate
 from django.http import HttpRequest, HttpResponse
-from django.shortcuts import redirect, render
+from django.shortcuts import render
 from django.urls import reverse
+from django.views.decorators.cache import never_cache
 
 from accounts.account_linker import ACCOUNT_LINKER_LANDING_URL_NAME, SESSION_KEY_PREFIX
 from utils.tenant import get_tenant_settings
@@ -45,6 +46,7 @@ def _username_key(_group: str, request: HttpRequest) -> str:
     return (request.POST.get("username") or "").strip().lower()
 
 
+@never_cache
 @require_enabled_idp_configs(message=_IDP_NOT_ENABLED_MESSAGE, status=400)
 @ratelimit(key=_username_key, rate="5/m", method="POST", block=True)
 def link_accounts(request: HttpRequest) -> HttpResponse:
@@ -114,5 +116,15 @@ def link_accounts(request: HttpRequest) -> HttpResponse:
     session_ref = secrets.token_urlsafe(32)
     request.session[f"{SESSION_KEY_PREFIX}{session_ref}"] = str(user.id)
 
-    target = reverse(ACCOUNT_LINKER_LANDING_URL_NAME) + f"?session_ref={session_ref}"
-    return redirect(target)
+    next_url = reverse(ACCOUNT_LINKER_LANDING_URL_NAME) + f"?session_ref={session_ref}"
+    return render(
+        request,
+        "registration/link_accounts_confirm.html",
+        {
+            "next_url": next_url,
+            # Show the DAS username, not the email: the user's Auth0 identity
+            # may use a different email address than their DAS record.
+            "username": user.username,
+            "site_name": get_tenant_settings().name,
+        },
+    )
