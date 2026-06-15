@@ -52,7 +52,6 @@ def mock_tenant_settings():
         mock = Mock()
         mock.feature_flags.require_idp = True
         mock.feature_flags.idp_org_id = None
-        mock.slug_name = "testsite"
         mock.domain = "testsite.pamdas.org"
         mock.url = "https://testsite.pamdas.org"
         mock_ts.return_value = mock
@@ -125,7 +124,6 @@ class TestAccountLinkerLanding:
                 request,
                 "https://example.com/auth/account-linker/callback/",
                 state=link_attempt,
-                connection="testsite",
                 prompt="login",
             )
 
@@ -197,7 +195,6 @@ class TestAccountLinkerLanding:
                 request,
                 "https://example.com/auth/account-linker/callback/",
                 state=link_attempt,
-                connection="testsite",
                 prompt="login",
             )
 
