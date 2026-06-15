@@ -69,7 +69,9 @@ def admin_login_entrypoint(request):
     If require_idp=True and the user is already authenticated, creates the token cookie and redirects
     to the intended destination without a redundant Auth0 round-trip.
 
-    If require_idp=True and the user is not authenticated, redirects to Auth0 login.
+    If require_idp=True and the user is not authenticated, redirects to Auth0 login. When the ER site
+    has an idp_org_id (org-based connection), the organization is passed through to the initiator;
+    otherwise the org_id is omitted.
     If require_idp=False, uses Django's default admin login.
 
     This function replaces the default admin login URL handler.
@@ -85,14 +87,17 @@ def admin_login_entrypoint(request):
     user = getattr(request, "user", None)
     next_param = _get_safe_next_url(request)
 
-    if require_idp and org_id:
+    if require_idp:
         session = getattr(request, "session", {})
         authenticated_via_auth0 = (
             user and user.is_authenticated and user.is_staff and session.get(BACKEND_SESSION_KEY) == AUTH0_BACKEND_PATH
         )
         if not authenticated_via_auth0:
             logger.debug("Redirecting to Auth0 admin login for tenant with require_idp=True")
-            query = urllib.parse.urlencode({"next": next_param, "org_id": org_id})
+            query_params = {"next": next_param}
+            if org_id:
+                query_params["org_id"] = org_id
+            query = urllib.parse.urlencode(query_params)
             return redirect(f"{reverse(INITIATE_AUTH0_ADMIN_LOGIN_URL_NAME)}?{query}")
     elif not (user and user.is_authenticated and user.is_staff):
         return _use_default_django_admin_login(request)
@@ -148,6 +153,10 @@ def initiate_auth0_admin_login(request):
     """
     Initiates Auth0 login for Django Admin.
     Stores the 'next' parameter in session for retrieval after OAuth callback.
+
+    For org-based connections (org_id present) the organization is passed through to Auth0.
+    Common-DB tenants (no org_id) omit the parameter entirely so Auth0 uses the tenant's
+    Default Directory.
     """
     next_param = _get_safe_next_url(request)
     request.session["auth0_admin_next"] = next_param
@@ -156,8 +165,12 @@ def initiate_auth0_admin_login(request):
 
     auth0_callback_url = request.build_absolute_uri(reverse("auth0_callback"))
 
-    logger.debug("Using organization ID for Auth0 admin login: %s", org_id)
-    return _admin_auth0_client.auth0.authorize_redirect(request, auth0_callback_url, organization=org_id)
+    extra_params = {}
+    if org_id:
+        extra_params["organization"] = org_id
+        logger.debug("Initiating Auth0 admin login with organization %s", org_id)
+
+    return _admin_auth0_client.auth0.authorize_redirect(request, auth0_callback_url, **extra_params)
 
 
 @csrf_exempt

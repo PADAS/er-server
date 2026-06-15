@@ -131,19 +131,21 @@ class TestAdminLoginEntrypoint:
         assert parsed.get("next", [""])[0] == "/admin/custom/path"
         assert parsed.get("org_id", [""])[0] == "org_test123"
 
-    def test_require_idp_true_no_org_id_uses_django_admin(
+    def test_require_idp_true_no_org_id_redirects_to_auth0_without_org_id(
         self, request_factory, mock_tenant_settings_require_idp_true_no_org
     ):
-        """Test that when require_idp=True but org_id is None, Django admin is used."""
-        request = request_factory.get("/admin/login/")
+        """Common-DB sites (require_idp=True, no idp_org_id) route to the Auth0 initiator
+        without an organization parameter, rather than falling back to Django admin."""
+        request = request_factory.get("/admin/login/?next=/admin/some/page")
         request.user = AnonymousUser()
 
-        with patch("accounts.auth0_admin.admin.site.login") as mock_admin_login:
-            mock_admin_login.return_value = HttpResponse("django_admin_response")
-            result = admin_login_entrypoint(request)
+        result = admin_login_entrypoint(request)
 
-            mock_admin_login.assert_called_once_with(request)
-            assert result.content == b"django_admin_response"
+        assert result.status_code == 302
+        assert reverse(INITIATE_AUTH0_ADMIN_LOGIN_URL_NAME) in result.url
+        parsed = urllib.parse.parse_qs(urllib.parse.urlparse(result.url).query)
+        assert parsed.get("next", [""])[0] == "/admin/some/page"
+        assert "org_id" not in parsed
 
     def test_handles_tenant_settings_error(self, request_factory):
         """Test that tenant settings errors fall back to Django admin login."""
@@ -289,8 +291,9 @@ class TestInitiateAuth0AdminLogin:
             # Check that organization parameter is passed
             assert call_args[1]["organization"] == "org_test123"
 
-    def test_missing_org_id_parameter(self, request_factory):
-        """Test that missing org_id parameter passes None as organization."""
+    def test_missing_org_id_omits_organization_parameter(self, request_factory):
+        """Common-DB sites (no org_id) must omit the organization parameter entirely,
+        rather than passing organization=None, so Auth0 uses the tenant's Default Directory."""
         request = request_factory.get("/auth/admin-login/")
         request.session = {}
         request.build_absolute_uri = lambda path: f"https://example.com{path}"
@@ -304,8 +307,8 @@ class TestInitiateAuth0AdminLogin:
             call_args = mock_redirect.call_args
             assert call_args[0][0] == request  # First arg is request
             assert call_args[0][1] == "https://example.com/auth/callback/"  # Second arg is callback URL
-            # Check that organization parameter is None when org_id missing
-            assert call_args[1]["organization"] is None
+            # organization must not be passed at all when org_id is missing
+            assert "organization" not in call_args[1]
 
 
 @pytest.mark.django_db
@@ -344,6 +347,29 @@ class TestAuth0Callback:
                         assert result.url == "/admin/target"
 
                         assert "auth0_admin_next" not in request.session
+
+    def test_common_db_user_without_org_id_claim_authenticates(self, request_factory, admin_user_with_auth0_id):
+        """Common-DB tokens carry no org_id claim. The callback - and the real staff backend,
+        which keys only on the sub claim since ERA-13339 - must still authenticate the user.
+        Only the token exchange is mocked here, so the backend's auth0_id lookup runs for real."""
+        request = request_factory.get("/auth/callback/")
+        request.session = {"auth0_admin_next": "/admin/target"}
+
+        common_db_token = Mock()
+        # No org_id claim in userinfo - this is what distinguishes a common-DB token.
+        common_db_token.get.return_value = {"sub": "auth0|123456789", "email": "admin@example.com"}
+
+        with patch("accounts.auth0_admin._admin_auth0_client.auth0.authorize_access_token") as mock_token_exchange:
+            with patch("accounts.auth0_admin.login") as mock_login:
+                with patch("accounts.auth0_admin.set_efb_token_cookie"):
+
+                    mock_token_exchange.return_value = common_db_token
+
+                    result = auth0_callback(request)
+
+                    mock_login.assert_called_once_with(request, admin_user_with_auth0_id, backend=AUTH0_BACKEND_PATH)
+                    assert result.status_code == 302
+                    assert result.url == "/admin/target"
 
     def test_authentication_failure_returns_403(self, request_factory):
         """Test that authentication failure returns 403."""
