@@ -56,8 +56,12 @@ class TestLinkAccountsGet:
             with patch("accounts.link_accounts.get_tenant_settings", return_value=mock_ts):
                 response = client.get(_LINK_ACCOUNTS_URL)
         assert response.status_code == 200
-        assert b'name="username"' in response.content
-        assert b'name="password"' in response.content
+        content = response.content.decode()
+        # The login form exposes each credential field, both as a wired input
+        # (name=) and with its visible label.
+        for field_name, label in {"username": "Username", "password": "Password"}.items():
+            assert f'name="{field_name}"' in content
+            assert f">{label}</label>" in content
 
     def test_returns_400_when_idp_not_enabled(self):
         client = Client()
