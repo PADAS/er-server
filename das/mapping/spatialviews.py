@@ -1,53 +1,124 @@
+from __future__ import annotations
+
+import logging
+
 from django_filters import rest_framework as filters
 
-from django.db.models import Count
+from django.db.models import Count, QuerySet
 from rest_framework import generics
 from rest_framework.filters import OrderingFilter
+from rest_framework.serializers import BaseSerializer
 
 from mapping.filters import SpatialFeatureFilterSet
-from mapping.models import SpatialFeature, SpatialFeatureGroupStatic, SpatialFeatureType
+from mapping.models import (
+    DisplayCategory,
+    SpatialFeature,
+    SpatialFeatureGroupStatic,
+    SpatialFeatureType,
+)
+from mapping.permissions import LayerObjectPermissions
 from mapping.serializers import (
+    DisplayCategorySerializer,
     SpatialFeatureGroupDetailSerializer,
     SpatialFeatureGroupListSerializer,
+    SpatialFeatureGroupWriteSerializer,
     SpatialFeatureListSerializer,
     SpatialFeatureSerializer,
     SpatialFeatureTypeSerializer,
+    SpatialFeatureTypeWriteSerializer,
+    SpatialFeatureWriteSerializer,
 )
 from schemas.view_mixins import DynamicSchemaDataMixin
+from utils.drf import DeprecatedEndpointMixin
+
+logger = logging.getLogger(__name__)
 
 
-class SpatialFeatureTypeListView(generics.ListAPIView):
-    serializer_class = SpatialFeatureTypeSerializer
+class DisplayCategoryListView(generics.ListCreateAPIView, DynamicSchemaDataMixin):
+    # DynamicSchemaDataMixin is only required on list views that are wired up
+    # as a ``source_view`` for a ``DynamicSchemaFromSourceView`` (see
+    # ``schemas/views.py``); on other views it's a no-op. It is applied here
+    # and on ``SpatialFeatureListView`` because both have been (or are
+    # expected to be) consumed by schema source views; the other v2 list
+    # views deliberately omit it.
+    permission_classes = (LayerObjectPermissions,)
+    serializer_class = DisplayCategorySerializer
 
-    def get_queryset(self):
+    def get_queryset(self) -> QuerySet[DisplayCategory]:  # type: ignore[override]  # DRF types as QuerySet[Any]; narrower return is correct
+        return DisplayCategory.objects.all()
+
+
+class DisplayCategoryDetailView(generics.RetrieveUpdateDestroyAPIView):
+    permission_classes = (LayerObjectPermissions,)
+    serializer_class = DisplayCategorySerializer
+    lookup_field = "id"
+
+    def get_queryset(self) -> QuerySet[DisplayCategory]:  # type: ignore[override]  # DRF types as QuerySet[Any]; narrower return is correct
+        return DisplayCategory.objects.all()
+
+
+class SpatialFeatureTypeListView(generics.ListCreateAPIView):
+    permission_classes = (LayerObjectPermissions,)
+    filter_backends = [OrderingFilter]
+    ordering_fields = ("name",)
+    ordering = ("name",)
+
+    def get_serializer_class(self) -> type[BaseSerializer]:  # type: ignore[override]  # DRF types as Any; narrower return is correct
+        if self.request.method == "POST":
+            return SpatialFeatureTypeWriteSerializer
+        return SpatialFeatureTypeSerializer
+
+    def get_queryset(self) -> QuerySet[SpatialFeatureType]:  # type: ignore[override]  # DRF types as QuerySet[Any]; narrower return is correct
         return SpatialFeatureType.objects.all()
 
 
-class SpatialFeatureGroupListView(generics.ListAPIView):
-    serializer_class = SpatialFeatureGroupListSerializer
-    filter_backends = [
-        OrderingFilter,
-    ]
+class SpatialFeatureTypeDetailView(generics.RetrieveUpdateDestroyAPIView):
+    permission_classes = (LayerObjectPermissions,)
+    lookup_field = "id"
+
+    def get_serializer_class(self) -> type[BaseSerializer]:  # type: ignore[override]  # DRF types as Any; narrower return is correct
+        if self.request.method in ("PUT", "PATCH"):
+            return SpatialFeatureTypeWriteSerializer
+        return SpatialFeatureTypeSerializer
+
+    def get_queryset(self) -> QuerySet[SpatialFeatureType]:  # type: ignore[override]  # DRF types as QuerySet[Any]; narrower return is correct
+        return SpatialFeatureType.objects.all()
+
+
+# type: ignore[misc] on Deprecated* classes: DeprecatedEndpointMixin intentionally precedes the concrete view in MRO
+class DeprecatedSpatialFeatureTypeListView(DeprecatedEndpointMixin, SpatialFeatureTypeListView):  # type: ignore[misc]
+    deprecated_use_instead = "/featuretypes/"
+
+
+class DeprecatedSpatialFeatureTypeDetailView(DeprecatedEndpointMixin, SpatialFeatureTypeDetailView):  # type: ignore[misc]
+    deprecated_use_instead = "/featuretype/<id>/"
+
+
+class SpatialFeatureGroupListView(generics.ListCreateAPIView):
+    permission_classes = (LayerObjectPermissions,)
+    filter_backends = [OrderingFilter]
     ordering_fields = ("name", "created_at", "updated_at")
     ordering = ("name",)
 
-    def get_queryset(self):
-        """Lightweight query with annotated feature count for performance."""
-        return SpatialFeatureGroupStatic.objects.select_related().annotate(feature_count=Count("features")).all()
+    def get_serializer_class(self) -> type[BaseSerializer]:  # type: ignore[override]  # DRF types as Any; narrower return is correct
+        if self.request.method == "POST":
+            return SpatialFeatureGroupWriteSerializer
+        return SpatialFeatureGroupListSerializer
+
+    def get_queryset(self) -> QuerySet[SpatialFeatureGroupStatic]:  # type: ignore[override]  # DRF types as QuerySet[Any]; narrower return is correct
+        return SpatialFeatureGroupStatic.objects.annotate(feature_count=Count("features")).all()
 
 
-class SpatialFeatureGroupDetailView(generics.RetrieveAPIView):
-    """
-    Retrieve detailed information about a specific spatial feature group.
-
-    Includes full feature data with optimized prefetching.
-    """
-
-    serializer_class = SpatialFeatureGroupDetailSerializer
+class SpatialFeatureGroupDetailView(generics.RetrieveUpdateDestroyAPIView):
+    permission_classes = (LayerObjectPermissions,)
     lookup_field = "id"
 
-    def get_queryset(self):
-        """Optimized query for detail view with feature prefetching and count annotation."""
+    def get_serializer_class(self) -> type[BaseSerializer]:  # type: ignore[override]  # DRF types as Any; narrower return is correct
+        if self.request.method in ("PUT", "PATCH"):
+            return SpatialFeatureGroupWriteSerializer
+        return SpatialFeatureGroupDetailSerializer
+
+    def get_queryset(self) -> QuerySet[SpatialFeatureGroupStatic]:  # type: ignore[override]  # DRF types as QuerySet[Any]; narrower return is correct
         return (
             SpatialFeatureGroupStatic.objects.annotate(feature_count=Count("features"))
             .prefetch_related("features__feature_type__display_category")
@@ -55,22 +126,51 @@ class SpatialFeatureGroupDetailView(generics.RetrieveAPIView):
         )
 
 
-class SpatialFeatureListView(generics.ListAPIView, DynamicSchemaDataMixin):
+class DeprecatedSpatialFeatureGroupListView(DeprecatedEndpointMixin, SpatialFeatureGroupListView):  # type: ignore[misc]
+    deprecated_use_instead = "/featuregroups/"
 
-    serializer_class = SpatialFeatureListSerializer
+
+class DeprecatedSpatialFeatureGroupDetailView(DeprecatedEndpointMixin, SpatialFeatureGroupDetailView):  # type: ignore[misc]
+    deprecated_use_instead = "/featuregroup/<id>/"
+
+
+class SpatialFeatureListView(generics.ListCreateAPIView, DynamicSchemaDataMixin):
+    # DynamicSchemaDataMixin is required here because this view is consumed
+    # by ``SpatialFeaturesDynamicSchemaView`` (schemas/views.py) as its
+    # ``source_view``; the mixin exposes ``get_schema_data`` so the schema
+    # generator can bypass HTTP rendering. See ``DisplayCategoryListView``
+    # for the broader rationale.
+    permission_classes = (LayerObjectPermissions,)
     filter_backends = [OrderingFilter, filters.DjangoFilterBackend]
     filterset_class = SpatialFeatureFilterSet
     ordering_fields = ("name",)
     ordering = ("name",)
 
-    def get_queryset(self):
+    def get_serializer_class(self) -> type[BaseSerializer]:  # type: ignore[override]  # DRF types as Any; narrower return is correct
+        if self.request.method == "POST":
+            return SpatialFeatureWriteSerializer
+        return SpatialFeatureListSerializer
+
+    def get_queryset(self) -> QuerySet[SpatialFeature]:  # type: ignore[override]  # DRF types as QuerySet[Any]; narrower return is correct
         return SpatialFeature.objects.select_related("feature_type__display_category").all()
 
 
-class SpatialFeatureDetailView(generics.RetrieveAPIView):
-
-    serializer_class = SpatialFeatureSerializer
+class SpatialFeatureDetailView(generics.RetrieveUpdateDestroyAPIView):
+    permission_classes = (LayerObjectPermissions,)
     lookup_field = "id"
 
-    def get_queryset(self):
+    def get_serializer_class(self) -> type[BaseSerializer]:  # type: ignore[override]  # DRF types as Any; narrower return is correct
+        if self.request.method in ("PUT", "PATCH"):
+            return SpatialFeatureWriteSerializer
+        return SpatialFeatureSerializer
+
+    def get_queryset(self) -> QuerySet[SpatialFeature]:  # type: ignore[override]  # DRF types as QuerySet[Any]; narrower return is correct
         return SpatialFeature.objects.all()
+
+
+class DeprecatedSpatialFeatureListView(DeprecatedEndpointMixin, SpatialFeatureListView):  # type: ignore[misc]
+    deprecated_use_instead = "/api/v2.0/features/"
+
+
+class DeprecatedSpatialFeatureDetailView(DeprecatedEndpointMixin, SpatialFeatureDetailView):  # type: ignore[misc]
+    deprecated_use_instead = "/api/v2.0/feature/<id>/"

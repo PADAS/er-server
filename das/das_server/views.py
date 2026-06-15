@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import copy
 
 from drf_spectacular.openapi import AutoSchema
@@ -19,6 +21,7 @@ from das_server import __version__
 from das_server.serializers import VersionSerializer
 from observations import servicesutils
 from observations.servicesutils import has_message_view_permission
+from utils.drf import DeprecatedEndpointMixin
 from utils.json import parse_bool
 from utils.tenant import get_tenant_settings
 
@@ -50,7 +53,20 @@ class CustomSchema(AutoSchema):
     #         }
 
     def get_tags(self):
+        if isinstance(self.view, DeprecatedEndpointMixin):
+            return ["Deprecated"]
         return [self.view.__module__.split(".")[0].replace("_", " ").title()]
+
+    def is_deprecated(self) -> bool:
+        return isinstance(self.view, DeprecatedEndpointMixin)
+
+    def get_description(self) -> str:
+        if isinstance(self.view, DeprecatedEndpointMixin):
+            use_instead = getattr(self.view, "deprecated_use_instead", "")
+            if use_instead:
+                return f"**Deprecated.** Use `{use_instead}` instead."
+            return "**Deprecated.**"
+        return super().get_description() or ""
 
     def _get_request_body(self, direction="request"):
         # drf-spectacular's parent silently drops request bodies on DELETE
@@ -158,3 +174,55 @@ class StatusView(generics.RetrieveAPIView):
 
     def get_last_migration(self):
         return MigrationRecorder.Migration.objects.latest("id")
+
+
+def wrap_responses_with_data_envelope(result: dict, generator: object, **kwargs: object) -> dict:
+    """drf-spectacular postprocessing hook: wraps response schemas with the
+    ``{"data": ..., "status": {...}}`` envelope produced by ExtendedJSONRenderer.
+    """
+    status_schema = {
+        "type": "object",
+        "properties": {
+            "code": {"type": "integer", "example": 200},
+            "message": {"type": "string", "example": "OK"},
+        },
+    }
+    for path_item in result.get("paths", {}).values():
+        for operation in path_item.values():
+            if not isinstance(operation, dict):
+                continue
+            for response_obj in operation.get("responses", {}).values():
+                if not isinstance(response_obj, dict):
+                    continue
+                for media_type, media_obj in response_obj.get("content", {}).items():
+                    if "application/json" not in media_type:
+                        continue
+                    original_schema = media_obj.get("schema")
+                    if not original_schema:
+                        continue
+                    media_obj["schema"] = {
+                        "type": "object",
+                        "properties": {"data": original_schema, "status": status_schema},
+                    }
+    return result
+
+
+def move_deprecated_tag_last(result: dict, generator: object, **kwargs: object) -> dict:
+    """drf-spectacular postprocessing hook: moves the Deprecated tag group to the
+    end of Swagger UI so non-deprecated endpoints stay prominent.
+
+    drf-spectacular does not emit a top-level ``tags`` array, so Swagger UI falls
+    back to first-seen ordering from ``paths``. This hook builds the array
+    explicitly with all non-deprecated tags first, Deprecated last.
+    """
+    seen: dict[str, None] = {}  # ordered-set via dict insertion order
+    for path_item in result.get("paths", {}).values():
+        for operation in path_item.values():
+            if not isinstance(operation, dict):
+                continue
+            for tag in operation.get("tags", []):
+                seen[tag] = None
+    non_deprecated = [{"name": t} for t in seen if t != "Deprecated"]
+    deprecated = [{"name": t} for t in seen if t == "Deprecated"]
+    result["tags"] = non_deprecated + deprecated
+    return result

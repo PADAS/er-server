@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import copy
 import datetime
 import json
@@ -6,11 +8,9 @@ from collections.abc import KeysView as odict_keys
 from http import HTTPStatus
 from itertools import chain
 from types import GeneratorType
-from typing import Union
 
 import dateutil.parser as dp
 import simplejson
-import six
 
 from django.conf import settings
 
@@ -152,7 +152,7 @@ class JSONTextParser(BaseParser):
             data = stream.read().decode(encoding)
             return json.loads(data)
         except ValueError as exc:
-            raise ParseError("JSON parse error - %s" % six.text_type(exc))
+            raise ParseError(f"JSON parse error - {exc}")
 
 
 class ExtendedBrowsableAPIRenderer(BrowsableAPIRenderer):
@@ -195,7 +195,7 @@ def loads(s, **kwargs):
     return simplejson.loads(s, **kwargs)
 
 
-def load_from_file(file_path: str) -> Union[dict, list, None]:
+def load_from_file(file_path: str) -> dict | list | None:
     with open(file_path, "r") as f:
         return loads(f.read())
 
@@ -204,7 +204,7 @@ VALID_BOOLEAN_STRINGS = ["true", "1", "yes", "ok", "okay", "false", "0", "no", "
 VALID_TRUE_STRINGS = ["true", "1", "yes", "ok", "okay"]
 
 
-def parse_bool(text):
+def parse_bool(text: object) -> bool:
     """Return a boolean from the passed in text"""
     if isinstance(text, bool):
         return text
@@ -213,7 +213,7 @@ def parse_bool(text):
     return False
 
 
-def json_string(objects, pretty_output=False):
+def json_string(objects: object, pretty_output: bool = False) -> str:
     """Encode python objects into a json string.
     The encoder is: date and mongo object aware.
     The result is in UTF-8 encoded by default, set your
@@ -238,48 +238,6 @@ def zeroout_microseconds(value):
     if not value or not hasattr(value, "microsecond") or value.microsecond is None:
         return value
     return value.replace(microsecond=0)
-
-
-def wrap_responses_with_data_envelope(result, generator, **kwargs):
-    """drf-spectacular postprocessing hook that wraps response schemas with the
-    ``{"data": ..., "status": {...}}`` envelope produced by
-    :class:`ExtendedJSONRenderer`.
-
-    Add to SPECTACULAR_SETTINGS["POSTPROCESSING_HOOKS"].
-    """
-
-    status_schema = {
-        "type": "object",
-        "properties": {
-            "code": {"type": "integer", "example": 200},
-            "message": {"type": "string", "example": "OK"},
-        },
-    }
-
-    paths = result.get("paths", {})
-    for path_item in paths.values():
-        for operation in path_item.values():
-            if not isinstance(operation, dict):
-                continue
-            responses = operation.get("responses", {})
-            for status_code, response_obj in responses.items():
-                if not isinstance(response_obj, dict):
-                    continue
-                content = response_obj.get("content", {})
-                for media_type, media_obj in content.items():
-                    if "application/json" not in media_type:
-                        continue
-                    original_schema = media_obj.get("schema")
-                    if not original_schema:
-                        continue
-                    media_obj["schema"] = {
-                        "type": "object",
-                        "properties": {
-                            "data": original_schema,
-                            "status": status_schema,
-                        },
-                    }
-    return result
 
 
 class DateTimeAwareJSONEncoder(json.JSONEncoder):

@@ -30,27 +30,6 @@ from utils.tests_tools import is_url_resolved
 logger = logging.getLogger(__name__)
 
 
-# Shared fixtures for mapping tests
-@pytest.fixture
-def category1():
-    return DisplayCategory.objects.create(name="Category One")
-
-
-@pytest.fixture
-def category2():
-    return DisplayCategory.objects.create(name="Category Two")
-
-
-@pytest.fixture
-def feature_type1(category1):
-    return SpatialFeatureType.objects.create(name="Type One", display_category=category1)
-
-
-@pytest.fixture
-def feature_type2(category2):
-    return SpatialFeatureType.objects.create(name="Type Two", display_category=category2)
-
-
 # @patch("django.conf.settings.MAPPING_FEATURES_V2", True)
 # @patch("das_server.settings.MAPPING_FEATURES_V2", True)
 # @override_settings(MAPPING_FEATURES_V2=True)
@@ -71,7 +50,7 @@ class TestFeatures(BaseAPITest):
 
     def test_get_features(self):
         request = self.factory.get(self.api_base + "/features/")
-        assert is_url_resolved(request.path, views.FeatureListJsonView)
+        assert is_url_resolved(request.path, views.DeprecatedFeatureListJsonView)
         self.force_authenticate(request, self.app_user)
         response = views.FeatureListJsonView.as_view()(request)
         self.assertContains(response, "features")
@@ -84,7 +63,7 @@ class TestFeatures(BaseAPITest):
 
     def test_get_feature(self):
         request = self.factory.get(self.api_base + "/feature/")
-        assert is_url_resolved(f"{request.path}{self.feature.id}/", views.FeatureGeoJsonView)
+        assert is_url_resolved(f"{request.path}{self.feature.id}/", views.DeprecatedFeatureGeoJsonView)
         self.force_authenticate(request, self.app_user)
         response = views.FeatureGeoJsonView.as_view()(request, id=str(self.feature.id))
         self.assertContains(response, "features")
@@ -97,7 +76,7 @@ class TestFeatures(BaseAPITest):
 
     def test_get_featureset(self):
         request = self.factory.get(self.api_base + "/featureset/")
-        assert is_url_resolved(request.path, views.FeatureSetListJsonView)
+        assert is_url_resolved(request.path, views.DeprecatedFeatureSetListJsonView)
         self.force_authenticate(request, self.app_user)
         response = views.FeatureSetListJsonView.as_view()(request)
         self.assertContains(response, "features")
@@ -110,7 +89,7 @@ class TestFeatures(BaseAPITest):
 
     def test_get_featureset_single(self):
         request = self.factory.get(self.api_base + "/featureset/")
-        assert is_url_resolved(f"{request.path}{self.category.id}/", views.FeatureSetGeoJsonView)
+        assert is_url_resolved(f"{request.path}{self.category.id}/", views.DeprecatedFeatureSetGeoJsonView)
         self.force_authenticate(request, self.app_user)
         response = views.FeatureSetGeoJsonView.as_view()(request, id=str(self.category.id))
         self.assertContains(response, "features")
@@ -486,9 +465,9 @@ class TestSpatialFeatureListView:
         assert "Select a valid choice." in response.content.decode("utf-8")
         assert "feature_class" in response.json()
 
-    def test_filter_by_feature_set(self, user_client, feature1, feature2, feature3, category2):
+    def test_filter_by_display_category(self, user_client, feature1, feature2, feature3, category2):
         url = reverse("mapping:spatialfeature-list")
-        response = user_client.get(url, {"feature_set": str(category2.id)})
+        response = user_client.get(url, {"display_category": str(category2.id)})
         assert response.status_code == 200
         data = response.json()
         features = data["data"]
@@ -497,9 +476,11 @@ class TestSpatialFeatureListView:
         assert len(features) == 1
         assert features[0]["name"] == "Feature Three"
 
-    def test_filter_by_multiple_feature_sets(self, user_client, feature1, feature2, feature3, category1, category2):
+    def test_filter_by_multiple_display_categories(
+        self, user_client, feature1, feature2, feature3, category1, category2
+    ):
         url = reverse("mapping:spatialfeature-list")
-        response = user_client.get(url, {"feature_set": f"{category1.id},{category2.id}"})
+        response = user_client.get(url, {"display_category": f"{category1.id},{category2.id}"})
         assert response.status_code == 200
         data = response.json()
         features = data["data"]
@@ -509,18 +490,18 @@ class TestSpatialFeatureListView:
         names = [f["name"] for f in features]
         assert set(names) == {"Feature One", "Feature Two", "Feature Three"}
 
-    def test_filter_by_invalid_feature_set(self, user_client, feature3):
+    def test_filter_by_invalid_display_category(self, user_client, feature3):
         url = reverse("mapping:spatialfeature-list")
-        response = user_client.get(url, {"feature_set": "invalid_uuid"})
+        response = user_client.get(url, {"display_category": "invalid_uuid"})
         assert response.status_code == 400
         assert "is not a valid UUID" in response.content.decode("utf-8")
-        assert "feature_set" in response.json()
+        assert "display_category" in response.json()
 
-        # Feature 3 is not a feature set
-        response = user_client.get(url, {"feature_set": str(feature3.id)})
+        # Feature 3 is not a display category
+        response = user_client.get(url, {"display_category": str(feature3.id)})
         assert response.status_code == 400
         assert "Select a valid choice." in response.content.decode("utf-8")
-        assert "feature_set" in response.json()
+        assert "display_category" in response.json()
 
 
 @pytest.mark.django_db
@@ -528,7 +509,7 @@ class TestSpatialFeatureListView:
 class TestSpatialFeatureTypeListView:
 
     def test_list_all_feature_types(self, user_client, feature_type1, feature_type2):
-        url = reverse("mapping:spatialfeaturetype-list")
+        url = reverse("mapping:featuretypes-list")
         response = user_client.get(url)
         assert response.status_code == 200
         data = response.json()
@@ -553,7 +534,7 @@ class TestSpatialFeatureTypeListView:
     def test_feature_types_have_correct_categories(
         self, user_client, feature_type1, feature_type2, category1, category2
     ):
-        url = reverse("mapping:spatialfeaturetype-list")
+        url = reverse("mapping:featuretypes-list")
         response = user_client.get(url)
         assert response.status_code == 200
         data = response.json()
@@ -596,7 +577,7 @@ class TestSpatialFeatureGroupListView:
 
     def test_list_all_feature_groups(self, user_client, feature_group1, feature_group2):
         """Test that the list endpoint returns all feature groups with correct structure."""
-        url = reverse("mapping:spatialfeaturegroup-list")
+        url = reverse("mapping:featuregroups-list")
         response = user_client.get(url)
         assert response.status_code == 200
 
@@ -616,16 +597,14 @@ class TestSpatialFeatureGroupListView:
 
     def test_feature_group_urls_are_correct(self, user_client, feature_group1):
         """Test that HyperlinkedIdentityField generates correct URLs."""
-        url = reverse("mapping:spatialfeaturegroup-list")
+        url = reverse("mapping:featuregroups-list")
         response = user_client.get(url)
         assert response.status_code == 200
 
         data = response.json()
         group = data["data"][0]
 
-        # URL should point to detail endpoint
-        expected_detail_url = f"/api/v1.0/spatialfeaturegroup/{feature_group1.id}"
-        assert expected_detail_url in group["url"]
+        assert group["url"].endswith(f"/featuregroup/{feature_group1.id}")
 
     def test_empty_list_when_no_groups(self, user_client):
         """Test that empty list is returned when no feature groups exist."""

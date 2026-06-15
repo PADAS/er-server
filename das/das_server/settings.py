@@ -357,7 +357,8 @@ SPECTACULAR_SETTINGS = {
     "AUTHENTICATION_WHITELIST": [],
     "POSTPROCESSING_HOOKS": [
         "drf_spectacular.hooks.postprocess_schema_enums",
-        "utils.json.wrap_responses_with_data_envelope",
+        "das_server.views.wrap_responses_with_data_envelope",
+        "das_server.views.move_deprecated_tag_last",
     ],
     "OAUTH2_FLOWS": {
         "password": {

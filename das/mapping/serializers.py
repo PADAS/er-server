@@ -1,8 +1,11 @@
+from __future__ import annotations
+
 import logging
 import uuid
-from typing import Optional
+from typing import Any
 
 import simplejson as json
+from rest_framework_gis.fields import GeometryField
 
 from django.core.serializers import serialize
 from rest_framework import serializers
@@ -11,6 +14,7 @@ from rest_framework.validators import UniqueValidator
 from choices.models import Choice
 from core.serializers import BaseSerializer
 from mapping.models import (
+    DisplayCategory,
     FeatureType,
     Map,
     MBTiles,
@@ -104,6 +108,15 @@ class MapSerializer(serializers.ModelSerializer):
         return rep
 
 
+class MapWriteSerializer(serializers.ModelSerializer):
+    center = GeometryField()
+
+    class Meta:
+        model = Map
+        fields = ("id", "name", "center", "zoom", "attributes")
+        read_only_fields = ("id",)
+
+
 class FeatureTypeSerializer(serializers.ModelSerializer):
     class Meta:
         model = FeatureType
@@ -129,7 +142,7 @@ class SpatialFeatureListSerializer(serializers.ModelSerializer):
     feature_class_id = serializers.SerializerMethodField()
     feature_set_name = serializers.SerializerMethodField()
     feature_set_id = serializers.SerializerMethodField()
-    url = serializers.HyperlinkedIdentityField(view_name="mapping:spatialfeature-detail", lookup_field="id")
+    url = serializers.HyperlinkedIdentityField(view_name="mapping_v2:feature-detail", lookup_field="id")
 
     class Meta:
         model = SpatialFeature
@@ -151,10 +164,10 @@ class SpatialFeatureListSerializer(serializers.ModelSerializer):
     def get_feature_class_id(self, obj: SpatialFeature) -> uuid.UUID:
         return obj.feature_type.id
 
-    def get_feature_set_name(self, obj: SpatialFeature) -> Optional[str]:
+    def get_feature_set_name(self, obj: SpatialFeature) -> str | None:
         return obj.feature_type.display_category.name if obj.feature_type.display_category else None
 
-    def get_feature_set_id(self, obj: SpatialFeature) -> Optional[uuid.UUID]:
+    def get_feature_set_id(self, obj: SpatialFeature) -> uuid.UUID | None:
         return obj.feature_type.display_category.id if obj.feature_type.display_category else None
 
 
@@ -186,22 +199,21 @@ class SpatialFeatureSerializer(serializers.ModelSerializer):
 class SpatialFeatureGroupListSerializer(serializers.ModelSerializer):
     """Lightweight serializer for list endpoints - excludes expensive features field."""
 
-    url = serializers.HyperlinkedIdentityField(view_name="mapping:spatialfeaturegroup-detail", lookup_field="id")
+    url = serializers.HyperlinkedIdentityField(view_name="mapping:featuregroup-detail", lookup_field="id")
     feature_count = serializers.SerializerMethodField()
 
     class Meta:
         model = SpatialFeatureGroupStatic
         fields = ("id", "name", "description", "url", "feature_count")
 
-    def get_feature_count(self, obj):
-        """Return annotated feature count from database - no additional queries."""
+    def get_feature_count(self, obj: SpatialFeatureGroupStatic) -> int:
         return getattr(obj, "feature_count", obj.features.count())
 
 
 class SpatialFeatureGroupDetailSerializer(serializers.ModelSerializer):
     """Detailed serializer for detail endpoints - includes full feature data."""
 
-    url = serializers.HyperlinkedIdentityField(view_name="mapping:spatialfeaturegroup-detail", lookup_field="id")
+    url = serializers.HyperlinkedIdentityField(view_name="mapping:featuregroup-detail", lookup_field="id")
     features = SpatialFeatureSerializer(many=True)
     feature_count = serializers.SerializerMethodField()
 
@@ -209,6 +221,80 @@ class SpatialFeatureGroupDetailSerializer(serializers.ModelSerializer):
         model = SpatialFeatureGroupStatic
         fields = ("id", "name", "description", "url", "features", "feature_count", "created_at", "updated_at")
 
-    def get_feature_count(self, obj):
-        """Return annotated feature count from database - no additional queries."""
+    def get_feature_count(self, obj: SpatialFeatureGroupStatic) -> int:
         return getattr(obj, "feature_count", obj.features.count())
+
+
+class DisplayCategorySerializer(serializers.ModelSerializer):
+    class Meta:
+        model = DisplayCategory
+        fields = ("id", "name", "description")
+        read_only_fields = ("id",)
+
+
+class SpatialFeatureTypeWriteSerializer(serializers.ModelSerializer):
+    display_category = serializers.PrimaryKeyRelatedField(
+        queryset=DisplayCategory.objects, allow_null=True, required=False
+    )
+
+    class Meta:
+        model = SpatialFeatureType
+        fields = ("id", "name", "display_category", "presentation", "attribute_schema", "is_visible")
+        read_only_fields = ("id",)
+
+
+class SpatialFeatureWriteSerializer(serializers.ModelSerializer):
+    feature_type = serializers.PrimaryKeyRelatedField(queryset=SpatialFeatureType.objects)
+    feature_geometry = GeometryField()
+
+    class Meta:
+        model = SpatialFeature
+        fields = (
+            "id",
+            "feature_type",
+            "name",
+            "short_name",
+            "description",
+            "feature_geometry",
+            "presentation",
+            "attributes",
+            "provenance",
+        )
+        read_only_fields = ("id",)
+
+    def create(self, validated_data: dict[str, Any]) -> SpatialFeature:
+        instance = SpatialFeature(**validated_data)
+        instance.clean()
+        instance.save()
+        return instance
+
+    def update(self, instance: SpatialFeature, validated_data: dict[str, Any]) -> SpatialFeature:
+        for attr, value in validated_data.items():
+            setattr(instance, attr, value)
+        instance.clean()
+        instance.save()
+        return instance
+
+
+class SpatialFeatureGroupWriteSerializer(serializers.ModelSerializer):
+    features = serializers.PrimaryKeyRelatedField(many=True, queryset=SpatialFeature.objects, required=False)
+
+    class Meta:
+        model = SpatialFeatureGroupStatic
+        fields = ("id", "name", "description", "features")
+        read_only_fields = ("id",)
+
+    def create(self, validated_data: dict[str, Any]) -> SpatialFeatureGroupStatic:
+        features = validated_data.pop("features", [])
+        instance = SpatialFeatureGroupStatic.objects.create(**validated_data)
+        instance.features.set(features)
+        return instance
+
+    def update(self, instance: SpatialFeatureGroupStatic, validated_data: dict[str, Any]) -> SpatialFeatureGroupStatic:
+        features = validated_data.pop("features", None)
+        for attr, value in validated_data.items():
+            setattr(instance, attr, value)
+        instance.save()
+        if features is not None:
+            instance.features.set(features)
+        return instance

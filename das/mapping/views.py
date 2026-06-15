@@ -1,6 +1,9 @@
+from __future__ import annotations
+
 import hashlib
 import logging
 from itertools import chain
+from typing import ClassVar
 
 import simplejson as json
 from rest_framework_extensions.etag.decorators import etag
@@ -11,9 +14,12 @@ from django.http import Http404, HttpResponse
 from django.shortcuts import get_object_or_404
 from django.urls import reverse
 from django.utils.translation import gettext_lazy as _
-from rest_framework import generics, status
+from rest_framework import generics
+from rest_framework import serializers as drf_serializers
+from rest_framework import status
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.parsers import JSONParser
+from rest_framework.request import Request
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
@@ -36,8 +42,9 @@ from utils.cache import (
     get_effective_cache_version,
     get_vector_tile_cache,
 )
-from utils.drf import create_json_response
+from utils.drf import DeprecatedEndpointMixin, create_json_response
 from utils.json import parse_bool
+from utils.tenant.exceptions import TenantNotFoundException
 from utils.tenant.providers import get_tenant_data_by_host
 
 logger = logging.getLogger(__name__)
@@ -55,37 +62,63 @@ def hashtext_uuid(uuid_value):
     return hash_value
 
 
+class _FeatureListQueryParamsSerializer(drf_serializers.Serializer):
+    """Validates query params for ``FeatureListJsonView``.
+
+    Both ``feature_type`` and ``feature_set`` must be well-formed UUIDs; a malformed
+    value should produce a 400 rather than bubble up as a 500 from the DB layer.
+    """
+
+    feature_type = drf_serializers.UUIDField(required=False)
+    feature_set = drf_serializers.UUIDField(required=False)
+
+
 class FeatureListJsonView(APIView):
     """
     A simple list of vector layers available to the clients
     """
 
-    def get(self, request):
-        # todo:  add api docs
-        response_data = {"features": []}
+    _SORT_FIELD_MAP: ClassVar[dict[str, str]] = {
+        "name": "name",
+        "-name": "-name",
+        "feature_type": "feature_type__name",
+        "-feature_type": "-feature_type__name",
+    }
+
+    def get(self, request: Request) -> HttpResponse:
         include_hidden = parse_bool(request.GET.get("include_hidden", False))
-        features = (
-            SpatialFeature.objects.all()
-            if include_hidden
-            else SpatialFeature.objects.filter(feature_type__is_visible=True)
-        )
+        params_serializer = _FeatureListQueryParamsSerializer(data=request.GET)
+        params_serializer.is_valid(raise_exception=True)
+        feature_type_id = params_serializer.validated_data.get("feature_type")
+        feature_set_id = params_serializer.validated_data.get("feature_set")
+        sort_by = request.GET.get("sort_by", "name")
 
-        for feature in features:
-            type_dict = dict(name=feature.feature_type.name, id=str(feature.feature_type.id))
+        qs = SpatialFeature.objects.select_related("feature_type")
+        if not include_hidden:
+            qs = qs.filter(feature_type__is_visible=True)
+        if feature_type_id:
+            qs = qs.filter(feature_type__id=feature_type_id)
+        if feature_set_id:
+            qs = qs.filter(group_temp__id=feature_set_id)
 
-            response_data["features"].append(
+        qs = qs.order_by(self._SORT_FIELD_MAP.get(sort_by, "name"))
+
+        response_data = {
+            "features": [
                 {
                     "name": feature.name,
-                    "type": type_dict,
-                    "description": feature.description if feature.description else "",
+                    "type": {"name": feature.feature_type.name, "id": str(feature.feature_type.id)},
+                    "description": feature.description or "",
                     "geojson_url": reverse("mapping:mapping-feature-geojson", args=[feature.id.hex]),
                 }
-            )
+                for feature in qs
+            ]
+        }
         return create_json_response(json.dumps(response_data))
 
 
 class FeatureGeoJsonView(APIView):
-    def get(self, request, id):
+    def get(self, request: Request, id: str) -> HttpResponse:
         include_hidden = parse_bool(request.GET.get("include_hidden", False))
         selected_feature = (
             SpatialFeature.objects.filter(id=id)
@@ -102,12 +135,20 @@ class FeatureGeoJsonView(APIView):
         return create_json_response(feature)
 
 
+class DeprecatedFeatureListJsonView(DeprecatedEndpointMixin, FeatureListJsonView):
+    deprecated_use_instead = "/api/v2.0/features/"
+
+
+class DeprecatedFeatureGeoJsonView(DeprecatedEndpointMixin, FeatureGeoJsonView):
+    deprecated_use_instead = "/api/v2.0/feature/<id>/"
+
+
 class FeatureSetListJsonView(APIView):
     """
     A simple list of featuresets available to the clients
     """
 
-    def get(self, request):
+    def get(self, request: Request) -> HttpResponse:
         def feature_types(featureset, include_hidden, summarize_features):
             # First, get all feature types with their counts
             if include_hidden:
@@ -232,17 +273,46 @@ class FeatureSetGeoJsonView(APIView):
         pass
 
 
-class MapListJsonView(generics.ListAPIView):
+class DeprecatedFeatureSetListJsonView(DeprecatedEndpointMixin, FeatureSetListJsonView):
+    deprecated_use_instead = "/displaycategories/"
+
+
+class DeprecatedFeatureSetGeoJsonView(DeprecatedEndpointMixin, FeatureSetGeoJsonView):
+    deprecated_use_instead = "/displaycategory/<id>/"
+
+
+class MapListJsonView(generics.ListCreateAPIView):
     """
     List of available maps. A Map defines the center location, zoom level and
     tile layers.
     """
 
-    queryset = Map.objects.all()
-    serializer_class = serializers.MapSerializer
+    permission_classes = (LayerObjectPermissions,)
+
+    def get_serializer_class(self):
+        if self.request.method == "POST":
+            return serializers.MapWriteSerializer
+        return serializers.MapSerializer
 
     def get_queryset(self):
         return Map.objects.all()
+
+
+class MapDetailView(generics.RetrieveUpdateDestroyAPIView):
+    permission_classes = (LayerObjectPermissions,)
+    lookup_field = "id"
+
+    def get_serializer_class(self):
+        if self.request.method in ("PUT", "PATCH"):
+            return serializers.MapWriteSerializer
+        return serializers.MapSerializer
+
+    def get_queryset(self):
+        return Map.objects.all()
+
+
+class DeprecatedMapListJsonView(DeprecatedEndpointMixin, MapListJsonView):
+    deprecated_use_instead = "/quicklinks/"
 
 
 class LayerListJsonView(generics.ListCreateAPIView):
@@ -274,6 +344,14 @@ class LayerJsonView(generics.RetrieveUpdateDestroyAPIView):
 
     def get_queryset(self):
         return TileLayer.objects.all()
+
+
+class DeprecatedLayerListJsonView(DeprecatedEndpointMixin, LayerListJsonView):
+    deprecated_use_instead = "/basemaps/"
+
+
+class DeprecatedLayerJsonView(DeprecatedEndpointMixin, LayerJsonView):
+    deprecated_use_instead = "/basemap/<id>/"
 
 
 class SpatialFeatureTileView(DRFMVTView):
@@ -309,7 +387,8 @@ class SpatialFeatureTileView(DRFMVTView):
         host = request.get_host().split(":")[0]
         try:
             tenant_data = get_tenant_data_by_host(host)
-        except Exception:
+        except TenantNotFoundException:
+            logger.warning("Tenant not found for host %s", host)
             return HttpResponse(status=500)
         if not tenant_data.get("domain"):
             return HttpResponse(status=500)
@@ -400,8 +479,12 @@ class SpatialFeatureTileView(DRFMVTView):
 
         :rtype HttpResponse
         """
-        content, status = self.get_content_status(int(z), int(x), int(y))
-        return HttpResponse(content, content_type=self.content_type, status=status)
+        content, status_code = self.get_content_status(int(z), int(x), int(y))
+        return HttpResponse(content, content_type=self.content_type, status=status_code)
+
+
+class DeprecatedSpatialFeatureTileView(DeprecatedEndpointMixin, SpatialFeatureTileView):
+    deprecated_use_instead = "/api/v2.0/features/tiles/<z>/<x>/<y>.pbf"
 
 
 #
