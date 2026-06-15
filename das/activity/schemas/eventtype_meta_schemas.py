@@ -36,6 +36,7 @@ attachment_field_json_schema = {
     "title": "Attachment field JSON schema",
     "properties": {
         "deprecated": {"type": "boolean"},
+        "description": {"type": "string"},
         "format": {"const": "uri"},
         "title": {"type": "string", "maxLength": FIELD_TITLE_MAX_LENGTH},
         "type": {"const": "string"},
@@ -100,11 +101,7 @@ choice_list_field_json_schema_any_of_schema = {
         "properties": {
             "$ref": {
                 "type": "string",
-                # additional\.[^=&]+ is a wildcard because the `additional` JSONB column is an
-                # open, user-defined bag — the list endpoints' JSONFieldFilterSetMixin filters any
-                # additional.<key> (exact text match); the non-additional params remain an explicit
-                # allowlist of declared filters.
-                "oneOf": [
+                "anyOf": [
                     {"pattern": r"^/api/v2\.0/schemas/choices\.json\?field=[^&]+$"},
                     {"pattern": r"^/api/v2\.0/schemas/event_types\.json(\?category=[^&]+)?$"},
                     {"pattern": r"^/api/v2\.0/schemas/spatial_features\.json(\?feature_set=[^&]+)?$"},
@@ -708,7 +705,7 @@ is_empty_condition_ui_schema = {
         "operator": {"const": "IS_EMPTY"},
         "value": {"const": None},
     },
-    "required": ["field", "id", "operator"],
+    "required": ["field", "id", "operator", "value"],
     "additionalProperties": False,
 }
 
@@ -830,7 +827,7 @@ is_not_empty_condition_ui_schema = {
         "operator": {"const": "IS_NOT_EMPTY"},
         "value": {"const": None},
     },
-    "required": ["field", "id", "operator"],
+    "required": ["field", "id", "operator", "value"],
     "additionalProperties": False,
 }
 
@@ -1259,7 +1256,7 @@ section_ui_schema = {
         "conditions": {
             "type": "array",
             "items": {
-                "oneOf": [
+                "anyOf": [
                     contains_condition_ui_schema,
                     is_empty_condition_ui_schema,
                     is_not_empty_condition_ui_schema,
@@ -1330,6 +1327,20 @@ ui_schema = {
 
 # JSON
 
+section_conditions_schema = {
+    "type": "array",
+    "items": {
+        "anyOf": [
+            contains_condition_json_schema,
+            is_empty_condition_json_schema,
+            is_not_empty_condition_json_schema,
+            is_exactly_condition_json_schema,
+            is_contained_by_condition_json_schema,
+            is_not_contained_by_condition_json_schema,
+        ]
+    },
+}
+
 json_field_schema = {
     "type": "object",
     "title": "JSON schema",
@@ -1342,23 +1353,18 @@ json_field_schema = {
                 "properties": {
                     "if": {
                         "type": "object",
-                        "properties": {
-                            "allOf": {
-                                "type": "array",
-                                "items": {
-                                    "anyOf": [
-                                        contains_condition_json_schema,
-                                        is_empty_condition_json_schema,
-                                        is_not_empty_condition_json_schema,
-                                        is_exactly_condition_json_schema,
-                                        is_contained_by_condition_json_schema,
-                                        is_not_contained_by_condition_json_schema,
-                                    ]
-                                },
-                            }
-                        },
-                        "required": ["allOf"],
-                        "additionalProperties": False,
+                        "anyOf": [
+                            {
+                                "properties": {"allOf": section_conditions_schema},
+                                "required": ["allOf"],
+                                "additionalProperties": False,
+                            },
+                            {
+                                "properties": {"anyOf": section_conditions_schema},
+                                "required": ["anyOf"],
+                                "additionalProperties": False,
+                            },
+                        ],
                     },
                     "then": {
                         "type": "object",

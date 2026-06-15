@@ -1,0 +1,186 @@
+{
+  "json": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "properties": {
+      "field_a": {
+        "default": "",
+        "deprecated": false,
+        "description": "",
+        "title": "Field A",
+        "type": "string"
+      },
+      "field_b": {
+        "default": "",
+        "deprecated": false,
+        "description": "",
+        "title": "Field B",
+        "type": "string"
+      }
+    },
+    "required": [],
+    "type": "object",
+    "unevaluatedProperties": false,
+    "allOf": [
+      {
+        "if": {
+          "allOf": [
+            {
+              "properties": {
+                "field_a": {
+                  "anyOf": [
+                    {
+                      "type": "array",
+                      "allOf": [
+                        {
+                          "contains": {
+                            "const": "foo"
+                          }
+                        }
+                      ]
+                    },
+                    {
+                      "type": "object",
+                      "required": [
+                        "foo"
+                      ]
+                    },
+                    {
+                      "type": "string",
+                      "pattern": "foo"
+                    }
+                  ]
+                }
+              },
+              "required": [
+                "field_a"
+              ]
+            },
+            {
+              "properties": {
+                "field_b": {
+                  "anyOf": [
+                    {
+                      "type": "array",
+                      "allOf": [
+                        {
+                          "contains": {
+                            "const": "bar"
+                          }
+                        }
+                      ]
+                    },
+                    {
+                      "type": "object",
+                      "required": [
+                        "bar"
+                      ]
+                    },
+                    {
+                      "type": "string",
+                      "pattern": "bar"
+                    }
+                  ]
+                }
+              },
+              "required": [
+                "field_b"
+              ]
+            }
+          ]
+        },
+        "then": {
+          "properties": {
+            "conditional_field": {
+              "default": "",
+              "deprecated": false,
+              "description": "",
+              "title": "Conditional Field",
+              "type": "string"
+            }
+          },
+          "required": []
+        },
+        "x-section": "section-2"
+      }
+    ]
+  },
+  "ui": {
+    "fields": {
+      "field_a": {
+        "conditionalDependents": [
+          "section-2"
+        ],
+        "inputType": "SHORT_TEXT",
+        "placeholder": "",
+        "type": "TEXT",
+        "parent": "section-1"
+      },
+      "field_b": {
+        "conditionalDependents": [
+          "section-2"
+        ],
+        "inputType": "SHORT_TEXT",
+        "placeholder": "",
+        "type": "TEXT",
+        "parent": "section-1"
+      },
+      "conditional_field": {
+        "conditionalDependents": [],
+        "inputType": "SHORT_TEXT",
+        "placeholder": "",
+        "type": "TEXT",
+        "parent": "section-2"
+      }
+    },
+    "headers": {},
+    "order": [
+      "section-1",
+      "section-2"
+    ],
+    "sections": {
+      "section-1": {
+        "columns": 1,
+        "conditions": [],
+        "isActive": true,
+        "label": "",
+        "leftColumn": [
+          {
+            "name": "field_a",
+            "type": "field"
+          },
+          {
+            "name": "field_b",
+            "type": "field"
+          }
+        ],
+        "rightColumn": []
+      },
+      "section-2": {
+        "columns": 1,
+        "conditions": [
+          {
+            "field": "field_a",
+            "id": "condition-allof-001",
+            "operator": "CONTAINS",
+            "value": "foo"
+          },
+          {
+            "field": "field_b",
+            "id": "condition-allof-002",
+            "operator": "CONTAINS",
+            "value": "bar"
+          }
+        ],
+        "isActive": true,
+        "label": "",
+        "leftColumn": [
+          {
+            "type": "field",
+            "name": "conditional_field"
+          }
+        ],
+        "rightColumn": []
+      }
+    }
+  }
+}
