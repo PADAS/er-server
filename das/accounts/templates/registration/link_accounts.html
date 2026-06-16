@@ -1,31 +1,22 @@
-{% extends "base.html" %}
+{% extends "registration/account_linking_base.html" %}
+{% load i18n %}
 
 {% block content %}
+  {% if error %}
+    <div class="alert" role="alert">{{ error }}</div>
+  {% endif %}
 
-<h2>Link your EarthRanger account</h2>
+  <form class="form" method="post" action="{% url 'link_accounts' %}">
+    {% csrf_token %}
 
-<p>
-  Sign in with your EarthRanger username and password to link your account
-  to your identity provider.
-</p>
+    <label class="label" for="id_username">{% translate "Username" %}</label>
+    <input class="input" id="id_username" type="text" name="username"
+           autocomplete="username" value="{{ form.username.value|default:'' }}" required>
 
-{% if error %}
-  <p class="error">{{ error }}</p>
-{% endif %}
+    <label class="label" for="id_password">{% translate "Password" %}</label>
+    <input class="input" id="id_password" type="password" name="password"
+           autocomplete="current-password" required>
 
-<form method="post" action="{% url 'link_accounts' %}">
-  {% csrf_token %}
-  <table>
-    <tr>
-      <td>{{ form.username.label_tag }}</td>
-      <td>{{ form.username }}</td>
-    </tr>
-    <tr>
-      <td>{{ form.password.label_tag }}</td>
-      <td>{{ form.password }}</td>
-    </tr>
-  </table>
-  <input type="submit" value="Continue" />
-</form>
-
+    <button class="button" type="submit">{% translate "Log in" %}</button>
+  </form>
 {% endblock %}

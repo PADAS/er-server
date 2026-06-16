@@ -7,6 +7,7 @@ PKCE Account Linker flow by supplying their legacy username/password.
 
 from __future__ import annotations
 
+import re
 from unittest.mock import Mock, patch
 
 import pytest
@@ -25,6 +26,7 @@ from accounts.link_accounts import (
 User = get_user_model()
 
 _LINK_ACCOUNTS_URL = "/auth/link-accounts/"
+_CONFIRM_URL = "/auth/link-accounts/confirm/"
 
 
 def _mock_tenant_settings(*, require_idp: bool = True, idp_org_id: str = "") -> Mock:
@@ -33,6 +35,7 @@ def _mock_tenant_settings(*, require_idp: bool = True, idp_org_id: str = "") -> 
     mock.feature_flags.idp_org_id = idp_org_id
     mock.domain = "testsite.pamdas.org"
     mock.url = "https://testsite.pamdas.org"
+    mock.name = "Test Site"
     return mock
 
 
@@ -56,8 +59,12 @@ class TestLinkAccountsGet:
             with patch("accounts.link_accounts.get_tenant_settings", return_value=mock_ts):
                 response = client.get(_LINK_ACCOUNTS_URL)
         assert response.status_code == 200
-        assert b'name="username"' in response.content
-        assert b'name="password"' in response.content
+        content = response.content.decode()
+        # The login form exposes each credential field, both as a wired input
+        # (name=) and with its visible label.
+        for field_name, label in {"username": "Username", "password": "Password"}.items():
+            assert f'name="{field_name}"' in content
+            assert f">{label}</label>" in content
 
     def test_returns_400_when_idp_not_enabled(self):
         client = Client()
@@ -89,7 +96,9 @@ class TestLinkAccountsPostAuth:
             with patch("accounts.link_accounts.get_tenant_settings", return_value=mock_ts):
                 yield mock_ts
 
-    def test_valid_creds_redirects_to_account_linker(self):
+    def test_valid_creds_redirect_to_confirmation(self):
+        # Post/Redirect/Get: a successful POST 302s to the confirmation page
+        # (rather than rendering it) so a refresh cannot re-POST credentials.
         user = User.objects.create_user(username="linkme", password="secret123")
         client = Client()
 
@@ -97,7 +106,7 @@ class TestLinkAccountsPostAuth:
 
         assert response.status_code == 302
         location = response["Location"]
-        assert location.startswith("/auth/account-linker/?session_ref=")
+        assert location.startswith("/auth/link-accounts/confirm/?session_ref=")
 
         session_ref = location.split("session_ref=", 1)[1]
         assert client.session[f"{SESSION_KEY_PREFIX}{session_ref}"] == str(user.id)
@@ -167,6 +176,84 @@ class TestLinkAccountsPostAuth:
 
         assert response.status_code == 400
         assert _ALREADY_LINKED_MESSAGE.encode() in response.content
+
+
+@pytest.mark.django_db
+class TestLinkAccountsConfirm:
+    """The PRG target: a GET view that renders the confirmation page."""
+
+    @pytest.fixture(autouse=True)
+    def _tenant_mock(self, settings):
+        settings.RATELIMIT_ENABLE = False
+        mock_ts = _mock_tenant_settings(require_idp=True, idp_org_id="")
+        with patch("utils.tenant.decorators.get_tenant_settings", return_value=mock_ts):
+            with patch("accounts.link_accounts.get_tenant_settings", return_value=mock_ts):
+                yield mock_ts
+
+    @staticmethod
+    def _seed_pending_link(client: Client, user_id: str) -> str:
+        """Write a pending session_ref into the client's session; return it."""
+        session_ref = "test-session-ref"
+        session = client.session
+        session[f"{SESSION_KEY_PREFIX}{session_ref}"] = user_id
+        session.save()
+        return session_ref
+
+    def test_renders_confirmation_page_with_valid_ref(self):
+        user = User.objects.create_user(username="linkme", password="secret123")
+        client = Client()
+        session_ref = self._seed_pending_link(client, str(user.id))
+
+        response = client.get(_CONFIRM_URL, {"session_ref": session_ref})
+
+        assert response.status_code == 200
+        content = response.content.decode()
+
+        # The page embeds a single-use session_ref; it must not be cached.
+        assert "no-store" in response.headers.get("Cache-Control", "")
+
+        # The Next button is a GET link to the Account Linker landing.
+        match = re.search(r'href="(/auth/account-linker/\?session_ref=[^"]+)"', content)
+        assert match, "confirmation page is missing the Next link to the account linker"
+        assert match.group(1).endswith(f"session_ref={session_ref}")
+
+        # User-facing chrome: site name + the DAS username (not the email).
+        assert "Test Site has enabled single sign-on" in content
+        assert "linkme" in content
+
+    def test_peek_does_not_consume_the_ref(self):
+        # The landing pops the ref, not the confirmation page, so a refresh
+        # still works — the ref must survive a GET here.
+        user = User.objects.create_user(username="peeker", password="secret123")
+        client = Client()
+        session_ref = self._seed_pending_link(client, str(user.id))
+
+        client.get(_CONFIRM_URL, {"session_ref": session_ref})
+
+        assert client.session[f"{SESSION_KEY_PREFIX}{session_ref}"] == str(user.id)
+
+    def test_blank_site_name_falls_back_to_generic_heading(self, _tenant_mock):
+        _tenant_mock.name = ""
+        user = User.objects.create_user(username="blanksite", password="secret123")
+        client = Client()
+        session_ref = self._seed_pending_link(client, str(user.id))
+
+        response = client.get(_CONFIRM_URL, {"session_ref": session_ref})
+
+        assert response.status_code == 200
+        content = response.content.decode()
+        assert "Single sign-on is enabled for your site" in content
+        # The site-named heading must not render when the name is blank.
+        assert "has enabled single sign-on" not in content
+
+    @pytest.mark.parametrize("params", [{}, {"session_ref": "bogus-never-issued"}], ids=["missing", "unknown"])
+    def test_without_valid_ref_redirects_to_login(self, params):
+        client = Client()
+
+        response = client.get(_CONFIRM_URL, params)
+
+        assert response.status_code == 302
+        assert response["Location"] == _LINK_ACCOUNTS_URL
 
 
 @pytest.mark.django_db

@@ -1,0 +1,15 @@
+{% extends "registration/account_linking_base.html" %}
+{% load i18n %}
+
+{% block content %}
+  <div class="info-card">
+    <h2>
+      {% if site_name %}{% blocktranslate %}{{ site_name }} has enabled single sign-on{% endblocktranslate %}{% else %}{% blocktranslate %}Single sign-on is enabled for your site{% endblocktranslate %}{% endif %}
+    </h2>
+    <p>{% blocktranslate %}Link your {{ username }} account to continue.{% endblocktranslate %}</p>
+  </div>
+
+  <a class="button" href="{{ next_url }}">{% translate "Next" %}</a>
+
+  <p class="helper-text">{% translate "Questions? Reach out to your site admin." %}</p>
+{% endblock %}

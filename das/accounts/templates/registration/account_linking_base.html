@@ -1,0 +1,16 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>EarthRanger</title>
+  <link rel="stylesheet" href="{% static 'css/account_linking.css' %}">
+</head>
+<body>
+  <main class="container">
+    <img class="logo" src="{% static 'img/earth-ranger-logo.svg' %}" alt="EarthRanger — A product of Ai2">
+    {% block content %}{% endblock %}
+  </main>
+</body>
+</html>

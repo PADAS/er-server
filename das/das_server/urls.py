@@ -35,7 +35,12 @@ from accounts.auth0_admin import (
     auth0_callback,
     initiate_auth0_admin_login,
 )
-from accounts.link_accounts import LINK_ACCOUNTS_URL_NAME, link_accounts
+from accounts.link_accounts import (
+    LINK_ACCOUNTS_CONFIRM_URL_NAME,
+    LINK_ACCOUNTS_URL_NAME,
+    link_accounts,
+    link_accounts_confirm,
+)
 from das_server import auth_check, views
 from das_server.admin import dasadmin_site
 from das_server.spectacular_views import SwaggerUIViewWithLogin
@@ -76,6 +81,7 @@ urlpatterns = [
     path("auth/account-linker/callback/", account_linker_callback, name=ACCOUNT_LINKER_CALLBACK_URL_NAME),
     # Self-service legacy-creds entry point for Account Linker
     path("auth/link-accounts/", link_accounts, name=LINK_ACCOUNTS_URL_NAME),
+    path("auth/link-accounts/confirm/", link_accounts_confirm, name=LINK_ACCOUNTS_CONFIRM_URL_NAME),
     # Override admin login with conditional Auth0 integration
     path("admin/login/", admin_login_entrypoint, name="admin_login"),
     # Override admin logout with conditional Auth0 integration
