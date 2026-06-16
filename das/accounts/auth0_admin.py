@@ -18,13 +18,14 @@ from django.conf import settings
 from django.contrib import admin
 from django.contrib.auth import BACKEND_SESSION_KEY, login
 from django.contrib.auth import logout as django_logout
-from django.http import HttpResponse
+from django.http import HttpRequest, HttpResponse
 from django.shortcuts import redirect
 from django.urls import reverse
 from django.utils.http import url_has_allowed_host_and_scheme
 from django.views.decorators.csrf import csrf_exempt
 
 from accounts.backends import Auth0BackendForStaffUsers
+from accounts.models import User
 from utils.efb_token import set_efb_token_cookie
 from utils.tenant import get_tenant_settings
 
@@ -47,8 +48,6 @@ _admin_auth0_client.register(
     },
     server_metadata_url=f"https://{settings.AUTH0_CUSTOM_DOMAIN}/.well-known/openid-configuration",
 )
-
-_auth0_admin_backend = Auth0BackendForStaffUsers()
 
 DEFAULT_ADMIN_NEXT = "/admin/"
 
@@ -174,48 +173,76 @@ def initiate_auth0_admin_login(request):
 
 
 @csrf_exempt
-def auth0_callback(request):
+def auth0_callback(request: HttpRequest) -> HttpResponse:
     """
     Handles Auth0 OAuth callback for Django Admin authentication.
 
     This function processes the OAuth callback from Auth0, exchanges the authorization
-    code for an access token, authenticates the user via the Auth0BackendForStaffUsers
-    backend, and redirects to the originally intended admin destination.
+    code for an access token, resolves the staff user via a tenant-scoped lookup on the
+    Auth0 subject claim, and redirects to the originally intended admin destination.
 
     Flow:
-        1. Exchange authorization code for OAuth2 access token
-        2. Authenticate user using Auth0BackendForStaffUsers backend
-        3. Log the user into Django session
-        4. Retrieve intended destination from session
-        5. Redirect to the intended admin page
+        1. Exchange authorization code for OAuth2 access token (wrapped in try/except -> 500)
+        2. Extract the Auth0 subject (sub) claim from userinfo
+        3. Resolve an active user by auth0_id via the tenant-scoped User manager
+        4. Verify the user is staff, log them in, and redirect to the intended admin page
+
+    The lookup is a tenant-scoped User.objects.get(auth0_id=<sub>, is_active=True) followed by
+    an is_staff check, classifying each failure mode into a distinct outcome:
+
+        - DoesNotExist (no active user for the sub, incl. an inactive linked user) -> 302 to
+          the account-linking on-ramp.
+        - MultipleObjectsReturned -> 403 (defensive; the per-tenant auth0_id constraint makes
+          this unreachable while the DB is healthy).
+        - active user found but is_staff=False -> 403 (already linked; must not be sent to the
+          link page, which rejects already-linked users).
 
     Returns:
-        - HttpResponse (redirect): On successful authentication, redirects to intended admin page
-        - HttpResponse (403): If user authentication fails or user lacks admin privileges
-        - HttpResponse (500): If an error occurs during the OAuth callback process
+        - HttpResponse (redirect 302): On successful authentication, redirects to intended admin page
+        - HttpResponse (redirect 302): On DoesNotExist, redirects to the account-linking page
+        - HttpResponse (400): If the Auth0 userinfo is missing the sub claim
+        - HttpResponse (403): If the resolved user lacks admin privileges, or multiple users match
+        - HttpResponse (500): If an error occurs during the OAuth token exchange
 
     Session variables:
         - auth0_admin_next: Contains the originally intended admin destination URL
     """
     try:
         token = _admin_auth0_client.auth0.authorize_access_token(request)
-        admin_user = _auth0_admin_backend.authenticate(request, token=token)
-        if admin_user:
-            login(request, admin_user, backend=AUTH0_BACKEND_PATH)
-            logger.info(
-                "Successfully authenticated user %s via Auth0 for admin access",
-                admin_user.username,
-            )
-            next_url = request.session.pop("auth0_admin_next", DEFAULT_ADMIN_NEXT)
-            if not url_has_allowed_host_and_scheme(next_url, allowed_hosts={request.get_host()}):
-                next_url = DEFAULT_ADMIN_NEXT
-            response = redirect(next_url)
-            set_efb_token_cookie(request, response)
-            return response
-        else:
-            logger.error("Auth0 authentication failed or user lacks admin privileges")
-            return HttpResponse("Authentication failed - insufficient privileges", status=403)
-
     except Exception as e:
         logger.exception("Error in Auth0 callback: %s", e)
         return HttpResponse("Authentication error", status=500)
+
+    auth0_id = (token.get("userinfo") or {}).get("sub")
+    if not auth0_id:
+        logger.warning("Auth0 admin callback: userinfo missing sub claim")
+        return HttpResponse("Authentication error", status=400)
+
+    try:
+        # Tenant-scoped lookup (auto-isolated by middleware).
+        admin_user = User.objects.get(auth0_id=auth0_id, is_active=True)
+    except User.DoesNotExist:
+        # True no-match for this tenant, which by design includes an inactive linked user
+        # (is_active=True filters them out). Send them to the in-product linking on-ramp.
+        # This redirect is intentional - do NOT "fix" it to a 403.
+        logger.info("Auth0 admin callback: no active user for auth0_id; redirecting to link-accounts")
+        return redirect(reverse("link_accounts"))
+    except User.MultipleObjectsReturned:
+        logger.error("Auth0 admin callback: multiple active users with auth0_id %s", auth0_id)
+        return HttpResponse("Authentication failed", status=403)
+
+    if not admin_user.is_staff:
+        logger.error("Non-staff user %s attempted Auth0 admin authentication", admin_user.username)
+        return HttpResponse("Authentication failed - insufficient privileges", status=403)
+
+    login(request, admin_user, backend=AUTH0_BACKEND_PATH)
+    logger.info(
+        "Successfully authenticated user %s via Auth0 for admin access",
+        admin_user.username,
+    )
+    next_url = request.session.pop("auth0_admin_next", DEFAULT_ADMIN_NEXT)
+    if not url_has_allowed_host_and_scheme(next_url, allowed_hosts={request.get_host()}):
+        next_url = DEFAULT_ADMIN_NEXT
+    response = redirect(next_url)
+    set_efb_token_cookie(request, response)
+    return response

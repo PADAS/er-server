@@ -10,6 +10,7 @@ import urllib.parse
 from unittest.mock import Mock, patch
 
 import pytest
+from django_multitenant.utils import set_current_tenant
 
 from django.contrib.auth import BACKEND_SESSION_KEY, get_user_model
 from django.contrib.auth.models import AnonymousUser
@@ -312,46 +313,43 @@ class TestInitiateAuth0AdminLogin:
 
 
 @pytest.mark.django_db
+@pytest.mark.usefixtures("tenant_settings", "das_tenant_monkeypatch")
 class TestAuth0Callback:
     """Test the auth0_callback function."""
 
     def test_successful_authentication_and_redirect(self, request_factory, admin_user_with_auth0_id):
-        """Test successful Auth0 callback flow."""
+        """Active, linked staff user: the inline tenant-scoped lookup resolves the real user,
+        logs them in, sets the EFB cookie, and redirects to the session's next target."""
         request = request_factory.get("/auth/callback/")
         request.session = {"auth0_admin_next": "/admin/target"}
 
         mock_token = Mock()
+        # token.get("userinfo") returns this dict; .get("sub") matches the fixture's auth0_id.
         mock_token.get.return_value = {"sub": "auth0|123456789", "email": "admin@example.com"}
 
         with patch("accounts.auth0_admin._admin_auth0_client.auth0.authorize_access_token") as mock_token_exchange:
-            with patch("accounts.auth0_admin._auth0_admin_backend.authenticate") as mock_authenticate:
-                with patch("accounts.auth0_admin.login") as mock_login:
-                    with patch("accounts.auth0_admin.set_efb_token_cookie") as mock_set_efb_cookie:
+            with patch("accounts.auth0_admin.login") as mock_login:
+                with patch("accounts.auth0_admin.set_efb_token_cookie") as mock_set_efb_cookie:
 
-                        mock_token_exchange.return_value = mock_token
-                        mock_authenticate.return_value = admin_user_with_auth0_id
+                    mock_token_exchange.return_value = mock_token
 
-                        result = auth0_callback(request)
+                    result = auth0_callback(request)
 
-                        mock_token_exchange.assert_called_once_with(request)
+                    mock_token_exchange.assert_called_once_with(request)
 
-                        mock_authenticate.assert_called_once_with(request, token=mock_token)
+                    mock_login.assert_called_once_with(request, admin_user_with_auth0_id, backend=AUTH0_BACKEND_PATH)
 
-                        mock_login.assert_called_once_with(
-                            request, admin_user_with_auth0_id, backend=AUTH0_BACKEND_PATH
-                        )
+                    mock_set_efb_cookie.assert_called_once_with(request, result)
 
-                        mock_set_efb_cookie.assert_called_once_with(request, result)
+                    assert result.status_code == 302
+                    assert result.url == "/admin/target"
 
-                        assert result.status_code == 302
-                        assert result.url == "/admin/target"
-
-                        assert "auth0_admin_next" not in request.session
+                    assert "auth0_admin_next" not in request.session
 
     def test_common_db_user_without_org_id_claim_authenticates(self, request_factory, admin_user_with_auth0_id):
-        """Common-DB tokens carry no org_id claim. The callback - and the real staff backend,
-        which keys only on the sub claim since ERA-13339 - must still authenticate the user.
-        Only the token exchange is mocked here, so the backend's auth0_id lookup runs for real."""
+        """Common-DB tokens carry no org_id claim. The callback keys only on the sub claim
+        (since ERA-13339) and must still authenticate the user. Only the token exchange is
+        mocked here, so the callback's inline tenant-scoped auth0_id lookup runs for real."""
         request = request_factory.get("/auth/callback/")
         request.session = {"auth0_admin_next": "/admin/target"}
 
@@ -371,23 +369,106 @@ class TestAuth0Callback:
                     assert result.status_code == 302
                     assert result.url == "/admin/target"
 
-    def test_authentication_failure_returns_403(self, request_factory):
-        """Test that authentication failure returns 403."""
+    def test_does_not_exist_redirects_to_link_accounts(self, request_factory):
+        """No active user matches the sub for this tenant: the callback redirects to the
+        in-product account-linking on-ramp (302), not a 403."""
         request = request_factory.get("/auth/callback/")
         request.session = {"auth0_admin_next": "/admin/"}
 
         mock_token = Mock()
+        # A sub with no corresponding user in this tenant.
+        mock_token.get.return_value = {"sub": "auth0|no-such-user", "email": "nobody@example.com"}
 
         with patch("accounts.auth0_admin._admin_auth0_client.auth0.authorize_access_token") as mock_token_exchange:
-            with patch("accounts.auth0_admin._auth0_admin_backend.authenticate") as mock_authenticate:
+            mock_token_exchange.return_value = mock_token
 
+            result = auth0_callback(request)
+
+            assert result.status_code == 302
+            assert result.url == reverse("link_accounts")
+
+    def test_inactive_linked_user_redirects_to_link_accounts(self, request_factory):
+        """An inactive user linked to the sub is filtered out by is_active=True, hitting the
+        DoesNotExist path: the callback redirects to the account-linking on-ramp (302)."""
+        User.objects.create_user(
+            username="inactiveadmin",
+            email="inactive@example.com",
+            is_staff=True,
+            is_active=False,
+            auth0_id="auth0|inactive123",
+        )
+        request = request_factory.get("/auth/callback/")
+        request.session = {"auth0_admin_next": "/admin/"}
+
+        mock_token = Mock()
+        mock_token.get.return_value = {"sub": "auth0|inactive123", "email": "inactive@example.com"}
+
+        with patch("accounts.auth0_admin._admin_auth0_client.auth0.authorize_access_token") as mock_token_exchange:
+            mock_token_exchange.return_value = mock_token
+
+            result = auth0_callback(request)
+
+            assert result.status_code == 302
+            assert result.url == reverse("link_accounts")
+
+    def test_non_staff_user_returns_403_without_redirect(self, request_factory):
+        """An active, linked, non-staff user is resolved but rejected with 403. It must NOT
+        redirect to the link page (which rejects already-linked users -> dead-end)."""
+        User.objects.create_user(
+            username="regularlinked",
+            email="regular@example.com",
+            is_staff=False,
+            is_active=True,
+            auth0_id="auth0|nonstaff123",
+        )
+        request = request_factory.get("/auth/callback/")
+        request.session = {"auth0_admin_next": "/admin/"}
+
+        mock_token = Mock()
+        mock_token.get.return_value = {"sub": "auth0|nonstaff123", "email": "regular@example.com"}
+
+        with patch("accounts.auth0_admin._admin_auth0_client.auth0.authorize_access_token") as mock_token_exchange:
+            mock_token_exchange.return_value = mock_token
+
+            result = auth0_callback(request)
+
+            assert result.status_code == 403
+            assert b"Authentication failed - insufficient privileges" in result.content
+
+    def test_multiple_objects_returned_returns_403(self, request_factory):
+        """Defensive path: if the lookup raises MultipleObjectsReturned, the callback returns
+        403 rather than crashing into a 500 or leaking which users matched."""
+        request = request_factory.get("/auth/callback/")
+        request.session = {"auth0_admin_next": "/admin/"}
+
+        mock_token = Mock()
+        mock_token.get.return_value = {"sub": "auth0|ambiguous", "email": "ambiguous@example.com"}
+
+        with patch("accounts.auth0_admin._admin_auth0_client.auth0.authorize_access_token") as mock_token_exchange:
+            with patch("accounts.auth0_admin.User.objects.get", side_effect=User.MultipleObjectsReturned):
                 mock_token_exchange.return_value = mock_token
-                mock_authenticate.return_value = None  # Authentication fails
 
                 result = auth0_callback(request)
 
                 assert result.status_code == 403
-                assert b"Authentication failed - insufficient privileges" in result.content
+                assert b"Authentication failed" in result.content
+
+    def test_missing_sub_claim_returns_400(self, request_factory):
+        """A token whose userinfo lacks the sub claim returns 400 before any user lookup."""
+        request = request_factory.get("/auth/callback/")
+        request.session = {"auth0_admin_next": "/admin/"}
+
+        mock_token = Mock()
+        # token.get("userinfo") returns {}, so .get("sub") is None.
+        mock_token.get.return_value = {}
+
+        with patch("accounts.auth0_admin._admin_auth0_client.auth0.authorize_access_token") as mock_token_exchange:
+            mock_token_exchange.return_value = mock_token
+
+            result = auth0_callback(request)
+
+            assert result.status_code == 400
+            assert b"Authentication error" in result.content
 
     def test_token_exchange_exception_returns_500(self, request_factory):
         """Test that token exchange exceptions return 500."""
@@ -412,16 +493,46 @@ class TestAuth0Callback:
         mock_token.get.return_value = {"sub": "auth0|123456789", "email": "admin@example.com"}
 
         with patch("accounts.auth0_admin._admin_auth0_client.auth0.authorize_access_token") as mock_token_exchange:
-            with patch("accounts.auth0_admin._auth0_admin_backend.authenticate") as mock_authenticate:
-                with patch("accounts.auth0_admin.login"):
+            with patch("accounts.auth0_admin.login"):
+                with patch("accounts.auth0_admin.set_efb_token_cookie"):
 
                     mock_token_exchange.return_value = mock_token
-                    mock_authenticate.return_value = admin_user_with_auth0_id
 
                     result = auth0_callback(request)
 
                     assert result.status_code == 302
                     assert result.url == "/admin/"
+
+    def test_cross_tenant_active_staff_user_redirects_to_link_accounts(self, request_factory, five_tenants, das_tenant):
+        """An active staff user holding this auth0_id in a DIFFERENT tenant must not satisfy
+        the callback: the tenant-scoped lookup finds no match in the active tenant, so the
+        callback redirects to the link-accounts on-ramp (302) rather than logging anyone in.
+        Proves the admin callback's auth0_id lookup is tenant-isolated."""
+        foreign_sub = "auth0|cross-tenant-admin"
+        User.objects.create_user(
+            username="foreign_tenant_admin",
+            email="foreign-admin@example.com",
+            is_staff=True,
+            is_active=True,
+            auth0_id=foreign_sub,
+            das_tenant=five_tenants[0],
+        )
+        # five_tenants resets the active tenant to None at setup; re-pin to das_tenant so the
+        # callback's lookup runs scoped to the active tenant (mirrors the gate's
+        # test_user_lookup_is_tenant_scoped and the test_permissionsets.py idiom).
+        set_current_tenant(das_tenant)
+
+        request = request_factory.get("/auth/callback/")
+        request.session = {"auth0_admin_next": "/admin/"}
+        mock_token = Mock()
+        mock_token.get.return_value = {"sub": foreign_sub, "email": "foreign-admin@example.com"}
+
+        with patch("accounts.auth0_admin._admin_auth0_client.auth0.authorize_access_token") as mock_token_exchange:
+            mock_token_exchange.return_value = mock_token
+            result = auth0_callback(request)
+
+        assert result.status_code == 302
+        assert result.url == reverse("link_accounts")
 
 
 @pytest.mark.django_db
