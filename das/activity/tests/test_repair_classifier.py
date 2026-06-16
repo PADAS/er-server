@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 from dataclasses import dataclass
 from typing import Any
 from uuid import uuid4
@@ -44,23 +45,30 @@ def _v2_schema(marker: str = "v2") -> str:
     return f'{{"json": {{"marker": "{marker}"}}, "ui": {{"fields": {{}}}}}}'
 
 
+_VALID_V2_STUB: str = json.dumps({"json": {"properties": {}}, "ui": {"fields": {}}})
+
+
 def _classify_revisions(
     *,
     event_type_value: str,
     revisions: list[FakeRevision],
+    current_v2_text: str = _VALID_V2_STUB,
 ) -> RepairClassification:
     """Test helper: build a history and run the pure classifier.
 
     Mirrors the ergonomics of the previous private
     ``_classify_from_revisions`` helper while exercising the real
-    public API (``classify(history)``).
+    public API (``classify(history, current_v2_text)``).
+
+    ``current_v2_text`` defaults to a valid-JSON stub so existing
+    strategy-assertion tests keep working without change.
     """
     history = EventTypeRevisionHistory.from_revisions(
         event_type_value=event_type_value,
         event_type_id=str(uuid4()),
         revisions=revisions,
     )
-    return classify(history)
+    return classify(history, current_v2_text)
 
 
 # ── Pure classifier tests (no DB) ─────────────────────────────────────────
@@ -167,10 +175,11 @@ class TestClassifierPure:
         assert result.strategy == RepairStrategy.SKIP_USER_EDITED
         assert result.post_migration_schema_edits == 2
 
-    def test_reconstruct_from_json_when_snapshot_lacks_schema_field(self):
-        """Snapshot revisions are full but in old data the 'schema' key may
-        be absent (e.g. truncated/legacy export). Reconstruction from V1
-        is not possible — fall through to RECONSTRUCT_FROM_JSON."""
+    def test_reconstruct_from_json_when_no_pre_migration_schema_exists(self):
+        """Snapshot lacks a 'schema' key and nothing before the migration
+        revision carries one either (e.g. truncated/legacy export).
+        Reconstruction from V1 is not possible — fall through to
+        RECONSTRUCT_FROM_JSON."""
         result = _classify_revisions(
             event_type_value="snapshot_no_schema",
             revisions=[
@@ -180,7 +189,37 @@ class TestClassifierPure:
         )
         assert result.strategy == RepairStrategy.RECONSTRUCT_FROM_JSON
         assert result.reconstructed_v1_schema is None
-        assert any("snapshot" in note.lower() for note in result.notes)
+        assert any("before the migration" in note.lower() for note in result.notes)
+
+    def test_rebuild_from_v1_when_no_creation_snapshot_but_update_has_schema(self):
+        """A truncated history with no ACTION_ADDED row is still a
+        REBUILD_FROM_V1 candidate when a pre-migration UPDATE carries the
+        V1 schema verbatim."""
+        v1 = _v1_schema("truncated")
+        result = _classify_revisions(
+            event_type_value="no_snapshot_but_has_v1",
+            revisions=[
+                FakeRevision(1, ACTION_UPDATED, {"schema": v1}),
+                FakeRevision(2, ACTION_UPDATED, {"schema": _v2_schema(), "version": "2"}),
+            ],
+        )
+        assert result.strategy == RepairStrategy.REBUILD_FROM_V1
+        assert result.reconstructed_v1_schema == v1
+
+    def test_rebuild_from_v1_when_snapshot_lacks_schema_but_update_sets_it(self):
+        """Creation snapshot has no schema, but a later pre-migration
+        UPDATE sets the V1 schema → reconstructable → REBUILD_FROM_V1."""
+        v1 = _v1_schema("late_schema")
+        result = _classify_revisions(
+            event_type_value="snapshot_then_v1",
+            revisions=[
+                FakeRevision(1, ACTION_ADDED, {"display": "created without schema"}),
+                FakeRevision(2, ACTION_UPDATED, {"schema": v1}),
+                FakeRevision(3, ACTION_UPDATED, {"schema": _v2_schema(), "version": "2"}),
+            ],
+        )
+        assert result.strategy == RepairStrategy.REBUILD_FROM_V1
+        assert result.reconstructed_v1_schema == v1
 
     def test_reconstruct_from_json_when_no_creation_snapshot_revision(self):
         """If only updates exist (e.g. revisions were truncated), we cannot
@@ -260,6 +299,100 @@ class TestClassifyEventTypeIntegration:
         assert classification.post_migration_schema_edits == 1
 
 
+# ── current_v2_schema propagation tests ──────────────────────────
+
+
+class TestCurrentV2SchemaInClassification:
+    """Verify that classify parses current_v2_text once and attaches the
+    result to the classification, without allowing the parse result to
+    influence strategy selection."""
+
+    def _rebuild_revisions(self) -> list[FakeRevision]:
+        return [
+            FakeRevision(1, ACTION_ADDED, {"schema": _v1_schema(), "version": "1"}),
+            FakeRevision(2, ACTION_UPDATED, {"schema": _v2_schema(), "version": "2"}),
+        ]
+
+    def _reconstruct_revisions(self) -> list[FakeRevision]:
+        # Snapshot lacks 'schema' → V1 not reconstructable → RECONSTRUCT_FROM_JSON
+        return [
+            FakeRevision(1, ACTION_ADDED, {"display": "no schema"}),
+            FakeRevision(2, ACTION_UPDATED, {"schema": _v2_schema(), "version": "2"}),
+        ]
+
+    def test_rebuild_eligible_with_valid_v2_text_attaches_parsed_dict(self):
+        v2_text = json.dumps({"json": {"properties": {"x": {}}}, "ui": {"fields": {}}})
+        result = _classify_revisions(
+            event_type_value="rebuild_valid",
+            revisions=self._rebuild_revisions(),
+            current_v2_text=v2_text,
+        )
+        assert result.strategy == RepairStrategy.REBUILD_FROM_V1
+        assert result.current_v2_schema == json.loads(v2_text)
+
+    def test_reconstruct_eligible_with_valid_v2_text_attaches_parsed_dict(self):
+        v2_text = json.dumps({"json": {"properties": {}}, "ui": {"fields": {}}})
+        result = _classify_revisions(
+            event_type_value="reconstruct_valid",
+            revisions=self._reconstruct_revisions(),
+            current_v2_text=v2_text,
+        )
+        assert result.strategy == RepairStrategy.RECONSTRUCT_FROM_JSON
+        assert result.current_v2_schema == json.loads(v2_text)
+
+    def test_rebuild_eligible_with_invalid_v2_text_is_skipped_as_user_edited(self):
+        result = _classify_revisions(
+            event_type_value="rebuild_bad_json",
+            revisions=self._rebuild_revisions(),
+            current_v2_text="{not valid json",
+        )
+        # An unparseable current V2 cannot have come from the migration tool
+        # (which always emits via json.dumps), so it must be a manual edit —
+        # treat it as SKIP_USER_EDITED regardless of history.
+        assert result.strategy == RepairStrategy.SKIP_USER_EDITED
+        assert result.current_v2_schema is None
+        assert any("not valid json" in n.lower() for n in result.notes)
+
+    def test_reconstruct_eligible_with_invalid_v2_text_is_skipped_as_user_edited(self):
+        result = _classify_revisions(
+            event_type_value="reconstruct_bad_json",
+            revisions=self._reconstruct_revisions(),
+            current_v2_text="{not valid json",
+        )
+        # An unparseable current V2 cannot have come from the migration tool
+        # (which always emits via json.dumps), so it must be a manual edit —
+        # treat it as SKIP_USER_EDITED regardless of history.
+        assert result.strategy == RepairStrategy.SKIP_USER_EDITED
+        assert result.current_v2_schema is None
+        assert any("not valid json" in n.lower() for n in result.notes)
+
+    def test_not_migrated_has_no_current_v2_schema(self):
+        result = _classify_revisions(
+            event_type_value="not_migrated_no_schema",
+            revisions=[
+                FakeRevision(1, ACTION_ADDED, {"schema": _v2_schema(), "version": "2"}),
+            ],
+            current_v2_text=json.dumps({"json": {}, "ui": {}}),
+        )
+        assert result.strategy == RepairStrategy.NOT_MIGRATED
+        # NOT_MIGRATED never consumes the V2; current_v2_schema stays None.
+        assert result.current_v2_schema is None
+
+    def test_skip_user_edited_has_no_current_v2_schema(self):
+        result = _classify_revisions(
+            event_type_value="skip_user_edited_no_schema",
+            revisions=[
+                FakeRevision(1, ACTION_ADDED, {"schema": _v1_schema(), "version": "1"}),
+                FakeRevision(2, ACTION_UPDATED, {"schema": _v2_schema(), "version": "2"}),
+                FakeRevision(3, ACTION_UPDATED, {"schema": _v2_schema("user")}),
+            ],
+            current_v2_text=json.dumps({"json": {}, "ui": {}}),
+        )
+        assert result.strategy == RepairStrategy.SKIP_USER_EDITED
+        # SKIP_USER_EDITED never consumes the V2; current_v2_schema stays None.
+        assert result.current_v2_schema is None
+
+
 # ── Dataclass return-shape sanity ────────────────────────────────
 
 
@@ -273,3 +406,4 @@ def test_repair_classification_defaults():
     assert classification.post_migration_schema_edits == 0
     assert classification.reconstructed_v1_schema is None
     assert classification.notes == []
+    assert classification.current_v2_schema is None

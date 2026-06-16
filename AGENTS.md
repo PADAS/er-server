@@ -81,6 +81,20 @@ Cache aliases configured with `KEY_FUNCTION: utils.tenant.cache.make_cache_key` 
 
 When reviewing or writing code that uses one of these cache aliases, **do not add an explicit `tenant_id` to the key string** — it would double-prefix at the backend. Trust the `KEY_FUNCTION`. Only build a tenant-prefixed key by hand when bypassing the configured cache (e.g. talking to a raw `redis.Redis` client like `MultitenantRedisClient`, where the prefix is applied by the wrapper, not by you).
 
+### Data migrations that iterate tenant-scoped or revision models
+
+In a `RunPython` data migration, `apps.get_model(...)` returns **historical `__fake__` models**. Under django-multitenant (4.1.1), **constructing** an instance of a historical `TenantModel` whose tenant config (`TenantMeta` / `tenant_id`) did not survive state rendering raises `AttributeError: apps.get_model method should not be used to get the model <X>`. The error triggers on **iteration** (`list(Model.objects...)`, `for row in qs`), **not** on building the queryset — so a migration can look fine until the rows are materialized.
+
+This is **model-specific and not predictable**: `EventType` survives (it keeps a `TenantMeta`), but `DASTenant` and the dynamically generated `*Revision` models (e.g. `EventTypeRevision`) do **not**.
+
+Patterns to use:
+
+- **A model you must iterate whose historical version crashes** (e.g. `DASTenant`): import the **live** model directly (`from core.models.core import DASTenant`). This is intentional and load-bearing — do not "clean it up" to `apps.get_model`.
+- **A revision / `*Revision` model you only need to read**: query with `.values_list(..., named=True)` (or `.values()`) so **no model instance is constructed** (named `Row` tuples satisfy duck-typed consumers). See `activity/schemas/ops/revision_history.py::fetch_in_migration`.
+- **Wrap tenant-scoped queries** in `UnsetDASTenantContextManager()` and **materialize** (`list(...)`) the result **inside** that context — do not return a lazy queryset that gets evaluated after the context exits.
+
+**Testing**: drive the `RunPython` body with the **historical app-state** — `MigrationExecutor(connection).loader.project_state((app_label, parent_migration)).apps` — **not** the live `django.apps.apps`. The live registry hides this class of bug because live models keep their tenant attributes. (Reference example: `activity/tests/test_repair_upstream_integration.py`.)
+
 ## Dynamic schemas (`das/schemas/`)
 
 `DynamicSchemaFromSourceView` emits choice fields in two interchangeable shapes — **`enum` + `x-enumExtra`** (default) and **`oneOf`** — picked per request via `?s_format`, per subclass via `default_format`, or per call site via `schemas.format_serializers.output_format_override(...)`.

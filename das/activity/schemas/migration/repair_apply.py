@@ -3,7 +3,7 @@
 This module is the bridge between :mod:`activity.schemas.migration.repair`
 (pure classification) and the upstream ``schema_migration_tool`` library
 (transformation + repair). The sole consumer today is the Django data
-migration ``0202_repair_v2_collection_schemas``, which applies the repair
+migration ``0203_repair_v2_collection_schemas``, which applies the repair
 automatically on every environment.
 
 The helper is **pure**: it accepts revision-shaped objects and a schema
@@ -16,62 +16,52 @@ Strategy dispatch
 * :attr:`RepairStrategy.NOT_MIGRATED` and
   :attr:`RepairStrategy.SKIP_USER_EDITED` return :class:`RepairOutcome`
   with ``new_schema_text=None`` (no-op).
+* An unparseable current V2 JSON text is classified as
+  :attr:`RepairStrategy.SKIP_USER_EDITED` by
+  :func:`~activity.schemas.migration.repair.classify` (since only a
+  manual out-of-band edit can produce non-``json.dumps`` output). The
+  ``SKIP_USER_EDITED`` branch returns immediately before reaching the
+  repair helpers, so both helpers always receive a parsed dict in
+  ``classification.current_v2_schema``.
 * :attr:`RepairStrategy.REBUILD_FROM_V1` re-runs ``transform_schema`` on
-  the reconstructed V1 (this is the entry point that 0.1.4 fixed).
+  the reconstructed V1, then converts each inline hardcoded choice to the
+  ``$ref`` form used by V2 choice fields, sourcing the resolved field name
+  from ``classification.current_v2_schema``'s intact ``json`` section —
+  without any DB access or Choice creation.
 * :attr:`RepairStrategy.RECONSTRUCT_FROM_JSON` calls ``repair_v2_schema``
-  from the upstream library, which infers ``ui.fields`` from the JSON
-  section using safe defaults. The branch automatically short-circuits
-  to ``SKIPPED_JSON_RECONSTRUCTION_DEFERRED`` when the upstream is not
-  importable (the :data:`REPAIR_V2_AVAILABLE` gate).
+  from the upstream library against ``classification.current_v2_schema``
+  (the already-parsed corrupted V2 dict), which infers ``ui.fields`` from
+  the JSON section using safe defaults.
 
 Upstream availability
 ---------------------
 
-``repair_v2_schema`` ships under ``schema_migration_tool.repair`` and is
-pinned at ``>=0.1.5`` in ``pyproject.toml``. The :data:`REPAIR_V2_AVAILABLE`
-flag and the surrounding ``try/except ImportError`` are kept as defensive
-gates only — in practice the symbol resolves on every supported
-environment.
+The ``schema_migration_tool`` package is a **hard dependency**, pinned at
+``==0.1.5.2`` in ``pyproject.toml``. Its symbols (``transform_schema``,
+``preprocess_template_vars``, ``repair_v2_schema``, ``LogCollector``) are
+imported unconditionally. A missing or partial install fails fast at
+import time rather than silently degrading.
 """
 
 from __future__ import annotations
 
 import json
+import logging
 from dataclasses import dataclass, field
-from typing import Any, Callable
+from typing import Any
+from urllib.parse import parse_qs, urlparse
+
+from schema_migration_tool import LogCollector, transform_schema
+from schema_migration_tool.batch.normalize_export import preprocess_template_vars
+from schema_migration_tool.repair import repair_v2_schema
 
 from activity.schemas.ops.revision_history import EventTypeRevisionHistory
 
+from .choice_processor import ChoiceProcessor
 from .repair import RepairClassification, RepairStrategy, classify
+from .utils import get_field_schema_from_prop_path, rewrite_field_to_ref
 
-# ── Upstream availability detection ──────────────────────────────────────
-
-
-try:
-    from schema_migration_tool import LogCollector, transform_schema
-    from schema_migration_tool.batch.normalize_export import preprocess_template_vars
-
-    TRANSFORM_AVAILABLE = True
-except ImportError:  # pragma: no cover — defensive
-    TRANSFORM_AVAILABLE = False
-    LogCollector = None  # type: ignore[assignment]
-    transform_schema = None  # type: ignore[assignment]
-    preprocess_template_vars = None  # type: ignore[assignment]
-
-try:
-    # Public API per the migration-tool team's handover
-    # (``docs/architecture/v2-schema-repair-upstream-contract.md``):
-    # the repair function ships under the ``schema_migration_tool.repair``
-    # submodule, introduced in v0.1.5. The pin in ``pyproject.toml``
-    # enforces ``>=0.1.5``; the try/except remains as a defensive gate
-    # for non-standard install layouts.
-    from schema_migration_tool.repair import repair_v2_schema
-
-    REPAIR_V2_AVAILABLE = True
-except ImportError:  # pragma: no cover — pin enforces availability
-    REPAIR_V2_AVAILABLE = False
-    repair_v2_schema = None  # type: ignore[assignment]
-
+logger = logging.getLogger(__name__)
 
 # ── Outcome shape ─────────────────────────────────────────────────────────
 
@@ -86,8 +76,8 @@ class RepairAction(str):
 
 SKIPPED_NOT_MIGRATED = "skipped_not_migrated"
 SKIPPED_USER_EDITED = "skipped_user_edited"
-SKIPPED_JSON_RECONSTRUCTION_DEFERRED = "skipped_json_reconstruction_deferred"
 SKIPPED_ALREADY_CORRECT = "skipped_already_correct"
+SKIPPED_NEEDS_REVIEW = "skipped_needs_review"
 APPLIED_REBUILT_FROM_V1 = "applied_rebuilt_from_v1"
 APPLIED_RECONSTRUCTED_FROM_JSON = "applied_reconstructed_from_json"
 ERROR_PARSE = "error_parse"
@@ -154,7 +144,7 @@ def attempt_repair(
         JSON text). Used directly for the
         :attr:`RepairStrategy.RECONSTRUCT_FROM_JSON` path.
     """
-    classification = classify(history)
+    classification = classify(history, schema_text)
 
     if classification.strategy == RepairStrategy.NOT_MIGRATED:
         return RepairOutcome(classification=classification, action=SKIPPED_NOT_MIGRATED)
@@ -165,33 +155,34 @@ def attempt_repair(
     if classification.strategy == RepairStrategy.REBUILD_FROM_V1:
         return _apply_rebuild_from_v1(classification)
 
-    # RECONSTRUCT_FROM_JSON — short-circuit only if upstream is missing.
-    if not REPAIR_V2_AVAILABLE:
-        return RepairOutcome(
-            classification=classification,
-            action=SKIPPED_JSON_RECONSTRUCTION_DEFERRED,
-            metadata={"repair_v2_available": False},
-        )
-    return _apply_reconstruct_from_json(classification, schema_text)
+    # RECONSTRUCT_FROM_JSON
+    return _apply_reconstruct_from_json(classification)
 
 
 # ── Strategy-specific apply helpers ──────────────────────────────
 
 
 def _apply_rebuild_from_v1(classification: RepairClassification) -> RepairOutcome:
-    """Re-run the (now-fixed) migration tool against the reconstructed V1."""
-    if not TRANSFORM_AVAILABLE:  # pragma: no cover — pyproject pins schema_migration_tool >=0.1.5
-        return RepairOutcome(
-            classification=classification,
-            action=ERROR_UNEXPECTED,
-            errors=["schema_migration_tool transform_schema is not importable"],
-        )
-    # Narrow the optional imports for the type checker; the gate above guarantees
-    # all three symbols are non-None at this point.
-    assert preprocess_template_vars is not None
-    assert transform_schema is not None
-    assert LogCollector is not None
+    """Re-run the migration tool against the reconstructed V1.
 
+    After ``transform_schema`` produces a fresh V2 (with collection fields
+    correct), choice fields come out with inline hardcoded choices —
+    ``anyOf: [{title: "Hardcoded", oneOf: [...]}]``. This function converts
+    each to the ``$ref`` form used by V2 choice fields, sourcing the resolved
+    field name from ``classification.current_v2_schema``'s ``json`` section —
+    which was unaffected by the collection bug and still holds the correct
+    ``$ref`` for each choice field — without any DB access or Choice creation.
+
+    The V1 schema parse (``preprocess_template_vars`` + ``json.loads``) is
+    kept local here because it operates on the upstream-preprocessed
+    transform input, not on stored data. It is a transform-step concern,
+    intentionally decoupled from the stored-data precondition handled by
+    ``classify``.
+
+    If a specific field has no ``$ref`` in the corrupted V2 (e.g. it was
+    never resolved), the fresh hardcoded field is left as-is and the path
+    is logged as unresolved in ``metadata``.
+    """
     v1_text = classification.reconstructed_v1_schema
     if not v1_text:
         return RepairOutcome(
@@ -230,48 +221,101 @@ def _apply_rebuild_from_v1(classification: RepairClassification) -> RepairOutcom
             metadata={"warnings": upstream_warnings},
         )
 
+    # Re-derive choice $ref URLs from the corrupted V2.  The collection bug
+    # was confined to ui.fields; the json section's $ref pointers are intact
+    # and encode the resolved choice-field name in each ?field= query param.
+    assert classification.current_v2_schema is not None
+    corrupted_v2_obj: dict[str, Any] = classification.current_v2_schema
+    unresolved_paths: list[list[str]] = []
+    hardcoded = ChoiceProcessor().get_hardcoded_choices(v2_obj)
+    for hc in hardcoded:
+        corrupted_field = get_field_schema_from_prop_path(corrupted_v2_obj, hc.property_path)
+        ref_name = _extract_ref_field_name(corrupted_field)
+        if ref_name is not None:
+            fresh_field = get_field_schema_from_prop_path(v2_obj, hc.property_path)
+            if fresh_field is not None:
+                rewrite_field_to_ref(fresh_field, ref_name)
+        else:
+            unresolved_paths.append(hc.property_path)
+            logger.warning(
+                "repair_apply: no $ref found in corrupted V2 for choice field at path %s "
+                "(event_type=%s); leaving hardcoded",
+                hc.property_path,
+                classification.event_type_value,
+            )
+
+    metadata: dict[str, Any] = {"warnings": upstream_warnings}
+    if unresolved_paths:
+        metadata["unresolved_hardcoded_choice_paths"] = unresolved_paths
+        metadata["warnings"] = upstream_warnings + [
+            f"Could not re-derive $ref for hardcoded choice field(s) at path(s): "
+            f"{unresolved_paths}; fields left with inline choices"
+        ]
+
     return RepairOutcome(
         classification=classification,
         action=APPLIED_REBUILT_FROM_V1,
         new_schema_text=json.dumps(v2_obj, indent=2),
-        metadata={"warnings": upstream_warnings},
+        metadata=metadata,
     )
+
+
+def _extract_ref_field_name(field_schema: dict | None) -> str | None:
+    """Extract the ``?field=NAME`` value from the first ``$ref`` in a field's ``anyOf``.
+
+    Returns ``None`` when:
+    - ``field_schema`` is ``None`` (path not found in the corrupted V2),
+    - ``anyOf`` is absent or empty,
+    - no entry in ``anyOf`` has a ``$ref`` key,
+    - the ``$ref`` URL has no ``field`` query parameter, or the value is empty.
+    """
+    if not field_schema:
+        return None
+    any_of = field_schema.get("anyOf", [])
+    for entry in any_of:
+        ref = entry.get("$ref")
+        if not ref:
+            continue
+        parsed = urlparse(ref)
+        values = parse_qs(parsed.query).get("field", [])
+        name = values[0] if values else None
+        if name:
+            return name
+    return None
 
 
 def _apply_reconstruct_from_json(
     classification: RepairClassification,
-    schema_text: str,
 ) -> RepairOutcome:
     """Hand the corrupted V2 schema to the upstream V2-to-V2 repair utility.
 
-    Per the migration-tool team's contract
-    (``docs/architecture/v2-schema-repair-upstream-contract.md``):
+    The parsed V2 schema is taken from ``classification.current_v2_schema``.
+
+    Per the upstream contract (``==0.1.5.2``,
+    ``docs/architecture/v2-schema-repair-upstream-contract.md``):
 
     * ``repair_v2_schema(v2_schema, logger=LogCollector())`` returns a
       ``RepairResult(repaired_schema, was_modified, changes)``.
     * Errors are reported via the ``logger`` parameter, not by raising.
     * Each ``RepairChange`` carries ``field_path``, ``action``, ``details``
       — surfaced in :attr:`RepairOutcome.metadata` for log correlation.
+    * ``result.changes`` can be **non-empty even when ``was_modified=False``**.
+      Those entries are diagnostics (actions such as ``skipped_unknown_type``,
+      ``ambiguous_collision_kept``, etc.) — corruption beyond the
+      collection-key bug that the repair tool refuses to auto-fix.  When
+      present, the outcome is :data:`SKIPPED_NEEDS_REVIEW` rather than
+      :data:`SKIPPED_ALREADY_CORRECT`, so callers can surface these for
+      manual review.
+    * Warnings flag lossy-but-correct repairs (e.g. a destroyed COLLECTION
+      container rebuilt with defaults).  They are captured in
+      ``metadata["warnings"]`` on both applied repairs and needs-review skips.
     """
-    # ``attempt_repair`` already guards on REPAIR_V2_AVAILABLE before
-    # routing here; the asserts narrow the optional imports for the type
-    # checker (the pin in pyproject.toml guarantees both are non-None).
-    assert repair_v2_schema is not None
-    assert LogCollector is not None
-
-    try:
-        v2_obj = json.loads(schema_text)
-    except (TypeError, ValueError, json.JSONDecodeError) as exc:
-        return RepairOutcome(
-            classification=classification,
-            action=ERROR_PARSE,
-            errors=[f"Failed to parse current V2 schema: {exc}"],
-        )
+    assert classification.current_v2_schema is not None
+    v2_obj: dict[str, Any] = classification.current_v2_schema
 
     log_collector = LogCollector({"event_type": classification.event_type_value})
-    repair_call: Callable[..., Any] = repair_v2_schema  # type: ignore[assignment]
     try:
-        result = repair_call(v2_obj, logger=log_collector)
+        result = repair_v2_schema(v2_obj, logger=log_collector)
     except Exception as exc:  # noqa: BLE001 — defensive belt-and-braces
         return RepairOutcome(
             classification=classification,
@@ -290,12 +334,33 @@ def _apply_reconstruct_from_json(
     was_modified = bool(getattr(result, "was_modified", False))
     repaired_obj = getattr(result, "repaired_schema", v2_obj)
     changes = getattr(result, "changes", []) or []
+    upstream_warnings = [str(w.get("message")) for w in log_collector.get_warnings() or []]
 
     if not was_modified:
+        if not changes:
+            return RepairOutcome(
+                classification=classification,
+                action=SKIPPED_ALREADY_CORRECT,
+                metadata={"upstream_changes": len(changes)},
+            )
+        # Diagnostics present but no mutations — queue for manual review.
         return RepairOutcome(
             classification=classification,
-            action=SKIPPED_ALREADY_CORRECT,
-            metadata={"upstream_changes": 0},
+            action=SKIPPED_NEEDS_REVIEW,
+            metadata={
+                "upstream_changes": len(changes),
+                # Cap at 25 entries to keep Cloud Logging payloads small while
+                # still giving operators enough context to debug surprises.
+                "upstream_change_summary": [
+                    {
+                        "action": getattr(c, "action", ""),
+                        "field_path": getattr(c, "field_path", ""),
+                        "details": getattr(c, "details", ""),
+                    }
+                    for c in changes[:25]
+                ],
+                "warnings": upstream_warnings,
+            },
         )
 
     return RepairOutcome(
@@ -314,5 +379,6 @@ def _apply_reconstruct_from_json(
                 }
                 for c in changes[:25]
             ],
+            "warnings": upstream_warnings,
         },
     )

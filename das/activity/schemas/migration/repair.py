@@ -1,22 +1,18 @@
 """V2 schema collection repair — revision-driven classification.
 
-Background
-----------
-Earlier versions of the schema migration tool (<= 0.1.3.1) emitted broken
-``ui.fields`` entries for collection (array-of-object) fields: nested IDs
-used local names instead of dot-prefixed names, ``parent`` references and
-``leftColumn`` lists pointed at the wrong containers, and deeply-nested
-collections silently dropped their grandchildren. The bug was confined to
-the ``ui`` section — the ``json`` section was always structurally correct.
+The collection bug in V2 schema migration affected only the ``ui.fields``
+section: nested IDs used local names instead of dot-prefixed names,
+``parent`` references and ``leftColumn`` lists pointed at the wrong
+containers, and deeply-nested collections silently dropped their
+grandchildren. The ``json`` section is the source of truth and was
+unaffected.
 
-The migration tool team has fixed the bug in 0.1.4 and shipped a
-V2-to-V2 repair utility (``repair_v2_schema``) in 0.1.5. This module is
-the DAS-side orchestration that decides, per ``EventType``, which of the
-four outcomes documented by :class:`RepairStrategy` applies:
+This module is the DAS-side orchestration that decides, per ``EventType``,
+which of the four outcomes documented by :class:`RepairStrategy` applies:
 
 * :attr:`RepairStrategy.NOT_MIGRATED` — never V1; nothing to fix.
-* :attr:`RepairStrategy.REBUILD_FROM_V1` — re-run the (fixed) migration
-  from a reconstructable V1 schema.
+* :attr:`RepairStrategy.REBUILD_FROM_V1` — re-run the migration tool
+  against the reconstructed V1 schema.
 * :attr:`RepairStrategy.RECONSTRUCT_FROM_JSON` — hand the corrupted V2
   schema to the upstream repair utility, which infers the correct
   ``ui.fields`` from the JSON section using safe defaults.
@@ -34,16 +30,21 @@ of a V1 -> V2 flip.
 Post-migration user edit: any revision after the migration revision whose
 ``data`` dict contains ``schema``.
 
-V1 reconstruction: walk forward from the first revision (sequence 1, full
-snapshot) applying each ``ACTION_UPDATED`` diff up to but not including
-the migration revision. The result is the V1 ``schema`` text-field value
-as it stood immediately before migration.
+V1 reconstruction: take the ``schema`` value of the latest revision that
+carries one strictly before the migration revision. The DAS revision
+system records the field's full text verbatim on every write, so no
+``ACTION_ADDED`` snapshot anchor is required — a truncated history (or a
+snapshot lacking a ``schema`` field) is still reconstructable as long as
+some pre-migration revision set one. The result is the V1 ``schema``
+text-field value as it stood immediately before migration.
 """
 
 from __future__ import annotations
 
+import json
 from dataclasses import dataclass, field
 from enum import Enum
+from typing import Any
 
 from activity.schemas.ops.revision_history import EventTypeRevisionHistory, fetch
 
@@ -65,8 +66,8 @@ class RepairStrategy(str, Enum):
     REBUILD_FROM_V1 = "rebuild_from_v1"
     """Migration revision found, no post-migration user edits, and the V1
     schema can be reconstructed from pre-migration revisions. The apply
-    layer re-runs the (fixed) migration tool against the reconstructed V1
-    to produce a clean V2 schema."""
+    layer re-runs the migration tool against the reconstructed V1 to
+    produce a clean V2 schema."""
 
     RECONSTRUCT_FROM_JSON = "reconstruct_from_json"
     """Migration revision found, no post-migration user edits, but V1 is
@@ -113,6 +114,7 @@ class RepairClassification:
     post_migration_schema_edits: int = 0
     reconstructed_v1_schema: str | None = None
     notes: list[str] = field(default_factory=list)
+    current_v2_schema: dict[str, Any] | None = None
 
 
 # ── Public API ────────────────────────────────────────────────────────────
@@ -131,16 +133,28 @@ def classify_event_type(event_type) -> RepairClassification:
     :func:`activity.schemas.ops.revision_history.fetch_in_migration` and
     call :func:`classify` directly.
     """
-    return classify(fetch(event_type))
+    return classify(fetch(event_type), event_type.schema or "")
 
 
-def classify(history: EventTypeRevisionHistory) -> RepairClassification:
+def classify(history: EventTypeRevisionHistory, current_v2_text: str) -> RepairClassification:
     """Pure classification logic — no Django ORM access.
 
     Drives the strategy decision off the primitives exposed by
     :class:`EventTypeRevisionHistory`. Tests can build a history from
     revision-shaped stubs to exercise this without standing up the
     revision system.
+
+    The ``current_v2_text`` argument is the current ``EventType.schema``
+    JSON text (the potentially corrupted V2). It is parsed here once, as
+    the third gate after the two history-based checks, so that the apply
+    layer can rely on an already-validated ``classification.current_v2_schema``
+    dict rather than re-parsing. If the current V2 is not valid JSON, it
+    cannot have been emitted by the migration tool (which always writes via
+    ``json.dumps``), so it must be the result of a manual out-of-band edit —
+    treat it as a user modification and return :attr:`RepairStrategy.SKIP_USER_EDITED`
+    immediately without consulting the history-based strategy gates that follow.
+    For valid JSON the parsed dict is attached to the classification so the
+    apply layer never re-parses.
     """
     migration = history.migration_revision()
     if migration is None:
@@ -162,6 +176,17 @@ def classify(history: EventTypeRevisionHistory) -> RepairClassification:
             notes=[f"{post_edits} post-migration revision(s) modified schema; skipping"],
         )
 
+    try:
+        parsed: dict[str, Any] = json.loads(current_v2_text)
+    except (TypeError, ValueError, json.JSONDecodeError):
+        return RepairClassification(
+            event_type_value=history.event_type_value,
+            event_type_id=history.event_type_id,
+            strategy=RepairStrategy.SKIP_USER_EDITED,
+            migration_revision_sequence=migration.sequence,
+            notes=["current V2 schema is not valid JSON; treating as user-modified and skipping"],
+        )
+
     reconstructed, recon_notes = history.schema_just_before_migration()
     if reconstructed is not None:
         return RepairClassification(
@@ -171,6 +196,7 @@ def classify(history: EventTypeRevisionHistory) -> RepairClassification:
             migration_revision_sequence=migration.sequence,
             reconstructed_v1_schema=reconstructed,
             notes=recon_notes,
+            current_v2_schema=parsed,
         )
 
     return RepairClassification(
@@ -179,4 +205,5 @@ def classify(history: EventTypeRevisionHistory) -> RepairClassification:
         strategy=RepairStrategy.RECONSTRUCT_FROM_JSON,
         migration_revision_sequence=migration.sequence,
         notes=recon_notes or ["V1 schema not reconstructable from revisions"],
+        current_v2_schema=parsed,
     )

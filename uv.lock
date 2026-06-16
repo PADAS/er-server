@@ -1000,7 +1000,7 @@ requires-dist = [
     { name = "drf-extra-fields", specifier = "==3.7.0" },
     { name = "drf-spectacular", specifier = "==0.28.0" },
     { name = "drf-spectacular-sidecar", specifier = "==2025.6.1" },
-    { name = "event-type-schema-migration-tool", specifier = "==0.1.4.1", index = "https://test.pypi.org/simple/" },
+    { name = "event-type-schema-migration-tool", specifier = "==0.1.5.2", index = "https://test.pypi.org/simple/" },
     { name = "eventlet", specifier = "==0.40.3" },
     { name = "fastkml", extras = ["lxml"], specifier = "==1.3.0" },
     { name = "fonttools", specifier = ">=4.60.2" },
@@ -1746,14 +1746,14 @@ wheels = [
 
 [[package]]
 name = "event-type-schema-migration-tool"
-version = "0.1.4.1"
+version = "0.1.5.2"
 source = { registry = "https://test.pypi.org/simple/" }
 dependencies = [
     { name = "pyjson5" },
 ]
-sdist = { url = "https://test-files.pythonhosted.org/packages/c2/d9/6d9f88d5e4acbfbd7a38d5c5b76d38db4479ce17d898d22649a26e10beb3/event_type_schema_migration_tool-0.1.4.1.tar.gz", hash = "sha256:6484b8a21a7a05f4e434e2868eb2272891ef6dc4bce7ebb442011a54cb1a63c8", size = 19806, upload-time = "2026-06-04T01:45:33.323Z" }
+sdist = { url = "https://test-files.pythonhosted.org/packages/fd/db/6b353b961ff88f7d1b8e00ef1dc2b73a0884237a4969cdeb98872f6dd73e/event_type_schema_migration_tool-0.1.5.2.tar.gz", hash = "sha256:e6e91dad202e62c3350b7e1e75d108d06faedecc7c5f3b60c2e63fe358a3a2e0", size = 32345, upload-time = "2026-06-12T17:18:03.659Z" }
 wheels = [
-    { url = "https://test-files.pythonhosted.org/packages/0e/01/7d50f8ecaef9aa22ab08703ee2193e2ccd8de48f7675018d852c9d011e78/event_type_schema_migration_tool-0.1.4.1-py3-none-any.whl", hash = "sha256:0bff0deadceaaa4641b0913354b1996950809fd4ce46ff3642bf6ab9ab55f2eb", size = 28143, upload-time = "2026-06-04T01:45:32.079Z" },
+    { url = "https://test-files.pythonhosted.org/packages/94/3a/4283e804cd4e36c0f7a8c39b673dbf45c479c708f1afe38b4312ec8c9526/event_type_schema_migration_tool-0.1.5.2-py3-none-any.whl", hash = "sha256:5a0afa452e2d621a414fb77d6f37895fa38b86dd4e7bd1e5bfb37f5753598a23", size = 41982, upload-time = "2026-06-12T17:18:02.467Z" },
 ]
 
 [[package]]

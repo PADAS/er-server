@@ -23,13 +23,16 @@ from activity.schemas.migration.repair_apply import (
     ERROR_REPAIR,
     ERROR_TRANSFORM,
     SKIPPED_ALREADY_CORRECT,
-    SKIPPED_JSON_RECONSTRUCTION_DEFERRED,
+    SKIPPED_NEEDS_REVIEW,
     SKIPPED_NOT_MIGRATED,
     SKIPPED_USER_EDITED,
     attempt_repair,
 )
 from activity.schemas.ops.revision_history import EventTypeRevisionHistory
 from revision.manager import ACTION_ADDED, ACTION_UPDATED
+
+# Stable $ref URL shape (mirrors rewrite_field_to_ref)
+_CHOICES_URL = "/api/v2.0/schemas/choices.json"
 
 # ── Test stubs ────────────────────────────────────────────────────────────
 
@@ -104,6 +107,27 @@ class TestAttemptRepairRouting:
         outcome = attempt_repair(history=history, schema_text=_v2_text("user"))
         assert outcome.action == SKIPPED_USER_EDITED
         assert outcome.classification.strategy == RepairStrategy.SKIP_USER_EDITED
+
+    def test_unparseable_v2_schema_is_skipped_as_user_edited_without_attempting_repair(self):
+        """A REBUILD_FROM_V1-eligible history with an unparseable current V2 must
+        be classified as SKIP_USER_EDITED and return SKIPPED_USER_EDITED immediately,
+        without calling transform_schema or repair_v2_schema."""
+        history = _history(
+            [
+                FakeRevision(1, ACTION_ADDED, {"schema": _v1_text(), "version": "1"}),
+                FakeRevision(2, ACTION_UPDATED, {"schema": _v2_text(), "version": "2"}),
+            ]
+        )
+        with (
+            patch.object(repair_apply, "transform_schema") as mock_transform,
+            patch.object(repair_apply, "repair_v2_schema") as mock_repair,
+        ):
+            outcome = attempt_repair(history=history, schema_text="{bad json")
+
+        assert outcome.action == SKIPPED_USER_EDITED
+        assert outcome.new_schema_text is None
+        mock_transform.assert_not_called()
+        mock_repair.assert_not_called()
 
 
 # ── attempt_repair: REBUILD_FROM_V1 ─────────────────────────────
@@ -193,6 +217,230 @@ class TestAttemptRepairRebuildFromV1:
         assert outcome.metadata.get("warnings") == ["deprecated widget"]
 
 
+# ── attempt_repair: REBUILD_FROM_V1 — choice re-resolution ──────
+
+
+def _v2_with_hardcoded_choice(field_name: str = "species") -> dict:
+    """A V2 schema where a field has a hardcoded anyOf/oneOf (no $ref yet)."""
+    return {
+        "json": {
+            "properties": {
+                field_name: {
+                    "title": field_name.title(),
+                    "type": "string",
+                    "anyOf": [
+                        {
+                            "title": "Hardcoded",
+                            "type": "string",
+                            "oneOf": [
+                                {"const": "lion", "title": "Lion"},
+                                {"const": "elephant", "title": "Elephant"},
+                            ],
+                        }
+                    ],
+                }
+            }
+        },
+        "ui": {"fields": {field_name: {"type": "CHOICE_LIST"}}},
+    }
+
+
+def _v2_with_ref_choice(field_name: str = "species", ref_name: str = "species") -> dict:
+    """A corrupted V2 schema whose json section already has a $ref for a choice field."""
+    return {
+        "json": {
+            "properties": {
+                field_name: {
+                    "title": field_name.title(),
+                    "type": "string",
+                    "anyOf": [{"$ref": f"{_CHOICES_URL}?field={ref_name}"}],
+                }
+            }
+        },
+        "ui": {"fields": {field_name: {"type": "CHOICE_LIST"}}},
+    }
+
+
+class TestRebuildFromV1ChoiceReresolution:
+    """REBUILD_FROM_V1: choice $ref re-derivation from the corrupted V2."""
+
+    def _rebuild_history(self, v1_text: str, *, value: str = "x") -> EventTypeRevisionHistory:
+        return _history(
+            [
+                FakeRevision(1, ACTION_ADDED, {"schema": v1_text, "version": "1"}),
+                FakeRevision(2, ACTION_UPDATED, {"schema": _v2_text(), "version": "2"}),
+            ],
+            event_type_value=value,
+        )
+
+    def test_hardcoded_choice_in_fresh_transform_is_rewritten_to_ref_from_corrupted_v2(self):
+        """Regression: when the fresh transform emits a hardcoded-choice field AND
+        the corrupted V2 (schema_text) has a $ref at that same path, the rebuilt
+        schema's field must use the $ref, NOT the hardcoded oneOf."""
+        v1 = _v1_text("species_report")
+        # Fresh transform returns a V2 with a hardcoded anyOf/oneOf for 'species'.
+        fresh_v2_with_hardcoded = _v2_with_hardcoded_choice("species")
+        # The corrupted stored V2 already has a $ref pointing to 'species_list'.
+        corrupted_v2 = _v2_with_ref_choice("species", ref_name="species_list")
+
+        with (
+            patch.object(repair_apply, "transform_schema", return_value=fresh_v2_with_hardcoded),
+            patch.object(repair_apply, "preprocess_template_vars", side_effect=lambda x: x),
+            patch.object(repair_apply, "LogCollector", side_effect=lambda *_a, **_kw: _StubCollector()),
+        ):
+            outcome = attempt_repair(
+                history=self._rebuild_history(v1),
+                schema_text=json.dumps(corrupted_v2),
+            )
+
+        assert outcome.action == APPLIED_REBUILT_FROM_V1
+        assert outcome.did_apply
+        rebuilt = json.loads(outcome.new_schema_text)
+        species_field = rebuilt["json"]["properties"]["species"]
+        # Must be a $ref, NOT the hardcoded oneOf.
+        assert "anyOf" in species_field
+        any_of = species_field["anyOf"]
+        assert len(any_of) == 1
+        assert "$ref" in any_of[0], f"Expected $ref but got: {any_of}"
+        assert "species_list" in any_of[0]["$ref"], f"Expected ref to species_list but got: {any_of[0]['$ref']}"
+        # Must not contain hardcoded oneOf.
+        assert "oneOf" not in any_of[0]
+
+    def test_hardcoded_choice_with_no_ref_in_corrupted_v2_left_as_hardcoded_and_reported(self):
+        """When the fresh transform has a hardcoded choice but the corrupted V2 has
+        NO $ref at that path, the field stays hardcoded. The path is added to
+        metadata['unresolved_hardcoded_choice_paths'] and a warning is added.
+        The action is still APPLIED_REBUILT_FROM_V1."""
+        v1 = _v1_text("no_ref_report")
+        fresh_v2_with_hardcoded = _v2_with_hardcoded_choice("species")
+        # Corrupted V2 also has a hardcoded choice (no $ref).
+        corrupted_v2_also_hardcoded = _v2_with_hardcoded_choice("species")
+
+        with (
+            patch.object(repair_apply, "transform_schema", return_value=fresh_v2_with_hardcoded),
+            patch.object(repair_apply, "preprocess_template_vars", side_effect=lambda x: x),
+            patch.object(repair_apply, "LogCollector", side_effect=lambda *_a, **_kw: _StubCollector()),
+        ):
+            outcome = attempt_repair(
+                history=self._rebuild_history(v1),
+                schema_text=json.dumps(corrupted_v2_also_hardcoded),
+            )
+
+        assert outcome.action == APPLIED_REBUILT_FROM_V1
+        assert outcome.did_apply
+        rebuilt = json.loads(outcome.new_schema_text)
+        species_field = rebuilt["json"]["properties"]["species"]
+        # Field remains hardcoded (no $ref).
+        any_of = species_field["anyOf"]
+        assert len(any_of) == 1
+        assert "oneOf" in any_of[0], "Expected hardcoded oneOf to remain"
+        # Unresolved path is in metadata.
+        assert "unresolved_hardcoded_choice_paths" in outcome.metadata
+        assert ["species"] in outcome.metadata["unresolved_hardcoded_choice_paths"]
+        # A warning mentions the unresolved path.
+        warnings = outcome.metadata.get("warnings", [])
+        assert any("unresolved" in w.lower() or "species" in w for w in warnings), f"No warning found: {warnings}"
+
+    def test_no_hardcoded_choices_in_fresh_transform_behaves_as_before(self):
+        """When the fresh transform has NO hardcoded choices, re-resolution is a
+        no-op and the outcome is unchanged from the pre-fix behavior."""
+        v1 = _v1_text("plain_report")
+        # A V2 with no anyOf at all — purely string fields.
+        plain_v2 = {"json": {"properties": {"name": {"type": "string"}}}, "ui": {"fields": {"name": {}}}}
+        corrupted_v2 = json.dumps({"json": {"properties": {"name": {"type": "string"}}}, "ui": {"fields": {}}})
+
+        with (
+            patch.object(repair_apply, "transform_schema", return_value=plain_v2),
+            patch.object(repair_apply, "preprocess_template_vars", side_effect=lambda x: x),
+            patch.object(repair_apply, "LogCollector", side_effect=lambda *_a, **_kw: _StubCollector()),
+        ):
+            outcome = attempt_repair(
+                history=self._rebuild_history(v1),
+                schema_text=corrupted_v2,
+            )
+
+        assert outcome.action == APPLIED_REBUILT_FROM_V1
+        assert outcome.did_apply
+        # No unresolved paths reported.
+        assert "unresolved_hardcoded_choice_paths" not in outcome.metadata
+
+    def test_collection_nested_hardcoded_choice_rewritten_via_corrupted_v2_ref(self):
+        """A hardcoded choice nested inside a collection (property_path = ['trophies', 'species'])
+        must also be re-derived from the corrupted V2's json section."""
+        v1 = _v1_text("collection_choice_report")
+        # Fresh transform: collection field with nested hardcoded choice.
+        fresh_v2_collection = {
+            "json": {
+                "properties": {
+                    "trophies": {
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "species_seen": {
+                                    "title": "Species Seen",
+                                    "type": "string",
+                                    "anyOf": [
+                                        {
+                                            "title": "Hardcoded",
+                                            "type": "string",
+                                            "oneOf": [
+                                                {"const": "lion", "title": "Lion"},
+                                                {"const": "elephant", "title": "Elephant"},
+                                            ],
+                                        }
+                                    ],
+                                }
+                            },
+                        },
+                    }
+                }
+            },
+            "ui": {"fields": {}},
+        }
+        # Corrupted V2: the nested field already has a $ref.
+        corrupted_v2_with_nested_ref = {
+            "json": {
+                "properties": {
+                    "trophies": {
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "species_seen": {
+                                    "title": "Species Seen",
+                                    "type": "string",
+                                    "anyOf": [{"$ref": f"{_CHOICES_URL}?field=trophy_species"}],
+                                }
+                            },
+                        },
+                    }
+                }
+            },
+            "ui": {"fields": {}},
+        }
+
+        with (
+            patch.object(repair_apply, "transform_schema", return_value=fresh_v2_collection),
+            patch.object(repair_apply, "preprocess_template_vars", side_effect=lambda x: x),
+            patch.object(repair_apply, "LogCollector", side_effect=lambda *_a, **_kw: _StubCollector()),
+        ):
+            outcome = attempt_repair(
+                history=self._rebuild_history(v1),
+                schema_text=json.dumps(corrupted_v2_with_nested_ref),
+            )
+
+        assert outcome.action == APPLIED_REBUILT_FROM_V1
+        assert outcome.did_apply
+        rebuilt = json.loads(outcome.new_schema_text)
+        nested_field = rebuilt["json"]["properties"]["trophies"]["items"]["properties"]["species_seen"]
+        any_of = nested_field["anyOf"]
+        assert len(any_of) == 1
+        assert "$ref" in any_of[0], f"Nested field not rewritten to $ref: {any_of}"
+        assert "trophy_species" in any_of[0]["$ref"]
+        assert "oneOf" not in any_of[0]
+
+
 # ── attempt_repair: RECONSTRUCT_FROM_JSON ───────────────────────
 
 
@@ -211,15 +459,6 @@ class TestAttemptRepairReconstructFromJson:
             ]
         )
 
-    def test_deferred_when_upstream_missing(self):
-        with patch.object(repair_apply, "REPAIR_V2_AVAILABLE", False):
-            outcome = attempt_repair(
-                history=self._json_reconstruction_history(),
-                schema_text=_v2_text(),
-            )
-        assert outcome.action == SKIPPED_JSON_RECONSTRUCTION_DEFERRED
-        assert outcome.metadata.get("repair_v2_available") is False
-
     def test_applies_repaired_schema(self):
         # Use a real RepairChange-shaped object so getattr() returns the
         # documented fields rather than MagicMock auto-attributes.
@@ -237,10 +476,7 @@ class TestAttemptRepairReconstructFromJson:
         )
         repair_mock = MagicMock(return_value=fake_result)
 
-        with (
-            patch.object(repair_apply, "REPAIR_V2_AVAILABLE", True),
-            patch.object(repair_apply, "repair_v2_schema", repair_mock, create=True),
-        ):
+        with patch.object(repair_apply, "repair_v2_schema", repair_mock):
             outcome = attempt_repair(
                 history=self._json_reconstruction_history(),
                 schema_text=_v2_text(),
@@ -266,27 +502,22 @@ class TestAttemptRepairReconstructFromJson:
         _, kwargs = repair_mock.call_args
         assert "logger" in kwargs
 
-    def test_no_op_when_upstream_returns_unmodified(self):
+    def test_no_op_when_upstream_returns_unmodified_empty_changes(self):
         fake_result = MagicMock(was_modified=False, repaired_schema=None, changes=[])
-        with (
-            patch.object(repair_apply, "REPAIR_V2_AVAILABLE", True),
-            patch.object(repair_apply, "repair_v2_schema", return_value=fake_result, create=True),
-        ):
+        with patch.object(repair_apply, "repair_v2_schema", return_value=fake_result):
             outcome = attempt_repair(
                 history=self._json_reconstruction_history(),
                 schema_text=_v2_text(),
             )
         assert outcome.action == SKIPPED_ALREADY_CORRECT
         assert outcome.new_schema_text is None
+        assert outcome.metadata["upstream_changes"] == 0
 
     def test_records_repair_exception(self):
         def boom(*_a, **_kw):
             raise RuntimeError("upstream blew up")
 
-        with (
-            patch.object(repair_apply, "REPAIR_V2_AVAILABLE", True),
-            patch.object(repair_apply, "repair_v2_schema", side_effect=boom, create=True),
-        ):
+        with patch.object(repair_apply, "repair_v2_schema", side_effect=boom):
             outcome = attempt_repair(
                 history=self._json_reconstruction_history(),
                 schema_text=_v2_text(),
@@ -305,14 +536,10 @@ class TestAttemptRepairReconstructFromJson:
             logger.log_error("Inconsistent leftColumn references")
             return fake_result
 
-        with (
-            patch.object(repair_apply, "REPAIR_V2_AVAILABLE", True),
-            patch.object(
-                repair_apply,
-                "repair_v2_schema",
-                side_effect=populate_logger_errors,
-                create=True,
-            ),
+        with patch.object(
+            repair_apply,
+            "repair_v2_schema",
+            side_effect=populate_logger_errors,
         ):
             outcome = attempt_repair(
                 history=self._json_reconstruction_history(),
@@ -321,6 +548,112 @@ class TestAttemptRepairReconstructFromJson:
         assert outcome.action == ERROR_REPAIR
         assert any("leftColumn" in e for e in outcome.errors)
         assert outcome.new_schema_text is None
+
+    def test_diagnostics_with_no_mutation_returns_skipped_needs_review(self):
+        """was_modified=False with non-empty changes → SKIPPED_NEEDS_REVIEW.
+
+        Per the 0.1.5.2 contract: changes can be non-empty even when
+        was_modified=False. Those entries are diagnostics (e.g.
+        ``ambiguous_collision_kept``) representing corruption beyond the
+        collection-key bug that repair refuses to auto-fix.
+        """
+        diagnostic_change = MagicMock(
+            spec=["action", "field_path", "details"],
+            action="ambiguous_collision_kept",
+            field_path="num",
+            details="'num' is both a root field and a collection orphan; kept for manual review",
+        )
+        fake_result = MagicMock(
+            was_modified=False,
+            repaired_schema=None,
+            changes=[diagnostic_change],
+        )
+        with patch.object(repair_apply, "repair_v2_schema", return_value=fake_result):
+            outcome = attempt_repair(
+                history=self._json_reconstruction_history(),
+                schema_text=_v2_text(),
+            )
+        assert outcome.action == SKIPPED_NEEDS_REVIEW
+        assert outcome.new_schema_text is None
+        assert outcome.metadata["upstream_changes"] == 1
+        assert outcome.metadata["upstream_change_summary"] == [
+            {
+                "action": "ambiguous_collision_kept",
+                "field_path": "num",
+                "details": "'num' is both a root field and a collection orphan; kept for manual review",
+            }
+        ]
+
+    def test_diagnostics_change_count_matches_changes_length(self):
+        """upstream_changes reflects actual len(changes), not a hardcoded 0."""
+        changes = [
+            MagicMock(
+                spec=["action", "field_path", "details"], action="skipped_unknown_type", field_path=f"f{i}", details=""
+            )
+            for i in range(3)
+        ]
+        fake_result = MagicMock(was_modified=False, repaired_schema=None, changes=changes)
+        with patch.object(repair_apply, "repair_v2_schema", return_value=fake_result):
+            outcome = attempt_repair(
+                history=self._json_reconstruction_history(),
+                schema_text=_v2_text(),
+            )
+        assert outcome.action == SKIPPED_NEEDS_REVIEW
+        assert outcome.metadata["upstream_changes"] == 3
+        assert len(outcome.metadata["upstream_change_summary"]) == 3
+
+    def test_warnings_from_log_collector_surfaced_on_applied_repair(self):
+        """Warnings from the LogCollector appear in metadata on an applied repair.
+
+        A warning alone (no errors) must NOT fail the repair — warnings
+        flag lossy-but-correct operations (e.g. rebuilt COLLECTION containers
+        with defaults).
+        """
+        repaired = {"json": {}, "ui": {"fields": {"f": {"type": "COLLECTION"}}}}
+        change = MagicMock(
+            spec=["action", "field_path", "details"],
+            action="rebuilt_collection_entry",
+            field_path="trophies",
+            details="",
+        )
+        fake_result = MagicMock(was_modified=True, repaired_schema=repaired, changes=[change])
+
+        def emit_warning(_schema, *, logger):
+            logger.log_warning("Rebuilt COLLECTION 'trophies' with defaults; V1 originals unrecoverable")
+            return fake_result
+
+        with patch.object(repair_apply, "repair_v2_schema", side_effect=emit_warning):
+            outcome = attempt_repair(
+                history=self._json_reconstruction_history(),
+                schema_text=_v2_text(),
+            )
+        assert outcome.action == APPLIED_RECONSTRUCTED_FROM_JSON
+        assert outcome.did_apply
+        assert "warnings" in outcome.metadata
+        assert any("trophies" in w for w in outcome.metadata["warnings"])
+
+    def test_warnings_surfaced_on_skipped_needs_review(self):
+        """Warnings from the LogCollector also appear on a needs-review skip."""
+        diagnostic_change = MagicMock(
+            spec=["action", "field_path", "details"],
+            action="ambiguous_collision_kept",
+            field_path="count",
+            details="kept for manual review",
+        )
+        fake_result = MagicMock(was_modified=False, repaired_schema=None, changes=[diagnostic_change])
+
+        def emit_warning(_schema, *, logger):
+            logger.log_warning("Un-prefixed entry 'count' collides with a root-level field")
+            return fake_result
+
+        with patch.object(repair_apply, "repair_v2_schema", side_effect=emit_warning):
+            outcome = attempt_repair(
+                history=self._json_reconstruction_history(),
+                schema_text=_v2_text(),
+            )
+        assert outcome.action == SKIPPED_NEEDS_REVIEW
+        assert "warnings" in outcome.metadata
+        assert any("count" in w for w in outcome.metadata["warnings"])
 
 
 # ── Test helpers ──────────────────────────────────────────────────────────

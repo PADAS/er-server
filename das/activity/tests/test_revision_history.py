@@ -10,12 +10,31 @@ load-bearing.
 
 from __future__ import annotations
 
+import json
 from dataclasses import dataclass
 from typing import Any
 
+import pytest
+
+from django.db import connection
+from django.db.migrations.executor import MigrationExecutor
+
+from activity.models import EventType
 from activity.schemas.ops import revision_history as ops_revision_history
-from activity.schemas.ops.revision_history import EventTypeRevisionHistory
+from activity.schemas.ops.revision_history import (
+    EventTypeRevisionHistory,
+    fetch_in_migration,
+)
+from factories import EventTypeFactory
 from revision.manager import ACTION_ADDED, ACTION_DELETED, ACTION_UPDATED
+
+
+def _historical_apps():
+    """App-registry state that ``RunPython`` hands the 0202 migration body
+    (the project state as of its parent migration). Using this instead of the
+    live ``django.apps.apps`` reproduces the historical ``__fake__`` models, so
+    these tests exercise the real migration surface."""
+    return MigrationExecutor(connection).loader.project_state(("activity", "0201_community_input")).apps
 
 
 def test_inlined_action_constants_match_revision_manager():
@@ -213,25 +232,31 @@ class TestSchemaAt:
         assert history.schema_at(2) == "a"
         assert history.schema_at(3) == "c"
 
-    def test_returns_none_when_sequence_predates_snapshot(self):
+    def test_returns_none_when_sequence_predates_any_schema_revision(self):
         history = _history(
             FakeRevision(2, ACTION_ADDED, {"schema": "a"}),
             FakeRevision(3, ACTION_UPDATED, {"schema": "b"}),
         )
         assert history.schema_at(1) is None
 
-    def test_returns_none_when_no_creation_snapshot(self):
+    def test_reconstructs_from_update_when_no_creation_snapshot(self):
+        # A truncated history (no ACTION_ADDED) is still reconstructable:
+        # the schema value is stored verbatim on the UPDATE row.
         history = _history(
             FakeRevision(1, ACTION_UPDATED, {"schema": "b"}),
         )
-        assert history.schema_at(1) is None
+        assert history.schema_at(1) == "b"
 
-    def test_returns_none_when_snapshot_lacks_schema_key(self):
+    def test_reconstructs_from_update_when_snapshot_lacks_schema_key(self):
+        # Snapshot carries no schema, but a later revision sets one — the
+        # later revision is a valid anchor, no creation snapshot required.
         history = _history(
             FakeRevision(1, ACTION_ADDED, {"display": "X"}),
             FakeRevision(2, ACTION_UPDATED, {"schema": "b"}),
         )
-        assert history.schema_at(2) is None
+        assert history.schema_at(2) == "b"
+        # ...but only from the sequence the schema first appears onward.
+        assert history.schema_at(1) is None
 
     def test_returns_none_when_value_is_not_a_string(self):
         # Defensive: an UPDATE row that explicitly sets schema to null
@@ -265,7 +290,9 @@ class TestSchemaJustBeforeMigration:
         assert schema is None
         assert notes  # diagnostic populated
 
-    def test_notes_when_no_creation_snapshot(self):
+    def test_notes_when_only_schema_is_the_migration_itself(self):
+        # The migration revision carries the (V2) schema, but nothing
+        # before it does — there is no pre-migration V1 to reconstruct.
         history = _history(
             FakeRevision(5, ACTION_UPDATED, {"schema": "v2", "version": "2"}),
         )
@@ -273,7 +300,7 @@ class TestSchemaJustBeforeMigration:
         assert schema is None
         assert notes
 
-    def test_notes_when_snapshot_missing_schema_key(self):
+    def test_notes_when_snapshot_missing_schema_and_no_other_pre_migration_schema(self):
         history = _history(
             FakeRevision(1, ACTION_ADDED, {"display": "X"}),
             FakeRevision(2, ACTION_UPDATED, {"schema": "v2", "version": "2"}),
@@ -281,6 +308,27 @@ class TestSchemaJustBeforeMigration:
         schema, notes = history.schema_just_before_migration()
         assert schema is None
         assert notes
+
+    def test_reconstructs_v1_from_update_when_no_creation_snapshot(self):
+        # Truncated history: no ACTION_ADDED, but a pre-migration UPDATE
+        # carries the V1 schema verbatim → reconstructable.
+        history = _history(
+            FakeRevision(1, ACTION_UPDATED, {"schema": "v1text"}),
+            FakeRevision(2, ACTION_UPDATED, {"schema": "v2text", "version": "2"}),
+        )
+        schema, notes = history.schema_just_before_migration()
+        assert schema == "v1text"
+        assert notes == []
+
+    def test_reconstructs_v1_when_snapshot_lacks_schema_but_update_sets_it(self):
+        history = _history(
+            FakeRevision(1, ACTION_ADDED, {"display": "X"}),
+            FakeRevision(2, ACTION_UPDATED, {"schema": "v1text"}),
+            FakeRevision(3, ACTION_UPDATED, {"schema": "v2text", "version": "2"}),
+        )
+        schema, notes = history.schema_just_before_migration()
+        assert schema == "v1text"
+        assert notes == []
 
     def test_notes_when_replay_yields_empty_string(self):
         history = _history(
@@ -318,3 +366,64 @@ class TestPostMigrationSchemaEditCount:
             FakeRevision(5, ACTION_UPDATED, {"schema": "v4"}),
         )
         assert history.post_migration_schema_edit_count() == 2
+
+
+# ── fetch_in_migration with historical app-registry models ────────────────
+
+
+def _v1_schema_text() -> str:
+    return json.dumps(
+        {
+            "schema": {"type": "object", "properties": {"field": {"type": "string", "title": "Field"}}},
+            "definition": ["field"],
+        }
+    )
+
+
+def _v2_schema_text() -> str:
+    return json.dumps({"json": {"properties": {"field": {"type": "string"}}}, "ui": {"fields": {}}})
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("tenant_settings", "das_tenant_monkeypatch")
+class TestFetchInMigrationWithHistoricalModels:
+    """Guard that ``fetch_in_migration`` survives ``__fake__`` revision models.
+
+    This test fails with ``AttributeError`` if ``fetch_in_migration`` is
+    reverted to constructing model instances (the root cause of the production
+    bug), and passes when ``values_list(..., named=True)`` is used instead.
+    """
+
+    def test_returns_history_with_migration_revision_when_given_historical_model(self) -> None:
+        # Seed an EventType that was created as V1 and then migrated to V2, so
+        # the revision log contains an ACTION_UPDATED row with both ``schema``
+        # and ``version == "2"`` — the migration fingerprint.
+        event_type = EventTypeFactory.create(
+            value="fetch_in_migration_guard",
+            schema=_v1_schema_text(),
+            version=EventType.VersionChoices.VERSION_1,
+        )
+        event_type.schema = _v2_schema_text()
+        event_type.version = EventType.VersionChoices.VERSION_2
+        event_type.save()
+
+        # Obtain the historical revision model — the same ``__fake__``
+        # TenantModel that ``RunPython`` passes to the 0202 migration body.
+        # Constructing instances of this model raises AttributeError under
+        # django_multitenant; ``fetch_in_migration`` avoids that via
+        # ``values_list``.
+        revision_model = _historical_apps().get_model("activity", "EventTypeRevision")
+
+        history = fetch_in_migration(
+            event_type,
+            revision_model=revision_model,
+            db_alias="default",
+            tenant_id=event_type.das_tenant_id,
+        )
+
+        assert len(history.revisions) > 0, "expected at least one revision row"
+        assert history.migration_revision() is not None, (
+            "expected a migration revision (ACTION_UPDATED with schema+version==2); "
+            "fetch_in_migration may have returned empty revisions due to the __fake__ "
+            "model AttributeError bug"
+        )

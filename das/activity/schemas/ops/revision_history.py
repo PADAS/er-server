@@ -23,13 +23,10 @@ Three layers, each callable on its own:
 Why a dedicated module
 ----------------------
 
-Before this module the same primitives were inlined as private helpers
-in :mod:`activity.schemas.migration.repair` (``_find_migration_revision``,
-``_count_post_migration_schema_edits``, ``_reconstruct_v1_schema``).
-Future ops (``revision_as_of``, ``revision_restore``, etc.) need the
-same primitives. Hoisting them here keeps the V1→V2 fingerprint and the
-diff-replay loop in **one** place — future readers chasing "where is
-the migration revision detected?" find a single answer.
+Centralising the schema-lifecycle primitives here means future ops
+(``revision_as_of``, ``revision_restore``, etc.) share the same
+V1→V2 fingerprint logic and diff-replay loop — one place to answer
+"where is the migration revision detected?"
 
 V2-schema oriented; not a general-purpose audit timeline
 --------------------------------------------------------
@@ -217,47 +214,46 @@ class EventTypeRevisionHistory:
         """Reconstruct the value of ``EventType.schema`` as it stood
         immediately after the revision at ``sequence``.
 
-        Replays the creation snapshot's ``data["schema"]`` then applies
-        every ``ACTION_UPDATED`` diff with ``"schema"`` in its ``data``
-        up to **and including** ``sequence``. The diff-replay model
-        works for both V1 schemas (raw text) and V2 schemas (JSON text)
-        because the revision system records the field's text value
-        verbatim — the schema *language version* is a separate question
-        for the caller (consult :meth:`migration_revision` to know
-        whether the result is V1 or V2).
+        Walks every revision with ``revision.sequence <= sequence`` and
+        tracks the latest one whose ``data`` carries a ``schema`` key.
+        Because the DAS revision system records the field's **full text
+        value verbatim** on every write — the ``ACTION_ADDED`` snapshot
+        *and* each ``ACTION_UPDATED`` diff that touches ``schema`` — the
+        most recent schema-bearing revision at or before ``sequence``
+        already holds the complete schema text. No creation snapshot is
+        required as an anchor: a history whose ``ACTION_ADDED`` row is
+        missing (e.g. a truncated export) or lacks a ``schema`` field is
+        still reconstructable as long as *some* revision at or before
+        ``sequence`` carries one.
+
+        The reconstruction works for both V1 schemas (raw text) and V2
+        schemas (JSON text) — the schema *language version* is a separate
+        question for the caller (consult :meth:`migration_revision` to
+        know whether the result is V1 or V2).
 
         Returns
         -------
         ``str``
             The schema text as stored after the targeted revision.
         ``None``
-            * No creation snapshot exists.
-            * The creation snapshot has no ``schema`` field.
-            * ``sequence`` predates the creation snapshot.
-            * The replay landed on a non-string value (e.g. an UPDATE
-              that explicitly set ``schema=None``).
+            * No revision at or before ``sequence`` carries a ``schema``
+              key.
+            * The most recent schema-bearing revision set ``schema`` to a
+              non-string value (e.g. an UPDATE that explicitly set it to
+              ``None``).
         """
-        snapshot = self.creation_snapshot()
-        if snapshot is None:
-            return None
-        snapshot_data = _data_dict(snapshot)
-        if "schema" not in snapshot_data:
-            return None
-        if sequence < snapshot.sequence:
-            return None
-
-        current: object = snapshot_data.get("schema")
+        current: object = None
+        found = False
         for revision in self.revisions:
-            if revision.sequence <= snapshot.sequence:
-                continue
             if revision.sequence > sequence:
                 break
-            if revision.action != ACTION_UPDATED:
-                continue
             data = _data_dict(revision)
             if "schema" in data:
                 current = data.get("schema")
+                found = True
 
+        if not found:
+            return None
         if not isinstance(current, str):
             return None
         return current
@@ -282,23 +278,19 @@ class EventTypeRevisionHistory:
             notes.append("no migration revision (schema+version flip) found in history")
             return None, notes
 
-        snapshot = self.creation_snapshot()
-        if snapshot is None:
-            notes.append("no creation snapshot revision found")
-            return None, notes
-        if snapshot.sequence >= migration.sequence:
-            notes.append("creation snapshot is at or after the migration revision (impossible state)")
-            return None, notes
-
-        snapshot_data = _data_dict(snapshot)
-        if "schema" not in snapshot_data:
-            notes.append("creation snapshot revision is missing schema field")
-            return None, notes
-
-        # Replay strictly before the migration revision.
+        # Reconstruct from the latest schema-bearing revision strictly
+        # before the migration. :meth:`schema_at` does not require a
+        # creation snapshot — any pre-migration revision carrying a
+        # ``schema`` value is a valid anchor (the field is stored
+        # verbatim, not as a structural sub-diff), so truncated histories
+        # and snapshots that lack a ``schema`` field are still
+        # reconstructable as long as some earlier revision set one.
         schema = self.schema_at(migration.sequence - 1)
         if schema is None:
-            notes.append("reconstruction yielded a null schema value")
+            notes.append(
+                "no schema-bearing revision found before the migration revision "
+                "(history may be truncated, or schema was never set pre-migration)"
+            )
             return None, notes
         if not schema.strip():
             notes.append("reconstruction yielded an empty schema value")
@@ -382,10 +374,20 @@ def fetch_in_migration(
     from utils.tenant.managers import UnsetDASTenantContextManager
 
     with UnsetDASTenantContextManager():
+        # IMPORTANT: read revisions as ``values_list(..., named=True)`` Row
+        # tuples rather than model instances. The historical ``EventTypeRevision``
+        # model (from ``apps.get_model``) is a ``__fake__`` TenantModel whose
+        # ``tenant_id`` class attribute is dropped by migration-state rendering,
+        # so constructing instances raises AttributeError under
+        # django_multitenant. ``RevisionLike`` only needs ``.sequence`` /
+        # ``.action`` / ``.data``, all of which a named Row provides — and
+        # ``.values_list`` never instantiates the model. Do not "simplify" this
+        # back to ``list(...objects...)``.
         rows = list(
             revision_model.objects.using(db_alias)
             .filter(object_id=event_type.id, das_tenant_id=tenant_id)
             .order_by("sequence")
+            .values_list("sequence", "action", "data", named=True)
         )
     return EventTypeRevisionHistory.from_revisions(
         event_type_value=str(event_type.value),
