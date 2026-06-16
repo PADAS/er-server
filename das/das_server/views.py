@@ -24,6 +24,7 @@ from observations.servicesutils import has_message_view_permission
 from utils.drf import DeprecatedEndpointMixin
 from utils.json import parse_bool
 from utils.tenant import get_tenant_settings
+from utils.tenant.preview_features import get_resolved_preview_features
 
 CLIENT_ID = "das_web_client"
 AccessToken = get_access_token_model()
@@ -140,6 +141,7 @@ class StatusView(generics.RetrieveAPIView):
         resp["site_name"] = get_site_name()
         resp["tenant_domain"] = tenant.domain
         resp["messaging_enabled"] = has_message_view_permission(self.request.user)
+        resp["preview_features"] = get_resolved_preview_features()
 
         resp["dwh_settings"] = {
             "api_url": getattr(settings, "DWH_API_URL", ""),

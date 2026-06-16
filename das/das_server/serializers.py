@@ -40,3 +40,6 @@ class VersionSerializer(rest_framework.serializers.Serializer):
     idp_org_id = rest_framework.serializers.CharField(read_only=True)
     dwh_settings = rest_framework.serializers.DictField(read_only=True)
     geo_span = rest_framework.serializers.DictField(read_only=True, allow_null=True)
+    preview_features = rest_framework.serializers.DictField(
+        read_only=True, child=rest_framework.serializers.BooleanField()
+    )

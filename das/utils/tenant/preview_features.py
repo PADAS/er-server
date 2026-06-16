@@ -55,3 +55,20 @@ def get_preview_feature(name: str) -> Any:
         return feature.global_override
     values = getattr(get_tenant_settings(), "preview_features", None) or {}
     return values.get(name, feature.default)
+
+
+def get_resolved_preview_features() -> dict[str, Any]:
+    """Resolve every registered preview feature to its current value for this tenant.
+
+    Reads the tenant preview-features dict once and applies global_override /
+    per-tenant / default precedence inline in a single pass over PREVIEW_FEATURES.
+    All registered features are always present in the returned dict.
+    """
+    tenant_values: dict[str, Any] = getattr(get_tenant_settings(), "preview_features", None) or {}
+    result: dict[str, Any] = {}
+    for name, feature in PREVIEW_FEATURES.items():
+        if feature.global_override is not None:
+            result[name] = feature.global_override
+        else:
+            result[name] = tenant_values.get(name, feature.default)
+    return result

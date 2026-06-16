@@ -112,9 +112,7 @@ class TestStatusView:
         assert response.status_code == status.HTTP_200_OK
 
     @pytest.mark.usefixtures("tenant_settings", "das_tenant_monkeypatch")
-    def test_get_status_includes_dwh_settings(
-        self, monkeypatch, superuser_client, tenant_document_cache_client_mock
-    ):
+    def test_get_status_includes_dwh_settings(self, monkeypatch, superuser_client, tenant_document_cache_client_mock):
         monkeypatch.setattr("das_server.views.settings.DWH_API_URL", "https://warehouse-api.example.com")
         url = reverse("api-status")
 
@@ -134,6 +132,38 @@ class TestStatusView:
 
         assert response.status_code == status.HTTP_200_OK
         assert response.data["dwh_settings"] == {"api_url": ""}
+
+    @pytest.mark.usefixtures("tenant_settings", "das_tenant_monkeypatch")
+    def test_get_status_includes_enabled_preview_features(
+        self, monkeypatch, superuser_client, tenant_response, tenant_document_cache_client_mock
+    ):
+        tenant_settings = Tenant.from_dict(tenant_response)
+        tenant_settings.preview_features = {"community_input_admin_enabled": True}
+        get_tenant_settings_mock = MagicMock(return_value=tenant_settings)
+        monkeypatch.setattr("das_server.views.get_tenant_settings", get_tenant_settings_mock)
+        monkeypatch.setattr("utils.tenant.preview_features.get_tenant_settings", get_tenant_settings_mock)
+        url = reverse("api-status")
+
+        response = superuser_client.get(url)
+
+        assert response.status_code == status.HTTP_200_OK
+        assert response.data["preview_features"]["community_input_admin_enabled"] is True
+
+    @pytest.mark.usefixtures("tenant_settings", "das_tenant_monkeypatch")
+    def test_get_status_preview_features_default_when_unset(
+        self, monkeypatch, superuser_client, tenant_response, tenant_document_cache_client_mock
+    ):
+        tenant_settings = Tenant.from_dict(tenant_response)
+        get_tenant_settings_mock = MagicMock(return_value=tenant_settings)
+        monkeypatch.setattr("das_server.views.get_tenant_settings", get_tenant_settings_mock)
+        monkeypatch.setattr("utils.tenant.preview_features.get_tenant_settings", get_tenant_settings_mock)
+        url = reverse("api-status")
+
+        response = superuser_client.get(url)
+
+        assert response.status_code == status.HTTP_200_OK
+        assert "community_input_admin_enabled" in response.data["preview_features"]
+        assert response.data["preview_features"]["community_input_admin_enabled"] is False
 
     def _assert_feature_flags_response_match(self, response):
         assert response.status_code == status.HTTP_200_OK

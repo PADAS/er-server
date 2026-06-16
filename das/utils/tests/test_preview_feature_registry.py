@@ -10,6 +10,7 @@ from utils.tenant.preview_features import (
     PreviewFeature,
     UnknownPreviewFeature,
     get_preview_feature,
+    get_resolved_preview_features,
 )
 
 
@@ -82,3 +83,33 @@ class TestRegistry:
     def test_community_input_admin_enabled_has_no_global_override_by_default(self):
         # Ships off for everyone; flip global_override to True to make public.
         assert PREVIEW_FEATURES["community_input_admin_enabled"].global_override is None
+
+
+class TestGetResolvedPreviewFeatures:
+    def test_returns_one_entry_per_registered_feature(self):
+        with _patch_preview_features({}):
+            result = get_resolved_preview_features()
+        assert set(result.keys()) == set(PREVIEW_FEATURES.keys())
+
+    def test_honours_per_tenant_value(self):
+        with _patch_preview_features({"community_input_admin_enabled": True}):
+            result = get_resolved_preview_features()
+        assert result["community_input_admin_enabled"] is True
+
+    def test_honours_global_override(self):
+        with _register_feature("community_input_admin_enabled", PreviewFeature(default=False, global_override=True)):
+            with _patch_preview_features({"community_input_admin_enabled": False}):
+                result = get_resolved_preview_features()
+        assert result["community_input_admin_enabled"] is True
+
+    def test_falls_back_to_registered_default_when_tenant_has_not_set_value(self):
+        with _register_feature("community_input_admin_enabled", PreviewFeature(default=False, global_override=None)):
+            with _patch_preview_features({}):
+                result = get_resolved_preview_features()
+        assert result["community_input_admin_enabled"] is False
+
+    def test_reads_tenant_settings_only_once(self):
+        """Single-pass: get_tenant_settings is called exactly once regardless of registry size."""
+        with _patch_preview_features({}) as mock_get:
+            get_resolved_preview_features()
+        mock_get.assert_called_once()
