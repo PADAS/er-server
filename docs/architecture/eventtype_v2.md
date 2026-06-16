@@ -118,6 +118,105 @@ V2 eventtypes use a two-section structure: `json` for data schema and `ui` for i
 }
 ```
 
+### Property and Field Naming Constraints
+
+These are hard limits enforced by the meta-schema (JSON Schema Draft 2020-12) in
+`das/activity/schemas/eventtype_meta_schemas.py`. An invalid name is rejected at the
+API/serializer layer with a 400 error — it is never stored.
+
+#### Allowed characters
+
+Every name segment must match `[a-zA-Z0-9_-]+`:
+
+| Allowed | Examples |
+|---------|---------|
+| Lowercase letters `a-z` | `species`, `age_of_carcass` |
+| Uppercase letters `A-Z` | `Status`, `GPSFix` |
+| Digits `0-9` | `field1`, `zone3` |
+| Underscore `_` | `cause_of_death` |
+| Hyphen `-` | `arrest-rep`, `sub-type` |
+
+Spaces, dots (`.`), slashes, and all other characters are **not allowed** in any name segment.
+There is no maximum-length constraint on property names themselves.
+
+#### Top-level property keys (`json.properties`)
+
+Keys in `json.properties` must match `FIELD_NAME_PATTERN`:
+
+```
+^[a-zA-Z0-9_-]+$
+```
+
+This is a **single segment** — dots are not permitted at the top level. The same pattern is
+enforced on every `required` array item and on condition `patternProperties` keys throughout
+the schema.
+
+```json
+// Valid
+"properties": {
+  "carcassrep_species": { ... },
+  "report-status": { ... }
+}
+
+// Invalid — dot not allowed at top level
+"properties": {
+  "parent.child": { ... }
+}
+```
+
+#### Field IDs in the UI schema (`ui.fields`)
+
+Keys in `ui.fields` match `FIELD_ID_PATTERN`, which extends the segment pattern to allow
+dot-separated paths for referencing nested fields inside a collection:
+
+```
+^[a-zA-Z0-9_-]+(?:\.[a-zA-Z0-9_-]+)*$
+```
+
+Each dot-separated segment still follows the same character rules. Use dot notation when a
+field inside a collection needs its own UI configuration (e.g. `arrests.photo`).
+
+```json
+// Top-level field
+"ui": { "fields": { "carcassrep_species": { ... } } }
+
+// Collection sub-field
+"ui": { "fields": { "arrests.photo": { ... } } }
+```
+
+`FIELD_ID_PATTERN` is also used for column item `name` values of type `"field"`, the
+collection `itemIdentifier` property, and in `field_parent_schema` references.
+
+#### Header IDs (`ui.headers`)
+
+Keys in `ui.headers` must match `HEADER_ID_PATTERN`:
+
+```
+^header-[a-zA-Z0-9_-]+$
+```
+
+The `header-` prefix is required. Example: `header-section1-title`.
+
+#### Section IDs (`ui.sections` / `ui.order`)
+
+Keys in `ui.sections` and items in `ui.order` must match `SECTION_ID_PATTERN`:
+
+```
+^section-[a-zA-Z0-9_-]+$
+```
+
+The `section-` prefix is required. Example: `section-basic-info`.
+
+#### Summary table
+
+| Context | Pattern | Example |
+|---------|---------|---------|
+| `json.properties` key | `^[a-zA-Z0-9_-]+$` | `carcassrep_species` |
+| `json.required` item | `^[a-zA-Z0-9_-]+$` | `carcassrep_species` |
+| `ui.fields` key | `^[a-zA-Z0-9_-]+(?:\.[a-zA-Z0-9_-]+)*$` | `arrests.photo` |
+| `ui.headers` key | `^header-[a-zA-Z0-9_-]+$` | `header-info` |
+| `ui.sections` key / `ui.order` item | `^section-[a-zA-Z0-9_-]+$` | `section-1` |
+
 ### Field Types
 
 #### Text Fields
@@ -915,7 +1014,7 @@ V2 eventtypes provide comprehensive validation at multiple levels:
 ## Best Practices
 
 ### Schema Design
-- **Use descriptive field names**: Follow consistent naming conventions
+- **Use descriptive field names**: Follow consistent naming conventions. Property names are constrained to `[a-zA-Z0-9_-]+` — see [Property and Field Naming Constraints](#property-and-field-naming-constraints) for the full rules enforced by the meta-schema.
 - **Provide clear titles and descriptions**: Help users understand field purposes
 - **Set appropriate constraints**: Use min/max values, patterns, and required fields
 - **Group related fields**: Use consistent prefixes for related fields
