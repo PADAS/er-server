@@ -53,14 +53,12 @@ def get_categories_and_geo_categories(user: User):
 
     for event_category in event_categories:
         for action in ACTIONS:
-            permission_name = make_eventcategory_permission_codename(event_category, action, app_label="activity")
+            permission_name = f"activity.{make_eventcategory_permission_codename(event_category, action)}"
             if user.has_perm(permission_name):
                 results["categories"].append(event_category)
 
         for action in GEO_ACTIONS:
-            geo_permission_name = make_eventcategory_permission_codename(
-                event_category, action, True, app_label="activity"
-            )
+            geo_permission_name = f"activity.{make_eventcategory_permission_codename(event_category, action, True)}"
             if user.has_perm(geo_permission_name) and event_category not in results["categories"]:
                 results["geo_categories"].append(event_category)
     return results

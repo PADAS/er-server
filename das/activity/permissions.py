@@ -13,6 +13,7 @@ from rest_framework.permissions import (
     IsAuthenticated,
 )
 
+from activity.category_permissions import is_event_category_visible_by_user
 from activity.models import Event, EventCategory, EventType, Patrol, PatrolType
 from core.utils import is_uuid
 from observations.models import Subject
@@ -136,7 +137,18 @@ class EventCategoryPermissions(IsAuthenticated):
 class EventCategoryObjectPermissions(DjangoObjectPermissions):
     def has_object_permission(self, request, view, obj):
         permission_name = "activity.{0}_{1}".format(obj.value, EventCategoryPermissions.http_method_map[request.method])
-        return request.user.has_perm(permission_name)
+        if request.user.has_perm(permission_name):
+            return True
+
+        # For safe methods, a user holding any general or geographic category
+        # permission must also be able to see the category, mirroring the
+        # category list visibility check (union of general + geographic
+        # codenames). Reuse the shared helper so list and detail stay in sync.
+        # See ERA-11577.
+        if request.method in SAFE_METHODS:
+            return is_event_category_visible_by_user(obj.value, request.user)
+
+        return False
 
 
 class EventCategoryGeographicPermission(EventCategoryPermissions):

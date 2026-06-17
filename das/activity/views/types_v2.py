@@ -15,6 +15,7 @@ from rest_framework.request import Request
 from rest_framework.response import Response
 from rest_framework.viewsets import ModelViewSet
 
+from activity.category_permissions import get_allowed_categories_by_user
 from activity.filters import EventTypeFilterSet
 from activity.models import Event, EventType
 from activity.permissions import EventTypePermissions
@@ -27,7 +28,6 @@ from activity.serializers.event_types_v2 import (
     MigrationRequestSerializer,
     MigrationResultSerializer,
 )
-from activity.views.events.utils import AllowedCategoriesMixin
 from core.utils import is_uuid
 from schemas.format_serializers import (
     OUTPUT_FORMAT_ONE_OF,
@@ -55,7 +55,7 @@ logger = logging.getLogger(__name__)
         ]
     )
 )
-class EventTypesViewSet(EtagListRetrieveModelMixin, AllowedCategoriesMixin, DynamicSchemaDataMixin, ModelViewSet):
+class EventTypesViewSet(EtagListRetrieveModelMixin, DynamicSchemaDataMixin, ModelViewSet):
     permission_classes = (EventTypePermissions,)
     filter_backends = [OrderingFilter, filters.DjangoFilterBackend]
     filterset_class = EventTypeFilterSet
@@ -66,7 +66,7 @@ class EventTypesViewSet(EtagListRetrieveModelMixin, AllowedCategoriesMixin, Dyna
 
     def get_base_queryset(self) -> models.QuerySet:
         user = self.request.user
-        allowed_categories = self._get_allowed_categories_by_user(user)
+        allowed_categories = get_allowed_categories_by_user(user)
 
         if not allowed_categories:
             return EventType.objects.none()

@@ -283,6 +283,90 @@ class TestEventCategories:
 
 @pytest.mark.django_db
 @pytest.mark.usefixtures("tenant_settings", "das_tenant_monkeypatch")
+class TestEventCategoryGeoPermissionVisibility:
+    """Regression coverage for ERA-11577.
+
+    A user holding only the geographic permission set for a category must still
+    see that category in the list and detail endpoints, exactly as the
+    ``/eventtypes`` endpoints already allow. Before the fix the categories list
+    only consulted the four general action codenames, so a geo-only user was
+    excluded from every category.
+    """
+
+    @pytest.mark.parametrize("version", [EventType.VersionChoices.VERSION_1, EventType.VersionChoices.VERSION_2])
+    def test_geo_only_user_sees_category_in_list(self, version, create_user, create_client_for_user):
+        category = EventCategory.objects.create(value="geo_only", display="Geo Only", ordernum=1)
+        EventType.objects.create(value="geo_only_type", display="Geo Only Type", category=category, version=version)
+
+        user = create_user()
+        geo_permission_set = PermissionSet.objects.get(name=category.auto_geographic_permission_set_name)
+        user.permission_sets.add(geo_permission_set)
+        client = create_client_for_user(user)
+
+        response = client.get(reverse("event-categories"))
+
+        assert response.status_code == status.HTTP_200_OK
+        returned_values = {item["value"] for item in response.data}
+        assert category.value in returned_values
+
+    def test_geo_only_user_gets_200_on_category_detail(self, create_user, create_client_for_user):
+        category = EventCategory.objects.create(value="geo_only_detail", display="Geo Only Detail", ordernum=1)
+
+        user = create_user()
+        geo_permission_set = PermissionSet.objects.get(name=category.auto_geographic_permission_set_name)
+        user.permission_sets.add(geo_permission_set)
+        client = create_client_for_user(user)
+
+        url = reverse("event-category", kwargs={"eventcategory_id": str(category.id)})
+        response = client.get(url)
+
+        assert response.status_code == status.HTTP_200_OK
+        assert response.data["value"] == category.value
+
+    def test_user_with_only_non_view_geo_permission_gets_200_on_category_detail(
+        self, create_user, create_client_for_user
+    ):
+        # Comment-1 regression: previously the detail endpoint only consulted the
+        # single geo verb mapped from GET ("view"), so a user holding only a
+        # non-view geo permission (e.g. "add") got 403 on detail even though the
+        # list endpoint showed the category. Detail must now mirror list and
+        # grant on ANY general or geographic category permission.
+        category = EventCategory.objects.create(value="geo_add_only", display="Geo Add Only", ordernum=1)
+
+        geo_permission_set = PermissionSet.objects.get(name=category.auto_geographic_permission_set_name)
+        add_geo_permission = geo_permission_set.permissions.get(codename__contains=f"add_{category.value}_gd")
+
+        add_only_permission_set = PermissionSet.objects.create(name=f"{category.value}_add_geo_only")
+        add_only_permission_set.permissions.add(add_geo_permission)
+
+        user = create_user()
+        user.permission_sets.add(add_only_permission_set)
+        client = create_client_for_user(user)
+
+        url = reverse("event-category", kwargs={"eventcategory_id": str(category.id)})
+        response = client.get(url)
+
+        assert response.status_code == status.HTTP_200_OK
+        assert response.data["value"] == category.value
+
+    def test_user_without_general_or_geo_permission_does_not_see_category(self, create_user, create_client_for_user):
+        category = EventCategory.objects.create(value="no_perms_cat", display="No Perms Cat", ordernum=1)
+
+        user = create_user()
+        client = create_client_for_user(user)
+
+        list_response = client.get(reverse("event-categories"))
+        assert list_response.status_code == status.HTTP_200_OK
+        returned_values = {item["value"] for item in list_response.data}
+        assert category.value not in returned_values
+
+        detail_url = reverse("event-category", kwargs={"eventcategory_id": str(category.id)})
+        detail_response = client.get(detail_url)
+        assert detail_response.status_code == status.HTTP_403_FORBIDDEN
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("tenant_settings", "das_tenant_monkeypatch")
 class TestEventCategoryRanking:
 
     def test_rank_second_as_first(self, superuser_client, five_event_categories):

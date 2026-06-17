@@ -12,6 +12,7 @@ from rest_framework.response import Response
 from activity.models import EventCategory
 from activity.permissions import EventCategoryObjectPermissions
 from activity.serializers import EventCategorySerializer
+from activity.views.events.utils import is_event_category_visible_by_user
 from activity.views.response_headers import EVENT_CATEGORY_FIELDS
 from activity.views.schemas import EventCategoriesViewSchema, EventCategoryViewSchema
 from utils.categories import EventCategoryRelatedPermissionSetActions
@@ -27,9 +28,8 @@ def get_event_category_queryset(user, query_params):
     if not parse_bool(query_params.get("include_inactive")):
         queryset = queryset.filter(is_active=True)
 
-    actions = ("create", "update", "read", "delete")
     queryset = queryset.exclude(
-        id__in=[q.id for q in queryset if not any(user.has_perm(f"activity.{q.value}_{action}") for action in actions)]
+        id__in=[category.id for category in queryset if not is_event_category_visible_by_user(category.value, user)]
     )
 
     return queryset
