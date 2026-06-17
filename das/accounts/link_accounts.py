@@ -147,9 +147,6 @@ def link_accounts_confirm(request: HttpRequest) -> HttpResponse:
         "registration/link_accounts_confirm.html",
         {
             "next_url": next_url,
-            # Show the DAS username, not the email: the user's Auth0 identity
-            # may use a different email address than their DAS record.
-            "username": user.username,
             "site_name": get_tenant_settings().name,
         },
     )
