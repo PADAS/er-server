@@ -3,13 +3,13 @@
 
 {% block content %}
   <div class="info-card">
-    <h2>
-      {% if site_name %}{% blocktranslate %}{{ site_name }} has enabled single sign-on{% endblocktranslate %}{% else %}{% blocktranslate %}Single sign-on is enabled for your site{% endblocktranslate %}{% endif %}
-    </h2>
-    <p>{% blocktranslate %}Link your {{ username }} account to continue.{% endblocktranslate %}</p>
+    <h2>{% translate "Set up secure sign-in" %}</h2>
+    <p>
+      {% if site_name %}{% blocktranslate %}{{ site_name }} is upgrading to a more secure sign-in. Continue to finish setting up your account.{% endblocktranslate %}{% else %}{% blocktranslate %}Your site is upgrading to a more secure sign-in. Continue to finish setting up your account.{% endblocktranslate %}{% endif %}
+    </p>
   </div>
 
-  <a class="button" href="{{ next_url }}">{% translate "Next" %}</a>
+  <a class="button" href="{{ next_url }}">{% translate "Continue" %}</a>
 
   <p class="helper-text">{% translate "Questions? Reach out to your site admin." %}</p>
 {% endblock %}

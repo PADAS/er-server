@@ -5,7 +5,6 @@ import uuid
 from typing import Final, NamedTuple
 
 from authlib.oauth2 import ResourceProtector
-from authlib.oauth2.rfc6749 import OAuth2Token
 from authlib.oauth2.rfc9068.claims import JWTAccessTokenClaims
 from oauth2_provider.backends import OAuth2Backend
 from oauth2_provider.contrib.rest_framework.authentication import OAuth2Authentication
@@ -474,64 +473,25 @@ class Auth0JWTAuthentication(BaseAuthentication):
 
 class Auth0BackendForStaffUsers(BaseBackend):
     """
-    Auth0 authentication backend for Django Admin staff users.
+    Session-restore backend for Django Admin staff users authenticated via Auth0.
 
-    This backend authenticates staff users via Auth0 OAuth2 tokens for Django Admin access.
-    It enforces strict security requirements by only allowing active staff users with
-    valid Auth0 IDs to authenticate.
+    Token-to-user resolution for the OAuth admin callback now lives in
+    accounts.auth0_admin.auth0_callback; this class no longer performs that lookup.
+    It stays registered in AUTHENTICATION_BACKENDS for two remaining responsibilities:
 
-    Security constraints:
-    - User must exist in the database with a matching auth0_id
+    - get_user() lets Django restore the admin staff-user session on subsequent requests
+      (the standard session-auth contract for the backend recorded at login time).
+    - Its backend path supplies the identity passed as
+      login(..., backend=AUTH0_BACKEND_PATH) when the callback logs the user in.
+
+    Security constraints (enforced by get_user):
+    - User must exist in the database with the given primary key
     - User must be active (is_active=True)
     - User must be staff (is_staff=True)
-
-    Usage:
-        This backend is designed to work with the Auth0 OAuth flow for Django Admin.
-        It expects an OAuth2Token containing userinfo with an Auth0 subject ID.
-
-    Authentication flow:
-        1. Extract Auth0 subject ID from OAuth2 token userinfo
-        2. Look up user by auth0_id and is_active=True
-        3. Verify user has is_staff=True
-        4. Return authenticated user or None
 
     Reference:
         https://community.auth0.com/t/implementing-auth0-in-django-admin/132271/3
     """
-
-    def authenticate(self, request, token: OAuth2Token | None = None, **kwargs) -> User | None:
-        # Only handle Auth0 token-based authentication
-        if token is None:
-            return None
-
-        try:
-            user_info = token.get("userinfo")
-            auth0_id = user_info.get("sub")
-        except Exception:
-            logger.exception("Error occurred authenticating a staff user!")
-            return None
-
-        if not auth0_id:
-            logger.warning("Auth0 staff token missing sub claim in userinfo")
-            return None
-
-        try:
-            user = User.objects.get(auth0_id=auth0_id, is_active=True)
-            if user.is_staff:
-                return user
-            else:
-                logger.error(
-                    "Non-staff user %s with auth0_id %s is attempting to authenticate as staff!",
-                    user.username,
-                    auth0_id,
-                )
-                return None
-        except User.DoesNotExist:
-            logger.warning("Could not retrieve an active staff user with auth0_id %s", auth0_id)
-            return None
-        except User.MultipleObjectsReturned:
-            logger.error("Multiple active users found with auth0_id %s", auth0_id)
-            return None
 
     def get_user(self, user_id) -> User | None:
         try:

@@ -212,14 +212,15 @@ class TestLinkAccountsConfirm:
         # The page embeds a single-use session_ref; it must not be cached.
         assert "no-store" in response.headers.get("Cache-Control", "")
 
-        # The Next button is a GET link to the Account Linker landing.
+        # The Continue button is a GET link to the Account Linker landing.
         match = re.search(r'href="(/auth/account-linker/\?session_ref=[^"]+)"', content)
-        assert match, "confirmation page is missing the Next link to the account linker"
+        assert match, "confirmation page is missing the Continue link to the account linker"
         assert match.group(1).endswith(f"session_ref={session_ref}")
 
-        # User-facing chrome: site name + the DAS username (not the email).
-        assert "Test Site has enabled single sign-on" in content
-        assert "linkme" in content
+        # User-facing chrome: static heading + site-named upgrade message.
+        assert "Set up secure sign-in" in content
+        expected = "Test Site is upgrading to a more secure sign-in. Continue to finish setting up your account."
+        assert expected in content
 
     def test_peek_does_not_consume_the_ref(self):
         # The landing pops the ref, not the confirmation page, so a refresh
@@ -232,7 +233,7 @@ class TestLinkAccountsConfirm:
 
         assert client.session[f"{SESSION_KEY_PREFIX}{session_ref}"] == str(user.id)
 
-    def test_blank_site_name_falls_back_to_generic_heading(self, _tenant_mock):
+    def test_blank_site_name_falls_back_to_generic_message(self, _tenant_mock):
         _tenant_mock.name = ""
         user = User.objects.create_user(username="blanksite", password="secret123")
         client = Client()
@@ -242,9 +243,8 @@ class TestLinkAccountsConfirm:
 
         assert response.status_code == 200
         content = response.content.decode()
-        assert "Single sign-on is enabled for your site" in content
-        # The site-named heading must not render when the name is blank.
-        assert "has enabled single sign-on" not in content
+        expected = "Your site is upgrading to a more secure sign-in. Continue to finish setting up your account."
+        assert expected in content
 
     @pytest.mark.parametrize("params", [{}, {"session_ref": "bogus-never-issued"}], ids=["missing", "unknown"])
     def test_without_valid_ref_redirects_to_login(self, params):

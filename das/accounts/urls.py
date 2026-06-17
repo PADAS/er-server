@@ -17,6 +17,7 @@ Including another URLconf
 from django.urls import re_path
 from rest_framework.urlpatterns import format_suffix_patterns
 
+from accounts.account_linking_gate import AccountLinkingGateView
 from accounts.views import (
     AcceptEulaAPIView,
     GetActiveEulaAPIView,
@@ -32,6 +33,7 @@ app_name = "accounts"
 urlpatterns = [
     re_path(r"^users/?$", UsersView.as_view(), name="users"),
     re_path(r"^users/csv/?$", UsersCsvView.as_view()),
+    re_path(r"^user/linked/?$", AccountLinkingGateView.as_view(), name="user-linked"),
     re_path(
         rf"user/(?P<id>me|{regex.UUID})/?$",
         UserView.as_view(),
