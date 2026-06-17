@@ -23,6 +23,7 @@ from django.db.models import QuerySet
 
 from activity.models import EventType
 from activity.permissions import EventCategoryPermissions
+from activity.schemas.utils import get_field_schema_from_prop_path
 from choices.models import Choice
 
 from .choice_processor import (
@@ -32,7 +33,7 @@ from .choice_processor import (
     ResolutionStrategy,
 )
 from .logger import ErrorCode, EventTypeMigrationLogger, MigrationLogger
-from .utils import get_field_schema_from_prop_path, rewrite_field_to_ref
+from .utils import rewrite_field_to_ref
 
 logger = logging.getLogger(__name__)
 

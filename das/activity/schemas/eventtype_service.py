@@ -31,6 +31,7 @@ from activity.models import EventType
 from activity.schemas.errors import ErrorCategory, ErrorCode, ErrorHint, SchemaError
 from activity.schemas.schema_rendering import SchemaRenderer
 from activity.schemas.schema_retrieving import build_dynamic_schemas_registry
+from activity.schemas.utils import get_field_schema_from_prop_path
 from usercontent.utils import FileTypeLabel
 from utils import StrEnum
 
@@ -55,7 +56,6 @@ class UiField(Protocol):
     """A UI field entry in schema["ui"]["fields"][name]."""
 
     type: ClassVar[str]  # discriminant, e.g. "ATTACHMENT" (per-impl const)
-    parent: str  # raw JSON parent: a section OR collection name
 
 
 FieldT = TypeVar("FieldT", bound=UiField)
@@ -65,53 +65,120 @@ FieldT = TypeVar("FieldT", bound=UiField)
 class Slot(Generic[FieldT]):
     """A UI field plus its place in the schema's collection hierarchy.
 
-    `field.parent` points at the enclosing section for a flat field and at the
-    enclosing COLLECTION for a nested one. `parent_is_collection` records which
-    case applies (decided during the schema walk, where the full set of
-    COLLECTION field names is known); `collection_parent` derives the name.
+    ``field_id`` is the dotted ui.fields key (e.g. ``"arrests.photo"`` for a
+    single-collection-nested field, ``"outer.inner.photo"`` for a field two
+    collections deep, or ``"photo"`` for a flat field).  Routing is derived
+    from the key by splitting on dots:
+
+    * ``collection_path`` — the ordered list of collection names enclosing the
+      field (all segments except the last).  Empty for a flat field.
+    * ``collection_parent`` — the *immediate* enclosing collection (the second-
+      to-last segment), or ``None`` for flat fields.  Preserved for backward
+      compatibility with existing assertions on single-level fields.
+    * ``data_key`` — the leaf name (last segment), used to read the field value
+      from a value-container dict (always keyed by the simple leaf, not the full
+      dotted id).
+
+    Multi-level descent: ``value_containers`` iterates ``collection_path`` from
+    outermost to innermost, expanding each layer's list of dicts, so for a field
+    two collections deep it yields the innermost item-dicts from *both* levels.
+
     This logic is field-type-agnostic — the seam future field types reuse.
     """
 
     field: FieldT
-    parent_is_collection: bool
+    field_id: str
+
+    @property
+    def collection_path(self) -> list[str]:
+        """Ordered list of collection names that enclose this field (outermost first).
+
+        For ``"outer.inner.photo"`` this is ``["outer", "inner"]``.
+        For ``"arrests.photo"`` this is ``["arrests"]``.
+        For a flat field ``"photo"`` this is ``[]``.
+        """
+        segments = self.field_id.split(".")
+        return segments[:-1]
 
     @property
     def collection_parent(self) -> str | None:
-        return self.field.parent if self.parent_is_collection else None
+        """The immediate (innermost) enclosing collection name, or ``None`` for flat fields.
+
+        For ``"arrests.photo"`` returns ``"arrests"``.
+        For ``"outer.inner.photo"`` returns ``"inner"`` (not ``"outer.inner"``).
+        For a flat field ``"photo"`` returns ``None``.
+        """
+        segments = self.field_id.split(".")
+        if len(segments) >= 2:
+            return segments[-2]
+        return None
+
+    @property
+    def data_key(self) -> str:
+        """The simple leaf name used to index into a value-container dict."""
+        return self.field_id.rpartition(".")[2]
 
     def value_containers(self, data: dict[str, Any]) -> Iterator[dict[str, Any]]:
         """Yield each dict that directly holds this slot's field value.
 
-        For a flat slot, yields ``data`` itself. For a collection-nested slot,
-        yields each ``dict`` item of the enclosing COLLECTION list, skipping a
-        missing / non-list parent and any non-dict entries.
+        Descends through every level of the ``collection_path`` chain:
+
+        * Flat slot (empty ``collection_path``): yields ``data`` itself.
+        * Single-level (e.g. ``"arrests.photo"``): yields each ``dict`` item of
+          the ``"arrests"`` list — identical to the original behaviour.
+        * Multi-level (e.g. ``"outer.inner.photo"``): iterates the ``"outer"``
+          list first, then for each outer item iterates its ``"inner"`` list,
+          ultimately yielding all innermost ``{"photo": [...]}`` dicts.
+
+        At every level, a missing or non-list collection and non-dict items are
+        silently skipped so that partial / sparse data does not raise.
 
         Each yielded dict is a reference into the passed-in ``data`` structure,
-        not a copy — a caller that intends to mutate ``container[field_name]``
+        not a copy — a caller that intends to mutate ``container[data_key]``
         must pass a copy of ``data`` first (the validation caller only reads;
         the URL-rendering caller copies before substituting).
         """
-        if self.collection_parent is None:
-            yield data
-            return
-        items = data.get(self.collection_parent)
-        if not isinstance(items, list):
-            return
-        for item in items:
-            if isinstance(item, dict):
-                yield item
+        containers: list[dict[str, Any]] = [data]
+        for collection_name in self.collection_path:
+            next_containers: list[dict[str, Any]] = []
+            for container in containers:
+                items = container.get(collection_name)
+                if isinstance(items, list):
+                    next_containers.extend(item for item in items if isinstance(item, dict))
+            containers = next_containers
+        yield from containers
 
 
 @dataclass
 class AttachmentField:
-    """1:1 model of an ATTACHMENT entry in schema["ui"]["fields"][name]."""
+    """1:1 model of an ATTACHMENT entry in schema["ui"]["fields"][name].
+
+    ``min_items`` and ``max_items`` are sourced from the field's JSON schema
+    definition.  The prop-path used for traversal is derived by splitting the
+    slot's dotted ``field_id`` (e.g. ``"arrests.photo"`` → path
+    ``["arrests", "photo"]``) via ``get_field_schema_from_prop_path``.  For a
+    flat field (no dot) the path is a single-element list.  They are ``None``
+    when the property is absent or the JSON definition is missing.
+    """
 
     type: ClassVar[str] = "ATTACHMENT"  # meta-schema const; fixed discriminant, not init data
-    parent: str  # raw JSON parent: a section OR collection name
     allowable_file_types: list[FileTypeLabel]
+    min_items: int | None = None
+    max_items: int | None = None
 
 
 AttachmentSlot: TypeAlias = Slot[AttachmentField]
+
+
+def _coerce_bound(raw: Any) -> int | None:
+    """Return *raw* as a non-negative int bound, or None if it is not a valid bound.
+
+    Rejects booleans (``isinstance(True, int)`` is True), negative ints, and any
+    non-int type, all of which are invalid ``minItems`` / ``maxItems`` values.
+    """
+    if isinstance(raw, bool) or not isinstance(raw, int):
+        return None
+    return raw if raw >= 0 else None
 
 
 @dataclass
@@ -144,13 +211,22 @@ class SchemaResult:
         return api_dict
 
     def extract_attachment_slots(self) -> dict[str, AttachmentSlot]:
-        """Return a mapping of field_name -> AttachmentSlot for every ATTACHMENT field.
+        """Return a mapping of field_id -> AttachmentSlot for every ATTACHMENT field.
 
         Walks ``self.schema["ui"]["fields"]`` and collects every field whose
-        ``type`` is ``"ATTACHMENT"``.  For each such field,
-        ``slot.collection_parent`` is the name of the enclosing COLLECTION field
-        (i.e. the parent field that has ``type == "COLLECTION"``) when the
-        field is nested, otherwise ``None``.
+        ``type`` is ``"ATTACHMENT"``.  The map key is the dotted ui.fields key
+        (e.g. ``"arrests.photo"`` for a collection-nested field, ``"photo"``
+        for a flat field).
+
+        For each slot, ``collection_path``, ``collection_parent``, and
+        ``data_key`` are derived from the dotted field_id:
+        ``"arrests.photo"`` → ``collection_path=["arrests"]``,
+        ``collection_parent="arrests"``, ``data_key="photo"``.
+        ``"outer.inner.photo"`` → ``collection_path=["outer", "inner"]``,
+        ``collection_parent="inner"``, ``data_key="photo"``.
+        The JSON schema definition is resolved by splitting the dotted key into
+        a prop-path and passing it to ``get_field_schema_from_prop_path``,
+        which traverses ``array``/``object`` nesting at every level for us.
 
         Precondition: ``self.schema`` is not ``None``. Callers must
         gate on ``schema_result.schema`` first; the method raises
@@ -160,32 +236,42 @@ class SchemaResult:
         """
         if self.schema is None:
             raise ValueError(
-                "extract_attachment_slots requires a parsed schema; "
-                "caller must gate on schema_result.schema first."
+                "extract_attachment_slots requires a parsed schema; " "caller must gate on schema_result.schema first."
             )
 
         ui_fields: dict[str, Any] = (self.schema.get("ui") or {}).get("fields") or {}
         result: dict[str, AttachmentSlot] = {}
 
-        for field_name, ui_def in ui_fields.items():
+        for field_id, ui_def in ui_fields.items():
             if not isinstance(ui_def, dict):
                 raise ValueError(
-                    f"ui.fields[{field_name!r}] is {type(ui_def).__name__}, expected dict; "
+                    f"ui.fields[{field_id!r}] is {type(ui_def).__name__}, expected dict; "
                     "EventTypeV2Serializer meta-schema should have rejected this on write."
                 )
 
-        collection_field_names: set[str] = {
-            name for name, defn in ui_fields.items() if defn.get("type") == "COLLECTION"
-        }
-
-        for field_name, ui_def in ui_fields.items():
+        for field_id, ui_def in ui_fields.items():
             if ui_def.get("type") != "ATTACHMENT":
                 continue
-            parent = ui_def.get("parent", "")
             allowable = cast(list[FileTypeLabel], ui_def.get("allowableFileTypes") or [])
-            result[field_name] = AttachmentSlot(
-                field=AttachmentField(parent=parent, allowable_file_types=allowable),
-                parent_is_collection=parent in collection_field_names,
+
+            # Resolve minItems / maxItems from the JSON schema definition.
+            # Split the dotted field_id into a prop-path so
+            # get_field_schema_from_prop_path can traverse collection
+            # array nesting for us (e.g. "arrests.photo" → ["arrests", "photo"]).
+            json_def = get_field_schema_from_prop_path(self.schema, field_id.split("."))
+            min_items: int | None = None
+            max_items: int | None = None
+            if isinstance(json_def, dict):
+                min_items = _coerce_bound(json_def.get("minItems"))
+                max_items = _coerce_bound(json_def.get("maxItems"))
+
+            result[field_id] = AttachmentSlot(
+                field=AttachmentField(
+                    allowable_file_types=allowable,
+                    min_items=min_items,
+                    max_items=max_items,
+                ),
+                field_id=field_id,
             )
         return result
 

@@ -701,7 +701,7 @@ This example demonstrates a complete V2 eventtype for wildlife carcass reporting
 
 ## Submitting Events with Attachments
 
-V2 event types bind file uploads to **named properties** in `event_details` (e.g. `event_details.photo`), in contrast to V1 where files were a flat list attached to the event via a separate endpoint. The stored value of an attachment property is a UUID string. On read, `event_details.<field>` returns the **raw UUID** — proxy URLs are served back only in `metadata.attachments.<uuid>.files` for `status="complete"` attachments.
+V2 event types bind file uploads to **named properties** in `event_details` (e.g. `event_details.photo`), in contrast to V1 where files were a flat list attached to the event via a separate endpoint. The stored value of an attachment property is an array of upload objects, each with shape `{"uploadId": "<uuid>"}`. On read, `event_details.<field>` returns the **raw stored array** — proxy URLs are served back only in `metadata.attachments.<uuid>.files` for `status="complete"` attachments.
 
 ### Lifecycle at a glance
 
@@ -711,8 +711,8 @@ Uploads and event creation are **decoupled** — there is no chicken-and-egg her
 1. POST /api/v1.0/usercontent/chunked-uploads/   →  obtain id (a UUID); caller may supply their own
 2. PUT  /api/v1.0/usercontent/chunked-uploads/<id>/chunks/<N>/  →  upload each chunk
 3. POST /api/v1.0/usercontent/chunked-uploads/<id>/complete/    →  finalize; FileContent row created
-4. POST /api/v2.0/activity/events/  with event_details.<field> = <id>
-5. GET  /api/v2.0/activity/events/<event-id>/  →  event_details.<field> = raw UUID; metadata.attachments sidecar
+4. POST /api/v2.0/activity/events/  with event_details.<field> = [{"uploadId": "<id>"}]
+5. GET  /api/v2.0/activity/events/<event-id>/  →  event_details.<field> = raw array; metadata.attachments sidecar
 ```
 
 The same UUID flows through every step. **This ordering is not mandatory:** because the id is bring-your-own, the client can pre-allocate the UUID itself and POST the event (step 4) *before* uploading the file (steps 1–3) — the init call is only one way to obtain an id, not a prerequisite. The sole invariant is that the same UUID appears in both the upload session and the `event_details` slot.
@@ -797,9 +797,9 @@ After all chunks are received, finalize the upload. Creates a `FileContent` row 
 
 ### Step 2 — Submit the event
 
-`POST /api/v2.0/activity/events/` with `application/json`. Place the UUID directly in `event_details` under the property name declared as an `ATTACHMENT` field in the event type's UI schema.
+`POST /api/v2.0/activity/events/` with `application/json`. Place the upload objects in `event_details` under the property name declared as an `ATTACHMENT` field in the event type's UI schema. Each attachment value is an **array** of objects with a single key `uploadId` whose value is the UUID string.
 
-Write-time validation is **format-only**: any well-formed UUID passes regardless of whether the file exists, belongs to the same user, or matches `allowableFileTypes`. Only non-string values and malformed UUID strings are rejected with 400.
+Write-time validation is **format-only**: any well-formed `{"uploadId": "<uuid>"}` object passes regardless of whether the file exists, belongs to the same user, or matches `allowableFileTypes`. Only non-list values, non-dict items, malformed UUIDs, extra keys on an item, and duplicate `uploadId` values are rejected with 400.
 
 ```http
 POST /api/v2.0/activity/events/
@@ -812,7 +812,7 @@ Content-Type: application/json
   "location": {"latitude": -1.2921, "longitude": 36.8219},
   "event_details": {
     "arrestrep_name": "John Doe",
-    "photo": "550e8400-e29b-41d4-a716-446655440000"
+    "photo": [{"uploadId": "550e8400-e29b-41d4-a716-446655440000"}]
   }
 }
 ```
@@ -835,13 +835,13 @@ Content-Type: application/json
 
 #### Attachments inside a collection
 
-When the `ATTACHMENT` field lives inside a `COLLECTION`, the UUID goes on each collection item:
+When the `ATTACHMENT` field lives inside a `COLLECTION`, the upload object array goes on each collection item:
 
 ```json
 "event_details": {
   "arrests": [
-    {"name": "John Doe",   "arrestee_photo": "550e8400-e29b-41d4-a716-446655440000"},
-    {"name": "Jane Smith", "arrestee_photo": "550e8400-e29b-41d4-a716-446655440001"}
+    {"name": "John Doe",   "arrestee_photo": [{"uploadId": "550e8400-e29b-41d4-a716-446655440000"}]},
+    {"name": "Jane Smith", "arrestee_photo": [{"uploadId": "550e8400-e29b-41d4-a716-446655440001"}]}
   ]
 }
 ```
@@ -850,9 +850,16 @@ When the `ATTACHMENT` field lives inside a `COLLECTION`, the UUID goes on each c
 
 | Failure | HTTP | Example response body |
 |---------|------|-----------------------|
-| Value is not a string / not a valid UUID | 400 | `{"event_details": {"photo": ["Not a valid UUID."]}}` |
+| Value is not an array | 400 | `{"event_details": {"photo": ["Expected an array of attachment objects."]}}` |
+| Array item is not a dict | 400 | `{"event_details": {"photo": ["Item at index 0 must be an object with an 'uploadId' key: ..."]}}` |
+| Item missing `uploadId` key | 400 | `{"event_details": {"photo": ["Item at index 0 is missing required key 'uploadId'."]}}` |
+| Item has extra keys | 400 | `{"event_details": {"photo": ["Item at index 0 has unexpected key(s): ..."]}}` |
+| `uploadId` value is not a valid UUID string | 400 | `{"event_details": {"photo": ["Item at index 0: 'uploadId' is not a valid UUID: ..."]}}` |
+| Duplicate `uploadId` in the array | 400 | `{"event_details": {"photo": ["Item at index 1 is a duplicate uploadId: ..."]}}` |
+| Array shorter than `minItems` | 400 | `{"event_details": {"photo": ["This field must contain at least N item(s)."]}}` |
+| Array longer than `maxItems` | 400 | `{"event_details": {"photo": ["This field must contain at most N item(s)."]}}` |
 
-`null`, missing, and empty-string values are accepted — an attachment property is optional unless the JSON schema marks it `required`. Unknown UUIDs, cross-tenant UUIDs, and file-type mismatches all pass.
+`null` and missing values are accepted — an attachment property is optional unless the JSON schema marks it `required`. An empty array (`[]`) is also accepted when no `minItems` bound is set. Unknown UUIDs, cross-tenant UUIDs, and file-type mismatches all pass.
 
 #### Metadata sidecar (write side)
 
@@ -860,7 +867,7 @@ On every write, the server stores a slim `{}` placeholder for each UUID present 
 
 ### Step 3 — Read back
 
-`GET /api/v2.0/activity/events/<id>/` returns `event_details.<field>` as the **raw stored UUID** (not a proxy URL). Proxy URLs appear only in `metadata.attachments.<uuid>.files` for `status="complete"` attachments.
+`GET /api/v2.0/activity/events/<id>/` returns `event_details.<field>` as the **raw stored upload object array** (not a proxy URL). Proxy URLs appear only in `metadata.attachments.<uuid>.files` for `status="complete"` attachments.
 
 ```json
 {
@@ -868,7 +875,7 @@ On every write, the server stores a slim `{}` placeholder for each UUID present 
   "event_type": "arrest_rep",
   "event_details": {
     "arrestrep_name": "John Doe",
-    "photo": "550e8400-e29b-41d4-a716-446655440000"
+    "photo": [{"uploadId": "550e8400-e29b-41d4-a716-446655440000"}]
   },
   "metadata": {
     "attachments": {
@@ -958,19 +965,19 @@ POST /api/v1.0/usercontent/chunked-uploads/550e8400-e29b-41d4-a716-446655440000/
 
 → 200 {"id": "550e8400-e29b-41d4-a716-446655440000", "filename": "photo.jpg", "file_type": "image", ...}
 
-# 4. Create the event with the UUID in event_details
+# 4. Create the event with the upload object array in event_details
 POST /api/v2.0/activity/events/
-{"event_type": "arrest_rep", "title": "Arrest", "event_details": {"photo": "550e8400-e29b-41d4-a716-446655440000"}}
+{"event_type": "arrest_rep", "title": "Arrest", "event_details": {"photo": [{"uploadId": "550e8400-e29b-41d4-a716-446655440000"}]}}
 
 → 201
 
-# 5. Read back — raw UUID in event_details, files in metadata
+# 5. Read back — raw upload object array in event_details, files in metadata
 GET /api/v2.0/activity/events/<event-id>/
 
 → 200
 {
   "event_details": {
-    "photo": "550e8400-e29b-41d4-a716-446655440000"
+    "photo": [{"uploadId": "550e8400-e29b-41d4-a716-446655440000"}]
   },
   "metadata": {
     "attachments": {

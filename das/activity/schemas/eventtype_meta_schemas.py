@@ -1,5 +1,9 @@
 # Constants
 
+from __future__ import annotations
+
+from typing import Final
+
 FIELD_PLACEHOLDER_MAX_LENGTH = 32
 FIELD_TITLE_MAX_LENGTH = 1000
 
@@ -11,6 +15,8 @@ FIELD_ID_PATTERN = rf"^{FORM_ELEMENT_SEGMENT_PATTERN}(?:\.{FORM_ELEMENT_SEGMENT_
 HEADER_ID_PATTERN = rf"^header-{FORM_ELEMENT_SEGMENT_PATTERN}$"
 
 SECTION_ID_PATTERN = rf"^section-{FORM_ELEMENT_SEGMENT_PATTERN}$"
+
+ATTACHMENT_UPLOAD_ID_JSON_KEY: Final = "uploadId"
 
 
 # Shared schemas
@@ -43,7 +49,7 @@ attachment_field_json_schema = {
                 "properties": {
                     "type": "object",
                     "properties": {
-                        "uploadId": {
+                        ATTACHMENT_UPLOAD_ID_JSON_KEY: {
                             "type": "object",
                             "properties": {
                                 "format": {"const": "uuid"},
@@ -53,10 +59,10 @@ attachment_field_json_schema = {
                             "additionalProperties": False,
                         }
                     },
-                    "required": ["uploadId"],
+                    "required": [ATTACHMENT_UPLOAD_ID_JSON_KEY],
                     "additionalProperties": False,
                 },
-                "required": {"const": ["uploadId"]},
+                "required": {"const": [ATTACHMENT_UPLOAD_ID_JSON_KEY]},
                 "type": {"const": "object"},
                 "unevaluatedProperties": {"const": False},
             },

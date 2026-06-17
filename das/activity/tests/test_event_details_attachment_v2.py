@@ -1,15 +1,15 @@
 """Tests for V2 event-type attachment field handling in EventDetailsSerializer (ERA-13273).
 
-Write path: any well-formed UUID passes.  Validation is format-only — it does not
-check ownership, existence, or file type.  Real access control comes from UUID
-unguessability, not from write-time checks.
+Write path: any array of well-formed ``{"uploadId": "<uuid>"}`` objects passes.
+Validation is format-only — it does not check ownership, existence, or file type.
+Real access control comes from UUID unguessability, not from write-time checks.
 
 Metadata sidecar: EventDetails.data["metadata"]["attachments"] stores a ``{}``
-placeholder for each UUID present in an attachment slot at write time.  The
+placeholder for each ``uploadId`` present in an attachment slot at write time.  The
 top-level ``metadata`` key is hydrated at read time via ``get_attachment_info``
 into ``{status, file_type, files}`` entries.
 
-Read path: event_details returns the raw stored UUID, not a proxy URL.
+Read path: event_details returns the raw stored upload object array, not a proxy URL.
 Proxy URLs appear only in ``metadata.attachments.<uuid>.files`` for
 ``status="complete"`` attachments.
 """
@@ -76,7 +76,14 @@ def _attachment_event_type_schema(
                 field_name: {
                     "deprecated": False,
                     "title": field_name.replace("_", " ").title(),
-                    "type": "string",
+                    "type": "array",
+                    "uniqueItems": True,
+                    "items": {
+                        "properties": {"uploadId": {"format": "uuid", "type": "string"}},
+                        "required": ["uploadId"],
+                        "type": "object",
+                        "unevaluatedProperties": False,
+                    },
                 }
             },
             "required": [],
@@ -126,7 +133,14 @@ def _collection_attachment_schema(
                             attachment_field: {
                                 "deprecated": False,
                                 "title": attachment_field.replace("_", " ").title(),
-                                "type": "string",
+                                "type": "array",
+                                "uniqueItems": True,
+                                "items": {
+                                    "properties": {"uploadId": {"format": "uuid", "type": "string"}},
+                                    "required": ["uploadId"],
+                                    "type": "object",
+                                    "unevaluatedProperties": False,
+                                },
                             }
                         },
                         "required": [],
@@ -148,12 +162,12 @@ def _collection_attachment_schema(
                     "columns": 1,
                     "itemIdentifier": "",
                     "itemName": "Item",
-                    "leftColumn": [attachment_field],
+                    "leftColumn": [f"{collection_name}.{attachment_field}"],
                     "rightColumn": [],
                     "type": "COLLECTION",
                     "parent": "section-1",
                 },
-                attachment_field: {
+                f"{collection_name}.{attachment_field}": {
                     "allowableFileTypes": allowable_file_types,
                     "type": "ATTACHMENT",
                     "parent": collection_name,
@@ -347,8 +361,8 @@ class TestExtractAttachmentSlots:
     def test_collection_nested_attachment(self) -> None:
         rendered = _collection_attachment_schema("arrests", "arrestee_photo", ["image"])
         slots = self._result(rendered).extract_attachment_slots()
-        assert "arrestee_photo" in slots
-        assert slots["arrestee_photo"].collection_parent == "arrests"
+        assert "arrests.arrestee_photo" in slots
+        assert slots["arrests.arrestee_photo"].collection_parent == "arrests"
 
     def test_no_attachment_fields_returns_empty(self) -> None:
         rendered = {
@@ -388,14 +402,14 @@ class TestSlotValueContainers:
 
     def _flat_slot(self, field_name: str = "photo") -> AttachmentSlot:
         return Slot(
-            field=AttachmentField(parent="section-1", allowable_file_types=[]),
-            parent_is_collection=False,
+            field=AttachmentField(allowable_file_types=[]),
+            field_id=field_name,
         )
 
     def _collection_slot(self, collection_name: str = "items") -> AttachmentSlot:
         return Slot(
-            field=AttachmentField(parent=collection_name, allowable_file_types=[]),
-            parent_is_collection=True,
+            field=AttachmentField(allowable_file_types=[]),
+            field_id=f"{collection_name}.photo",
         )
 
     def test_flat_slot_yields_data_itself(self) -> None:
@@ -451,10 +465,11 @@ class TestSlotValueContainers:
 class TestV2AttachmentWriteValidation:
     """Validate attachment field values on EventDetailsSerializer.to_internal_value.
 
-    Validation is FORMAT-ONLY: any well-formed UUID passes.  Ownership, existence,
-    and file-type are not checked at write time — only non-string values and
-    malformed UUID strings are rejected.  Real access control comes from UUID
-    unguessability.
+    Validation is FORMAT-ONLY: any array of well-formed ``{"uploadId": "<uuid>"}``
+    objects passes.  Ownership, existence, and file-type are not checked at write
+    time — only non-list values, non-dict items, malformed uploadId values, extra
+    keys, and duplicate uploadId values are rejected.  Real access control comes
+    from UUID unguessability.
     """
 
     @pytest.fixture(autouse=True)
@@ -473,10 +488,12 @@ class TestV2AttachmentWriteValidation:
         result = ser._to_internal_value_inner(ser.instance, {"photo": None})
         assert result["photo"] is None
 
-    def test_empty_string_passes(self, v2_attachment_event_type) -> None:
+    def test_empty_string_rejected(self, v2_attachment_event_type) -> None:
+        """Empty string is no longer accepted — a list is required."""
         ser = self._serializer(v2_attachment_event_type)
-        result = ser._to_internal_value_inner(ser.instance, {"photo": ""})
-        assert result["photo"] == ""
+        with pytest.raises(ValidationError) as exc_info:
+            ser._to_internal_value_inner(ser.instance, {"photo": ""})
+        assert "photo" in exc_info.value.detail
 
     def test_omitted_field_passes(self, v2_attachment_event_type) -> None:
         ser = self._serializer(v2_attachment_event_type)
@@ -484,6 +501,7 @@ class TestV2AttachmentWriteValidation:
         assert "photo" not in result
 
     def test_non_uuid_string_rejected(self, v2_attachment_event_type) -> None:
+        """A bare string (non-list) is rejected regardless of content."""
         ser = self._serializer(v2_attachment_event_type)
         with pytest.raises(ValidationError) as exc_info:
             ser._to_internal_value_inner(ser.instance, {"photo": "not-a-uuid"})
@@ -497,10 +515,10 @@ class TestV2AttachmentWriteValidation:
 
     def test_attachment_field_accepts_unknown_uuid(self, v2_attachment_event_type) -> None:
         """A well-formed UUID with no matching session or DB row passes (validation is format-only)."""
-        random_uuid = str(uuid.uuid4())
+        item = {"uploadId": str(uuid.uuid4())}
         ser = self._serializer(v2_attachment_event_type)
-        result = ser._to_internal_value_inner(ser.instance, {"photo": random_uuid})
-        assert result["photo"] == random_uuid
+        result = ser._to_internal_value_inner(ser.instance, {"photo": [item]})
+        assert result["photo"] == [item]
 
     def test_attachment_field_accepts_uuid_without_ownership_check(self, v2_attachment_event_type) -> None:
         """A UUID for an existing file passes; write validation does not verify ownership.
@@ -508,23 +526,26 @@ class TestV2AttachmentWriteValidation:
         Real protection comes from UUID unguessability, not from a write-time owner check.
         """
         ifc = _insert_imagefilecontent(user=self.user, filename="photo.jpg")
+        item = {"uploadId": str(ifc.id)}
         ser = self._serializer(v2_attachment_event_type)
-        result = ser._to_internal_value_inner(ser.instance, {"photo": str(ifc.id)})
-        assert result["photo"] == str(ifc.id)
+        result = ser._to_internal_value_inner(ser.instance, {"photo": [item]})
+        assert result["photo"] == [item]
 
     def test_attachment_field_does_not_enforce_allowable_file_types(self, v2_attachment_event_type) -> None:
         """A UUID whose file type differs from allowableFileTypes passes (validation is format-only)."""
         fc = _insert_filecontent(user=self.user, filename="notes.pdf")
+        item = {"uploadId": str(fc.id)}
         ser = self._serializer(v2_attachment_event_type)
         # v2_attachment_event_type only allows "image"; a PDF passes
-        result = ser._to_internal_value_inner(ser.instance, {"photo": str(fc.id)})
-        assert result["photo"] == str(fc.id)
+        result = ser._to_internal_value_inner(ser.instance, {"photo": [item]})
+        assert result["photo"] == [item]
 
     def test_no_allowable_file_types_accepts_any_type(self, v2_no_filter_attachment_event_type) -> None:
         fc = _insert_filecontent(user=self.user, filename="notes.pdf")
+        item = {"uploadId": str(fc.id)}
         ser = self._serializer(v2_no_filter_attachment_event_type)
-        result = ser._to_internal_value_inner(ser.instance, {"doc": str(fc.id)})
-        assert result["doc"] == str(fc.id)
+        result = ser._to_internal_value_inner(ser.instance, {"doc": [item]})
+        assert result["doc"] == [item]
 
     def test_v1_event_type_unaffected(self, v1_event_type) -> None:
         """V1 event types must not go through attachment validation."""
@@ -537,24 +558,26 @@ class TestV2AttachmentWriteValidation:
         """With no request in context, validation still runs (format-only) without RuntimeError."""
         event = _make_event(v2_attachment_event_type, self.user)
         ser = EventDetailsSerializer(instance=event, context={})
-        random_uuid = str(uuid.uuid4())
-        # Format-only validation; a well-formed UUID passes even without request
-        result = ser._to_internal_value_inner(event, {"photo": random_uuid})
-        assert result["photo"] == random_uuid
+        item = {"uploadId": str(uuid.uuid4())}
+        # Format-only validation; a well-formed upload object array passes even without request
+        result = ser._to_internal_value_inner(event, {"photo": [item]})
+        assert result["photo"] == [item]
 
     def test_collection_nested_attachment_valid(self, v2_collection_attachment_event_type) -> None:
         ifc = _insert_imagefilecontent(user=self.user, filename="arrestee.jpg")
+        item = {"uploadId": str(ifc.id)}
         ser = self._serializer(v2_collection_attachment_event_type)
-        data = {"arrests": [{"arrestee_photo": str(ifc.id)}]}
+        data = {"arrests": [{"arrestee_photo": [item]}]}
         result = ser._to_internal_value_inner(ser.instance, data)
-        assert result["arrests"][0]["arrestee_photo"] == str(ifc.id)
+        assert result["arrests"][0]["arrestee_photo"] == [item]
 
-    def test_collection_nested_invalid_uuid_rejected(self, v2_collection_attachment_event_type) -> None:
+    def test_collection_nested_invalid_item_rejected(self, v2_collection_attachment_event_type) -> None:
+        """A plain UUID string item (not wrapped in an object) in a collection-nested attachment is rejected."""
         ser = self._serializer(v2_collection_attachment_event_type)
-        data = {"arrests": [{"arrestee_photo": "not-a-uuid"}]}
+        data = {"arrests": [{"arrestee_photo": [str(uuid.uuid4())]}]}
         with pytest.raises(ValidationError) as exc_info:
             ser._to_internal_value_inner(ser.instance, data)
-        assert "arrestee_photo" in exc_info.value.detail
+        assert "arrests.arrestee_photo" in exc_info.value.detail
 
     # ------------------------------------------------------------------
     # Upload-session (initiated/in-progress) tests
@@ -585,9 +608,10 @@ class TestV2AttachmentWriteValidation:
     def test_initiated_upload_session_passes_validation(self, v2_attachment_event_type) -> None:
         """A live Redis upload session UUID (no DB row yet) passes format validation."""
         uid = self._seed_upload_session(filename="photo.jpg")
+        item = {"uploadId": uid}
         ser = self._serializer(v2_attachment_event_type)
-        result = ser._to_internal_value_inner(ser.instance, {"photo": uid})
-        assert result["photo"] == uid
+        result = ser._to_internal_value_inner(ser.instance, {"photo": [item]})
+        assert result["photo"] == [item]
 
     def test_attachment_field_accepts_in_progress_session_uuid(self, v2_attachment_event_type) -> None:
         """An in-progress upload-session UUID passes format validation (no ownership check)."""
@@ -600,9 +624,10 @@ class TestV2AttachmentWriteValidation:
             is_staff=True,
         )
         uid = self._seed_upload_session(user_id=str(other.pk), filename="photo.jpg")
+        item = {"uploadId": uid}
         ser = self._serializer(v2_attachment_event_type)
-        result = ser._to_internal_value_inner(ser.instance, {"photo": uid})
-        assert result["photo"] == uid
+        result = ser._to_internal_value_inner(ser.instance, {"photo": [item]})
+        assert result["photo"] == [item]
 
     def test_session_from_different_tenant_uuid_still_valid_format(
         self,
@@ -633,9 +658,10 @@ class TestV2AttachmentWriteValidation:
             setattr(local_thread, _thread_mod.TENANT_DEFAULT_KEY, current)
 
         # With the original tenant restored, the UUID still has valid format → passes
+        item = {"uploadId": uid}
         ser = self._serializer(v2_attachment_event_type)
-        result = ser._to_internal_value_inner(ser.instance, {"photo": uid})
-        assert result["photo"] == uid
+        result = ser._to_internal_value_inner(ser.instance, {"photo": [item]})
+        assert result["photo"] == [item]
 
     def test_other_tenant_filecontent_uuid_passes_write_validation(
         self,
@@ -658,9 +684,10 @@ class TestV2AttachmentWriteValidation:
         other_ifc.file.name = f"other/image_fileuploads/2024/1/1/{other_ifc_id}/other_tenant.jpg"
         ImageFileContent.objects.bulk_create([other_ifc])
 
+        item = {"uploadId": str(other_ifc_id)}
         ser = self._serializer(v2_attachment_event_type)
-        result = ser._to_internal_value_inner(ser.instance, {"photo": str(other_ifc_id)})
-        assert result["photo"] == str(other_ifc_id)
+        result = ser._to_internal_value_inner(ser.instance, {"photo": [item]})
+        assert result["photo"] == [item]
 
     # ------------------------------------------------------------------
     # Unrenderable V2 schema → 400 tests
@@ -686,12 +713,13 @@ class TestV2AttachmentWriteValidation:
         result = ser._to_internal_value_inner(ser.instance, {"notes": "hello"})
         assert result["notes"] == "hello"
 
-    def test_valid_schema_with_attachment_slot_and_valid_uuid_passes(self, v2_attachment_event_type) -> None:
-        """V2 event type with attachment slot + valid UUID accepts the data."""
+    def test_valid_schema_with_attachment_slot_and_valid_upload_object_passes(self, v2_attachment_event_type) -> None:
+        """V2 event type with attachment slot + valid upload object array accepts the data."""
         ifc = _insert_imagefilecontent(user=self.user, filename="photo.jpg")
+        item = {"uploadId": str(ifc.id)}
         ser = self._serializer(v2_attachment_event_type)
-        result = ser._to_internal_value_inner(ser.instance, {"photo": str(ifc.id)})
-        assert result["photo"] == str(ifc.id)
+        result = ser._to_internal_value_inner(ser.instance, {"photo": [item]})
+        assert result["photo"] == [item]
 
 
 # ---------------------------------------------------------------------------
@@ -733,9 +761,9 @@ class TestV2AttachmentEndToEndValidation:
     # -- CREATE path --
 
     def test_create_unknown_uuid_succeeds(self, v2_attachment_event_type) -> None:
-        """An unknown UUID on CREATE succeeds (validation is format-only)."""
-        unknown_uuid = str(uuid.uuid4())
-        ser = self._create_serializer(v2_attachment_event_type.value, {"photo": unknown_uuid})
+        """An unknown UUID upload object on CREATE succeeds (validation is format-only)."""
+        item = {"uploadId": str(uuid.uuid4())}
+        ser = self._create_serializer(v2_attachment_event_type.value, {"photo": [item]})
         assert ser.is_valid(), ser.errors
         event = ser.save()
         assert event.pk is not None
@@ -743,42 +771,43 @@ class TestV2AttachmentEndToEndValidation:
     def test_create_disallowed_file_type_succeeds(self, v2_attachment_event_type) -> None:
         """A PDF file when only 'image' is allowed succeeds on CREATE (validation is format-only)."""
         fc = _insert_filecontent(user=self.user, filename="notes.pdf")
-        ser = self._create_serializer(v2_attachment_event_type.value, {"photo": str(fc.id)})
+        ser = self._create_serializer(v2_attachment_event_type.value, {"photo": [{"uploadId": str(fc.id)}]})
         assert ser.is_valid(), ser.errors
         event = ser.save()
         assert event.pk is not None
 
     def test_create_valid_owned_uuid_succeeds(self, v2_attachment_event_type) -> None:
-        """A valid owned image UUID on CREATE saves successfully."""
+        """A valid owned image UUID upload object on CREATE saves successfully."""
         ifc = _insert_imagefilecontent(user=self.user, filename="photo.jpg")
-        ser = self._create_serializer(v2_attachment_event_type.value, {"photo": str(ifc.id)})
+        ser = self._create_serializer(v2_attachment_event_type.value, {"photo": [{"uploadId": str(ifc.id)}]})
         assert ser.is_valid(), ser.errors
         event = ser.save()
         assert event.pk is not None
 
-    def test_create_returns_raw_uuid_not_proxy_url(self, v2_attachment_event_type) -> None:
-        """After a successful CREATE the serialized event_details contain the raw UUID, not a proxy URL."""
+    def test_create_returns_raw_upload_object_array_not_proxy_url(self, v2_attachment_event_type) -> None:
+        """After a successful CREATE the serialized event_details contain the raw upload object array."""
         ifc = _insert_imagefilecontent(user=self.user, filename="photo.jpg")
-        ser = self._create_serializer(v2_attachment_event_type.value, {"photo": str(ifc.id)})
+        item = {"uploadId": str(ifc.id)}
+        ser = self._create_serializer(v2_attachment_event_type.value, {"photo": [item]})
         assert ser.is_valid(), ser.errors
         event = ser.save()
         # Re-serialize for reading
         read_ser = EventSerializer(instance=event, context=self._context())
         data = read_ser.data
-        assert data["event_details"]["photo"] == str(ifc.id)
-        assert "/api/v1.0/usercontent/" not in data["event_details"]["photo"]
+        assert data["event_details"]["photo"] == [item]
+        assert "/api/v1.0/usercontent/" not in str(data["event_details"]["photo"])
 
     # -- UPDATE path --
 
     def test_update_unknown_uuid_succeeds(self, v2_attachment_event_type) -> None:
-        """An unknown UUID on UPDATE succeeds (validation is format-only)."""
+        """An unknown UUID upload object on UPDATE succeeds (validation is format-only)."""
         ifc = _insert_imagefilecontent(user=self.user, filename="photo.jpg")
-        ser = self._create_serializer(v2_attachment_event_type.value, {"photo": str(ifc.id)})
+        ser = self._create_serializer(v2_attachment_event_type.value, {"photo": [{"uploadId": str(ifc.id)}]})
         assert ser.is_valid(), ser.errors
         event = ser.save()
 
-        unknown_uuid = str(uuid.uuid4())
-        update_ser = self._update_serializer(event, {"photo": unknown_uuid})
+        new_item = {"uploadId": str(uuid.uuid4())}
+        update_ser = self._update_serializer(event, {"photo": [new_item]})
         assert update_ser.is_valid(), update_ser.errors
         updated_event = update_ser.save()
         assert updated_event.pk == event.pk
@@ -786,25 +815,25 @@ class TestV2AttachmentEndToEndValidation:
     def test_update_disallowed_file_type_succeeds(self, v2_attachment_event_type) -> None:
         """A PDF file when only 'image' is allowed succeeds on UPDATE (validation is format-only)."""
         ifc = _insert_imagefilecontent(user=self.user, filename="photo.jpg")
-        ser = self._create_serializer(v2_attachment_event_type.value, {"photo": str(ifc.id)})
+        ser = self._create_serializer(v2_attachment_event_type.value, {"photo": [{"uploadId": str(ifc.id)}]})
         assert ser.is_valid(), ser.errors
         event = ser.save()
 
         fc = _insert_filecontent(user=self.user, filename="notes.pdf")
-        update_ser = self._update_serializer(event, {"photo": str(fc.id)})
+        update_ser = self._update_serializer(event, {"photo": [{"uploadId": str(fc.id)}]})
         assert update_ser.is_valid(), update_ser.errors
         updated_event = update_ser.save()
         assert updated_event.pk == event.pk
 
     def test_update_valid_owned_uuid_succeeds(self, v2_attachment_event_type) -> None:
-        """A valid owned image UUID on UPDATE saves successfully."""
+        """A valid owned image UUID upload object on UPDATE saves successfully."""
         ifc1 = _insert_imagefilecontent(user=self.user, filename="photo1.jpg")
-        ser = self._create_serializer(v2_attachment_event_type.value, {"photo": str(ifc1.id)})
+        ser = self._create_serializer(v2_attachment_event_type.value, {"photo": [{"uploadId": str(ifc1.id)}]})
         assert ser.is_valid(), ser.errors
         event = ser.save()
 
         ifc2 = _insert_imagefilecontent(user=self.user, filename="photo2.jpg")
-        update_ser = self._update_serializer(event, {"photo": str(ifc2.id)})
+        update_ser = self._update_serializer(event, {"photo": [{"uploadId": str(ifc2.id)}]})
         assert update_ser.is_valid(), update_ser.errors
         updated_event = update_ser.save()
         assert updated_event.pk == event.pk
@@ -840,28 +869,29 @@ class TestV2AttachmentMetadataPersistence:
         return EventSerializer(data=data, context=self._context())
 
     def test_post_event_stores_attachment_placeholders_in_event_details_data(self, v2_attachment_event_type) -> None:
-        """Creating an event with a UUID stores a {} placeholder in EventDetails.data["metadata"]."""
+        """Creating an event with an upload object array stores a {} placeholder in EventDetails.data["metadata"]."""
         photo_uuid = str(uuid.uuid4())
-        ser = self._create_serializer(v2_attachment_event_type.value, {"photo": photo_uuid})
+        item = {"uploadId": photo_uuid}
+        ser = self._create_serializer(v2_attachment_event_type.value, {"photo": [item]})
         assert ser.is_valid(), ser.errors
         event = ser.save()
 
         details = EventDetails.objects.filter(event=event).order_by("created_at").last()
         assert details is not None
-        assert details.data["event_details"]["photo"] == photo_uuid
+        assert details.data["event_details"]["photo"] == [item]
         assert "metadata" in details.data
         assert photo_uuid in details.data["metadata"]["attachments"]
         assert details.data["metadata"]["attachments"][photo_uuid] == {}
 
     def test_patch_event_removing_attachment_drops_placeholder(self, v2_attachment_event_type) -> None:
-        """Updating event_details without the attachment UUID removes the metadata placeholder."""
+        """Updating event_details with empty list removes the metadata placeholder."""
         photo_uuid = str(uuid.uuid4())
-        ser = self._create_serializer(v2_attachment_event_type.value, {"photo": photo_uuid})
+        ser = self._create_serializer(v2_attachment_event_type.value, {"photo": [{"uploadId": photo_uuid}]})
         assert ser.is_valid(), ser.errors
         event = ser.save()
 
-        # Patch: remove the attachment
-        update_ser = EventSerializer(instance=event, data={"event_details": {"photo": ""}}, context=self._context())
+        # Patch: remove the attachment (empty array)
+        update_ser = EventSerializer(instance=event, data={"event_details": {"photo": []}}, context=self._context())
         assert update_ser.is_valid(), update_ser.errors
         update_ser.save()
 
@@ -872,7 +902,7 @@ class TestV2AttachmentMetadataPersistence:
     def test_metadata_does_not_appear_in_event_details_output(self, v2_attachment_event_type) -> None:
         """The metadata sidecar must NOT appear inside event_details in the API response."""
         photo_uuid = str(uuid.uuid4())
-        ser = self._create_serializer(v2_attachment_event_type.value, {"photo": photo_uuid})
+        ser = self._create_serializer(v2_attachment_event_type.value, {"photo": [{"uploadId": photo_uuid}]})
         assert ser.is_valid(), ser.errors
         event = ser.save()
 
@@ -881,19 +911,20 @@ class TestV2AttachmentMetadataPersistence:
         assert "metadata" not in data.get("event_details", {})
 
     def test_collect_attachment_uuids_v2_returns_uuids(self, v2_attachment_event_type) -> None:
-        """_collect_attachment_uuids extracts valid UUID strings from attachment fields."""
+        """_collect_attachment_uuids extracts uploadId values from attachment upload object arrays."""
         photo_uuid = str(uuid.uuid4())
-        result = _collect_attachment_uuids(v2_attachment_event_type, {"photo": photo_uuid})
+        result = _collect_attachment_uuids(v2_attachment_event_type, {"photo": [{"uploadId": photo_uuid}]})
         assert photo_uuid in result
 
     def test_collect_attachment_uuids_v2_ignores_empty_values(self, v2_attachment_event_type) -> None:
-        """_collect_attachment_uuids skips None/empty attachment values."""
-        result = _collect_attachment_uuids(v2_attachment_event_type, {"photo": ""})
-        assert result == set()
+        """_collect_attachment_uuids skips None and empty array attachment values."""
+        assert _collect_attachment_uuids(v2_attachment_event_type, {"photo": []}) == set()
+        assert _collect_attachment_uuids(v2_attachment_event_type, {"photo": None}) == set()
 
     def test_collect_attachment_uuids_v1_returns_empty(self, v1_event_type) -> None:
         """_collect_attachment_uuids returns empty set for V1 event types."""
-        result = _collect_attachment_uuids(v1_event_type, {"photo": str(uuid.uuid4())})
+        uid = str(uuid.uuid4())
+        result = _collect_attachment_uuids(v1_event_type, {"photo": [{"uploadId": uid}]})
         assert result == set()
 
 
@@ -928,14 +959,15 @@ class TestV2AttachmentReadPath:
             data["metadata"] = {"attachments": {u: {} for u in attachment_uuids}}
         return EventDetails.objects.create(event=event, data=data)
 
-    def test_event_details_returns_raw_uuid_not_proxy_url(self, v2_attachment_event_type) -> None:
-        """to_representation returns the raw stored UUID in event_details, not a proxy URL."""
+    def test_event_details_returns_raw_upload_object_array_not_proxy_url(self, v2_attachment_event_type) -> None:
+        """to_representation returns the raw stored upload object array in event_details, not a proxy URL."""
         file_uuid = str(uuid.uuid4())
+        item = {"uploadId": file_uuid}
         ser = self._serializer_with_context(v2_attachment_event_type)
-        details = self._make_details(ser.instance, {"photo": file_uuid})
+        details = self._make_details(ser.instance, {"photo": [item]})
         rep = ser.to_representation(details)
-        assert rep["photo"] == file_uuid
-        assert "/api/v1.0/usercontent/" not in rep["photo"]
+        assert rep["photo"] == [item]
+        assert "/api/v1.0/usercontent/" not in str(rep["photo"])
 
     def test_null_value_unchanged(self, v2_attachment_event_type) -> None:
         ser = self._serializer_with_context(v2_attachment_event_type)
@@ -949,13 +981,13 @@ class TestV2AttachmentReadPath:
         rep = ser.to_representation(details)
         assert "photo" not in rep
 
-    def test_no_request_context_leaves_uuid_unchanged(self, v2_attachment_event_type) -> None:
+    def test_no_request_context_leaves_upload_object_array_unchanged(self, v2_attachment_event_type) -> None:
         event = _make_event(v2_attachment_event_type, self.user)
         ser = EventDetailsSerializer(instance=event, context={})
-        file_uuid = str(uuid.uuid4())
-        details = self._make_details(event, {"photo": file_uuid})
+        item = {"uploadId": str(uuid.uuid4())}
+        details = self._make_details(event, {"photo": [item]})
         rep = ser.to_representation(details)
-        assert rep["photo"] == file_uuid
+        assert rep["photo"] == [item]
 
     def test_v1_event_type_unchanged(self, v1_event_type) -> None:
         event = _make_event(v1_event_type, self.user)
@@ -967,19 +999,19 @@ class TestV2AttachmentReadPath:
         rep = ser.to_representation(details)
         assert rep["photo"] == file_uuid
 
-    def test_collection_nested_uuid_unchanged(self, v2_collection_attachment_event_type) -> None:
-        file_uuid = str(uuid.uuid4())
+    def test_collection_nested_upload_object_array_unchanged(self, v2_collection_attachment_event_type) -> None:
+        item = {"uploadId": str(uuid.uuid4())}
         ser = self._serializer_with_context(v2_collection_attachment_event_type)
-        details = self._make_details(ser.instance, {"arrests": [{"arrestee_photo": file_uuid}]})
+        details = self._make_details(ser.instance, {"arrests": [{"arrestee_photo": [item]}]})
         rep = ser.to_representation(details)
-        # Raw UUID — no proxy URL in event_details
-        assert rep["arrests"][0]["arrestee_photo"] == file_uuid
+        # Raw upload object array — no proxy URL in event_details
+        assert rep["arrests"][0]["arrestee_photo"] == [item]
 
     def test_read_path_makes_no_gcs_calls(self, v2_attachment_event_type) -> None:
         """to_representation must not open any files from storage."""
-        file_uuid = str(uuid.uuid4())
+        item = {"uploadId": str(uuid.uuid4())}
         ser = self._serializer_with_context(v2_attachment_event_type)
-        details = self._make_details(ser.instance, {"photo": file_uuid})
+        details = self._make_details(ser.instance, {"photo": [item]})
 
         with MagicMock() as storage_open_mock:
             original_open = default_storage.open
@@ -993,14 +1025,14 @@ class TestV2AttachmentReadPath:
 
     def test_broken_v2_schema_still_renders_stored_event(self, v2_empty_schema_event_type) -> None:
         """Read path: an event whose V2 event type has a broken schema still serializes."""
-        file_uuid = str(uuid.uuid4())
+        item = {"uploadId": str(uuid.uuid4())}
         event = _make_event(v2_empty_schema_event_type, self.user)
         request = _make_request(self.user)
         request.build_absolute_uri = lambda path: f"http://testserver{path}"
         ser = EventDetailsSerializer(instance=event, context={"request": request})
-        details = self._make_details(event, {"some_field": file_uuid})
+        details = self._make_details(event, {"some_field": [item]})
         rep = ser.to_representation(details)
-        assert rep["some_field"] == file_uuid
+        assert rep["some_field"] == [item]
 
     # --- metadata sidecar hydration via EventSerializer ---
 
@@ -1015,7 +1047,7 @@ class TestV2AttachmentReadPath:
         """An attachment UUID with no session or DB row yields status=unknown."""
         file_uuid = str(uuid.uuid4())
         event = _make_event(v2_attachment_event_type, self.user)
-        self._make_details_with_metadata(event, {"photo": file_uuid}, [file_uuid])
+        self._make_details_with_metadata(event, {"photo": [{"uploadId": file_uuid}]}, [file_uuid])
 
         read_ser = EventSerializer(instance=event, context=self._event_context())
         data = read_ser.data
@@ -1040,7 +1072,7 @@ class TestV2AttachmentReadPath:
             file_content_id=uid,
         )
         event = _make_event(v2_attachment_event_type, self.user)
-        self._make_details_with_metadata(event, {"photo": uid}, [uid])
+        self._make_details_with_metadata(event, {"photo": [{"uploadId": uid}]}, [uid])
 
         read_ser = EventSerializer(instance=event, context=self._event_context())
         data = read_ser.data
@@ -1054,7 +1086,7 @@ class TestV2AttachmentReadPath:
         ifc = _insert_imagefilecontent(user=self.user, filename="photo.jpg")
         uid = str(ifc.id)
         event = _make_event(v2_attachment_event_type, self.user)
-        self._make_details_with_metadata(event, {"photo": uid}, [uid])
+        self._make_details_with_metadata(event, {"photo": [{"uploadId": uid}]}, [uid])
 
         read_ser = EventSerializer(instance=event, context=self._event_context())
         data = read_ser.data
@@ -1072,7 +1104,7 @@ class TestV2AttachmentReadPath:
         fc = _insert_filecontent(user=self.user, filename="report.pdf")
         uid = str(fc.id)
         event = _make_event(v2_no_filter_attachment_event_type, self.user)
-        self._make_details_with_metadata(event, {"doc": uid}, [uid])
+        self._make_details_with_metadata(event, {"doc": [{"uploadId": uid}]}, [uid])
 
         read_ser = EventSerializer(instance=event, context=self._event_context())
         data = read_ser.data
@@ -1087,7 +1119,7 @@ class TestV2AttachmentReadPath:
         ifc = _insert_imagefilecontent(user=self.user, filename="photo.jpg")
         uid = str(ifc.id)
         event = _make_event(v2_attachment_event_type, self.user)
-        self._make_details_with_metadata(event, {"photo": uid}, [uid])
+        self._make_details_with_metadata(event, {"photo": [{"uploadId": uid}]}, [uid])
 
         # No request in context (socket-emit path)
         read_ser = EventSerializer(instance=event, context={})
@@ -1101,7 +1133,7 @@ class TestV2AttachmentReadPath:
     def test_no_placeholders_means_no_metadata_key(self, v2_attachment_event_type) -> None:
         """When EventDetails has no metadata.attachments, the response omits metadata."""
         event = _make_event(v2_attachment_event_type, self.user)
-        EventDetails.objects.create(event=event, data={"event_details": {"photo": ""}})
+        EventDetails.objects.create(event=event, data={"event_details": {"photo": []}})
 
         read_ser = EventSerializer(instance=event, context=self._event_context())
         data = read_ser.data
@@ -1124,13 +1156,13 @@ class TestV2AttachmentReadPath:
         # Older row: no attachment metadata.
         older_details = EventDetails.objects.create(
             event=event,
-            data={"event_details": {"photo": ""}},
+            data={"event_details": {"photo": []}},
         )
         # Newer row: has the attachment placeholder.
         newer_details = EventDetails.objects.create(
             event=event,
             data={
-                "event_details": {"photo": photo_uuid},
+                "event_details": {"photo": [{"uploadId": photo_uuid}]},
                 "metadata": {"attachments": {photo_uuid: {}}},
             },
         )
@@ -1163,7 +1195,7 @@ class TestV2AttachmentReadPath:
         fc = _insert_filecontent(user=self.user, filename="photo.webp")
         uid = str(fc.id)
         event = _make_event(v2_attachment_event_type, self.user)
-        self._make_details_with_metadata(event, {"photo": uid}, [uid])
+        self._make_details_with_metadata(event, {"photo": [{"uploadId": uid}]}, [uid])
 
         read_ser = EventSerializer(instance=event, context=self._event_context())
         data = read_ser.data
@@ -1181,7 +1213,7 @@ class TestV2AttachmentReadPath:
         fc = _insert_filecontent(user=self.user, filename="photo.heic")
         uid = str(fc.id)
         event = _make_event(v2_attachment_event_type, self.user)
-        self._make_details_with_metadata(event, {"photo": uid}, [uid])
+        self._make_details_with_metadata(event, {"photo": [{"uploadId": uid}]}, [uid])
 
         read_ser = EventSerializer(instance=event, context=self._event_context())
         data = read_ser.data
@@ -1195,7 +1227,7 @@ class TestV2AttachmentReadPath:
         fc = _insert_filecontent(user=self.user, filename="photo.bmp")
         uid = str(fc.id)
         event = _make_event(v2_attachment_event_type, self.user)
-        self._make_details_with_metadata(event, {"photo": uid}, [uid])
+        self._make_details_with_metadata(event, {"photo": [{"uploadId": uid}]}, [uid])
 
         read_ser = EventSerializer(instance=event, context=self._event_context())
         data = read_ser.data
@@ -1213,7 +1245,7 @@ class TestV2AttachmentReadPath:
         ifc = _insert_imagefilecontent(user=self.user, filename="photo.jpg")
         uid = str(ifc.id)
         event = _make_event(v2_attachment_event_type, self.user)
-        self._make_details_with_metadata(event, {"photo": uid}, [uid])
+        self._make_details_with_metadata(event, {"photo": [{"uploadId": uid}]}, [uid])
 
         read_ser = EventSerializer(instance=event, context=self._event_context())
         data = read_ser.data
@@ -1253,9 +1285,9 @@ class TestRawSchemaUsedNotRendered:
 
     def test_read_path_does_not_call_get_rendered_schema(self, v2_attachment_event_type) -> None:
         """to_representation must not invoke get_rendered_schema."""
-        file_uuid = str(uuid.uuid4())
+        item = {"uploadId": str(uuid.uuid4())}
         ser = self._serializer_with_context(v2_attachment_event_type)
-        details = EventDetails.objects.create(event=ser.instance, data={"event_details": {"photo": file_uuid}})
+        details = EventDetails.objects.create(event=ser.instance, data={"event_details": {"photo": [item]}})
 
         with patch.object(
             EventTypeSchemaService,
@@ -1264,12 +1296,13 @@ class TestRawSchemaUsedNotRendered:
         ):
             rep = ser.to_representation(details)
 
-        # Raw UUID is returned unchanged
-        assert rep["photo"] == file_uuid
+        # Raw upload object array is returned unchanged
+        assert rep["photo"] == [item]
 
     def test_write_path_does_not_call_get_rendered_schema(self, v2_attachment_event_type) -> None:
         """_to_internal_value_inner must not invoke get_rendered_schema."""
         ifc = _insert_imagefilecontent(user=self.user, filename="photo.jpg")
+        item = {"uploadId": str(ifc.id)}
         ser = self._serializer_with_context(v2_attachment_event_type)
 
         with patch.object(
@@ -1277,9 +1310,9 @@ class TestRawSchemaUsedNotRendered:
             "get_rendered_schema",
             side_effect=AssertionError("get_rendered_schema must not be called on the write path"),
         ):
-            result = ser._to_internal_value_inner(ser.instance, {"photo": str(ifc.id)})
+            result = ser._to_internal_value_inner(ser.instance, {"photo": [item]})
 
-        assert result["photo"] == str(ifc.id)
+        assert result["photo"] == [item]
 
     def test_write_succeeds_for_v2_event_with_no_attachment_fields_when_renderer_would_fail(
         self, v2_no_attachment_event_type
@@ -1345,7 +1378,7 @@ class TestAttachmentMetadataPermissionGate:
         """A user without category_read sees only {id, serial_number}; metadata/event_details absent."""
         photo_uuid = str(uuid.uuid4())
         event = _make_event(v2_attachment_event_type, self.user)
-        details_data: dict[str, Any] = {"event_details": {"photo": photo_uuid}}
+        details_data: dict[str, Any] = {"event_details": {"photo": [{"uploadId": photo_uuid}]}}
         details_data["metadata"] = {"attachments": {photo_uuid: {}}}
         EventDetails.objects.create(event=event, data=details_data)
 
@@ -1374,13 +1407,13 @@ class TestAttachmentMetadataPermissionGate:
 
         self.user is admin_user (Django superuser), so has_perm returns True for all
         category-read checks.  A random UUID with no FileContent row and no Redis session
-        resolves to exactly {"status": "unknown"} via get_attachment_info.  The raw UUID
-        must be retained in event_details (not replaced with a proxy URL) per the
-        read-path behavior in ERA-13273.
+        resolves to exactly {"status": "unknown"} via get_attachment_info.  The raw upload
+        object array must be retained in event_details (not replaced with a proxy URL) per
+        the read-path behavior in ERA-13273.
         """
         photo_uuid = str(uuid.uuid4())
         event = _make_event(v2_attachment_event_type, self.user)
-        details_data: dict[str, Any] = {"event_details": {"photo": photo_uuid}}
+        details_data: dict[str, Any] = {"event_details": {"photo": [{"uploadId": photo_uuid}]}}
         details_data["metadata"] = {"attachments": {photo_uuid: {}}}
         EventDetails.objects.create(event=event, data=details_data)
 
@@ -1391,15 +1424,15 @@ class TestAttachmentMetadataPermissionGate:
         assert "metadata" in data
         assert photo_uuid in data["metadata"]["attachments"]
         assert data["metadata"]["attachments"][photo_uuid] == {"status": "unknown"}
-        # Raw UUID retained in event_details — no proxy URL substitution on read
-        assert data["event_details"]["photo"] == photo_uuid
+        # Raw upload object array retained in event_details — no proxy URL substitution on read
+        assert data["event_details"]["photo"] == [{"uploadId": photo_uuid}]
 
     def test_attachment_proxy_urls_not_leaked_to_unpermitted_user(self, v2_attachment_event_type) -> None:
         """No usercontent/<uuid>/ URL appears anywhere in the unpermitted user's response."""
         ifc = _insert_imagefilecontent(user=self.user, filename="photo.jpg")
         uid = str(ifc.id)
         event = _make_event(v2_attachment_event_type, self.user)
-        details_data: dict[str, Any] = {"event_details": {"photo": uid}}
+        details_data: dict[str, Any] = {"event_details": {"photo": [{"uploadId": uid}]}}
         details_data["metadata"] = {"attachments": {uid: {}}}
         EventDetails.objects.create(event=event, data=details_data)
 
@@ -1430,7 +1463,7 @@ class TestAttachmentMetadataPermissionGate:
         """
         photo_uuid = str(uuid.uuid4())
         event = _make_event(v2_attachment_event_type, self.user)
-        details_data: dict[str, Any] = {"event_details": {"photo": photo_uuid}}
+        details_data: dict[str, Any] = {"event_details": {"photo": [{"uploadId": photo_uuid}]}}
         details_data["metadata"] = {"attachments": {photo_uuid: {}}}
         EventDetails.objects.create(event=event, data=details_data)
 

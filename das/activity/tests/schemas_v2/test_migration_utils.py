@@ -2,10 +2,8 @@
 
 import pytest
 
-from activity.schemas.migration.utils import (
-    get_field_schema_from_prop_path,
-    rewrite_field_to_ref,
-)
+from activity.schemas.migration.utils import rewrite_field_to_ref
+from activity.schemas.utils import get_field_schema_from_prop_path
 
 
 class TestGetFieldSchemaFromPropPath:
@@ -120,6 +118,73 @@ class TestGetFieldSchemaFromPropPath:
         field_schema = get_field_schema_from_prop_path(v2_schema, property_path)
 
         assert field_schema["title"] == expected_title
+
+    def test_intermediate_scalar_segment_returns_none(self):
+        """When an intermediate path segment resolves to a scalar, traversal returns None.
+
+        This is the sideways-jump regression: before the fix, looking up
+        ["incident_title", "photo"] would resolve "incident_title" to a string
+        field, then (because current_properties was not updated) match "photo"
+        against the sibling top-level properties and return the sibling's schema
+        instead of None.
+        """
+        v2_schema = {
+            "json": {
+                "properties": {
+                    "incident_title": {
+                        "title": "Incident Title",
+                        "type": "string",
+                    },
+                    "photo": {
+                        "title": "Photo",
+                        "type": "array",
+                        "items": {
+                            "properties": {"uploadId": {"format": "uuid", "type": "string"}},
+                            "required": ["uploadId"],
+                            "type": "object",
+                            "unevaluatedProperties": False,
+                        },
+                        "uniqueItems": True,
+                    },
+                }
+            }
+        }
+
+        result = get_field_schema_from_prop_path(v2_schema, ["incident_title", "photo"])
+
+        assert result is None, "Traversal through a scalar segment must return None, not a sibling schema"
+
+    def test_valid_nested_path_after_scalar_fix_still_resolves(self):
+        """A valid nested path (array → items.properties) still resolves correctly.
+
+        Guards against over-correction: fixing the scalar sideways-jump must not
+        break legitimate two-segment paths that descend through an array.
+        """
+        v2_schema = {
+            "json": {
+                "properties": {
+                    "arrests": {
+                        "title": "Arrests",
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "arrestee_photo": {
+                                    "title": "Photo",
+                                    "type": "array",
+                                    "uniqueItems": True,
+                                }
+                            },
+                        },
+                    }
+                }
+            }
+        }
+
+        result = get_field_schema_from_prop_path(v2_schema, ["arrests", "arrestee_photo"])
+
+        assert result is not None
+        assert result["title"] == "Photo"
 
 
 class TestRewriteFieldToRef:

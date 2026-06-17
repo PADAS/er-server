@@ -56,10 +56,11 @@ from schema_migration_tool.batch.normalize_export import preprocess_template_var
 from schema_migration_tool.repair import repair_v2_schema
 
 from activity.schemas.ops.revision_history import EventTypeRevisionHistory
+from activity.schemas.utils import get_field_schema_from_prop_path
 
 from .choice_processor import ChoiceProcessor
 from .repair import RepairClassification, RepairStrategy, classify
-from .utils import get_field_schema_from_prop_path, rewrite_field_to_ref
+from .utils import rewrite_field_to_ref
 
 logger = logging.getLogger(__name__)
 

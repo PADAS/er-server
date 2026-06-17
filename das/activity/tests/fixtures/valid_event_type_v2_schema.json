@@ -187,12 +187,12 @@
             "arrests": {
                 "buttonText": "Add arrestee",
                 "columns": 1,
-                "itemIdentifier": "name",
+                "itemIdentifier": "arrests.name",
                 "itemName": "Arrestee",
                 "leftColumn": [
-                    "name",
-                    "age",
-                    "arrestee_photo"
+                    "arrests.name",
+                    "arrests.age",
+                    "arrests.arrestee_photo"
                 ],
                 "rightColumn": [],
                 "type": "COLLECTION",
@@ -221,18 +221,18 @@
                 "type": "TEXT",
                 "parent": "section-pjbt197FRLEoTwjLXbFFZ"
             },
-            "name": {
+            "arrests.name": {
                 "inputType": "SHORT_TEXT",
                 "placeholder": "",
                 "type": "TEXT",
                 "parent": "arrests"
             },
-            "age": {
+            "arrests.age": {
                 "placeholder": "",
                 "type": "NUMERIC",
                 "parent": "arrests"
             },
-            "arrestee_photo": {
+            "arrests.arrestee_photo": {
                 "allowableFileTypes": [
                     "image"
                 ],

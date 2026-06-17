@@ -16,10 +16,8 @@ from activity.schemas.auto_generate import (
     V2SchemaAutoBuilder,
     should_auto_generate_schema,
 )
-from activity.schemas.eventtype_service import (
-    AttachmentSlot,
-    EventTypeSchemaService,
-)
+from activity.schemas.eventtype_meta_schemas import ATTACHMENT_UPLOAD_ID_JSON_KEY
+from activity.schemas.eventtype_service import AttachmentSlot, EventTypeSchemaService
 from activity.serializers.helpers import get_update_type
 from revision.manager import ACTION_ADDED, ACTION_UPDATED
 from utils.schema_utils import (
@@ -54,6 +52,12 @@ def _collect_attachment_uuids(event_type: Any, event_details_data: dict[str, Any
 
     Only applies to V2 event types.  Returns an empty set for V1 event types, event
     types with unparseable schemas, and schemas with no attachment slots.
+
+    Attachment field values are arrays of objects with shape ``{"uploadId": "<uuid>"}``.
+    Each item that is a dict containing a valid UUID string under
+    ``ATTACHMENT_UPLOAD_ID_JSON_KEY`` is added to the returned set.  Non-list values,
+    non-dict items, absent or malformed ``uploadId`` values are silently skipped here
+    (write-time validation already rejected them; this path handles stored data).
     """
     if event_type.version != EventType.VersionChoices.VERSION_2:
         return set()
@@ -69,9 +73,15 @@ def _collect_attachment_uuids(event_type: Any, event_details_data: dict[str, Any
     uuids: set[str] = set()
     for field_name, slot in attachment_slots.items():
         for container in slot.value_containers(event_details_data):
-            value = container.get(field_name)
-            if isinstance(value, str) and value and _is_valid_uuid(value):
-                uuids.add(value)
+            value = container.get(slot.data_key)
+            if not isinstance(value, list):
+                continue
+            for item in value:
+                if not isinstance(item, dict):
+                    continue
+                upload_id = item.get(ATTACHMENT_UPLOAD_ID_JSON_KEY)
+                if isinstance(upload_id, str) and upload_id and _is_valid_uuid(upload_id):
+                    uuids.add(str(uuid.UUID(upload_id)))
     return uuids
 
 
@@ -186,8 +196,18 @@ class EventDetailsSerializer(ModelSerializer):
         """Validate attachment field values against the provided attachment slots.
 
         For each ATTACHMENT slot:
-        - Skip null / absent / empty values.
-        - Reject non-string values and strings that are not valid UUIDs.
+        - Skip null / absent values (field is optional unless the JSON schema marks it required).
+        - Reject non-list values (including bare UUID strings — the legacy single-string
+          shape is no longer accepted; empty string is also rejected).
+        - Each item in the list must be a dict with exactly one key —
+          ``ATTACHMENT_UPLOAD_ID_JSON_KEY`` (``"uploadId"``) — whose value is a
+          non-empty UUID string.  Extra keys are rejected.
+        - Duplicate ``uploadId`` values within a single value are rejected (meta-schema
+          mandates ``uniqueItems: true`` unconditionally).
+        - ``minItems`` / ``maxItems`` bounds from the field's JSON schema definition
+          are enforced.  ``None`` (field absent from the payload) is always accepted
+          regardless of ``minItems``.  Any list — empty or non-empty — whose length
+          is less than ``minItems`` is rejected.
 
         Ownership and file-type checks are NOT performed here; any well-formed
         UUID is accepted at write time.  The resolved status is exposed at read
@@ -201,8 +221,10 @@ class EventDetailsSerializer(ModelSerializer):
 
         for field_name, slot in attachment_slots.items():
             for container in slot.value_containers(data):
-                field_errors = self._validate_single_attachment_value(
-                    value=container.get(field_name),
+                field_errors = self._validate_attachment_value(
+                    value=container.get(slot.data_key),
+                    min_items=slot.field.min_items,
+                    max_items=slot.field.max_items,
                 )
                 if field_errors:
                     errors.setdefault(field_name, []).extend(field_errors)
@@ -210,29 +232,120 @@ class EventDetailsSerializer(ModelSerializer):
         if errors:
             raise drf_exceptions.ValidationError(errors)
 
-    def _validate_single_attachment_value(
+    def _normalize_attachment_values(self, attachment_slots: dict[str, AttachmentSlot], data: dict[str, Any]) -> None:
+        """Rewrite each accepted ``uploadId`` to its canonical lowercase UUID form in-place.
+
+        Must be called AFTER ``_validate_v2_attachment_fields`` so that every item is
+        guaranteed to be a valid ``{uploadId: <uuid-string>}`` dict.  Normalization
+        ensures downstream code (URL building, sidecar keying, Django's ``<uuid:pk>``
+        path converter) always sees the canonical ``xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx``
+        form regardless of what the client submitted (uppercase, urn:uuid:, braced,
+        non-hyphenated hex).
+        """
+        for field_name, slot in attachment_slots.items():
+            for container in slot.value_containers(data):
+                value = container.get(slot.data_key)
+                if not isinstance(value, list):
+                    continue
+                for item in value:
+                    if not isinstance(item, dict):
+                        continue
+                    upload_id = item.get(ATTACHMENT_UPLOAD_ID_JSON_KEY)
+                    if isinstance(upload_id, str) and upload_id:
+                        try:
+                            item[ATTACHMENT_UPLOAD_ID_JSON_KEY] = str(uuid.UUID(upload_id))
+                        except ValueError:
+                            pass
+
+    def _validate_attachment_value(
         self,
         value: Any,
+        min_items: int | None = None,
+        max_items: int | None = None,
     ) -> list[str]:
-        """Validate a single attachment field value (format check only).
+        """Validate an attachment field value (format and cardinality checks only).
 
-        Null / absent / empty values are accepted.  Non-string values and strings
-        that are not valid UUIDs are rejected.  No ownership or file-type
-        resolution is performed.
+        Semantics
+        ---------
+        * ``None`` / absent — always accepted (presence is controlled by the JSON
+          schema's ``required`` list, not by this method).
+        * Non-list values (including bare UUID strings and empty strings) — rejected
+          with a clear message.  The legacy single-string shape is not supported.
+        * ``minItems`` — enforced for every list (empty or non-empty): a list whose
+          length is less than ``min_items`` is rejected.  ``None`` values bypass this
+          check entirely (absence ≠ empty list).
+        * ``maxItems`` — enforced when defined; a list whose length exceeds
+          ``max_items`` is rejected.  ``maxItems: 0`` with a non-empty array fails.
+        * Each item must be a dict with exactly one key — ``ATTACHMENT_UPLOAD_ID_JSON_KEY``
+          (``"uploadId"``) — whose value is a non-empty string that parses as a UUID.
+          Per-item errors name the failing index and key or value.
+        * Extra keys on an item are rejected (mirrors ``unevaluatedProperties: false``
+          in the JSON schema).
+        * Duplicate ``uploadId`` values within a single array — rejected
+          (``uniqueItems: true`` is mandated by the meta-schema for every ATTACHMENT field).
 
-        Returns a list of error strings (empty means valid).
+        No ownership or file-type resolution is performed.
+
+        Returns a list of error strings (empty list means valid).
         """
-        # Null / absent / empty: allowed (field is optional unless schema marks it required)
-        if value is None or value == "":
+        # None / absent: always accepted (optionality is governed by schema "required")
+        if value is None:
             return []
 
-        if not isinstance(value, str):
-            return ["Not a valid UUID."]
+        # Non-list: rejected (bare UUID string and empty string are also rejected)
+        if not isinstance(value, list):
+            return ["Expected an array of attachment objects."]
 
-        if not _is_valid_uuid(value):
-            return ["Not a valid UUID."]
+        # minItems enforcement applies to every list, including empty ones
+        if min_items is not None and len(value) < min_items:
+            return [f"This field must contain at least {min_items} item(s)."]
 
-        return []
+        # Empty list passes all remaining checks
+        if len(value) == 0:
+            return []
+
+        # maxItems enforcement
+        if max_items is not None and len(value) > max_items:
+            return [f"This field must contain at most {max_items} item(s)."]
+
+        # Per-item object validation
+        item_errors: list[str] = []
+        seen: set[str] = set()
+        for idx, item in enumerate(value):
+            if not isinstance(item, dict):
+                item_errors.append(
+                    f"Item at index {idx} must be an object with an '{ATTACHMENT_UPLOAD_ID_JSON_KEY}' key: {item!r}."
+                )
+                continue
+
+            extra_keys = set(item.keys()) - {ATTACHMENT_UPLOAD_ID_JSON_KEY}
+            if extra_keys:
+                item_errors.append(f"Item at index {idx} has unexpected key(s): {sorted(extra_keys)!r}.")
+                continue
+
+            if ATTACHMENT_UPLOAD_ID_JSON_KEY not in item:
+                item_errors.append(f"Item at index {idx} is missing required key '{ATTACHMENT_UPLOAD_ID_JSON_KEY}'.")
+                continue
+
+            upload_id = item[ATTACHMENT_UPLOAD_ID_JSON_KEY]
+            if not isinstance(upload_id, str) or not upload_id:
+                item_errors.append(
+                    f"Item at index {idx}: '{ATTACHMENT_UPLOAD_ID_JSON_KEY}' must be a non-empty UUID string: {upload_id!r}."
+                )
+                continue
+            if not _is_valid_uuid(upload_id):
+                item_errors.append(
+                    f"Item at index {idx}: '{ATTACHMENT_UPLOAD_ID_JSON_KEY}' is not a valid UUID: {upload_id!r}."
+                )
+                continue
+
+            normalised = str(uuid.UUID(upload_id))
+            if normalised in seen:
+                item_errors.append(f"Item at index {idx} is a duplicate uploadId: {upload_id!r}.")
+            else:
+                seen.add(normalised)
+
+        return item_errors
 
     def _to_internal_value_inner(self, instance, data):
         if instance is None:
@@ -258,6 +371,7 @@ class EventDetailsSerializer(ModelSerializer):
             attachment_slots = schema_result.extract_attachment_slots()
             if attachment_slots:
                 self._validate_v2_attachment_fields(attachment_slots, data)
+                self._normalize_attachment_values(attachment_slots, data)
             return data
 
         schema = event_type.schema

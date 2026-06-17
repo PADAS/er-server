@@ -41,24 +41,6 @@ def smart_abbreviate(text: str, max_length: int = 40) -> str:
     return new_text[:max_length].rstrip("_")
 
 
-def get_field_schema_from_prop_path(v2_schema: dict, prop_path: list[str]) -> dict | None:
-    """Get the field schema from a v2_schema, following the property path."""
-    current_properties = v2_schema.get("json", {}).get("properties", {})
-    field_schema = {}
-
-    for field_name in prop_path:
-        if field_name not in current_properties:
-            return None
-        field_schema = current_properties[field_name]
-
-        if field_schema.get("type") == "array":
-            current_properties = field_schema.get("items", {}).get("properties", {})
-        elif field_schema.get("type") == "object":
-            current_properties = field_schema.get("properties", {})
-
-    return field_schema
-
-
 def rewrite_field_to_ref(field_schema: dict, choice_field_name: str) -> None:
     """Replace hardcoded anyOf/oneOf with a $ref to the choices endpoint. Mutates in-place."""
     ref_url = f"{reverse('schemas:choices')}?field={choice_field_name}"  # reverse() is cached by Django
