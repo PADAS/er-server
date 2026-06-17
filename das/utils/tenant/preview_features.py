@@ -37,6 +37,12 @@ PREVIEW_FEATURES: dict[str, PreviewFeature] = {
         description="Per-tenant gate for the Community Input Django admin page. "
         "Set global_override=True to expose it for every tenant at once.",
     ),
+    "attachment_property": PreviewFeature(
+        default=False,
+        description="Per-tenant gate for the eventtype V2 attachment properties. "
+        "Stays off until all clients support the attachment property feature; "
+        "set global_override=True to expose it for every tenant at once.",
+    ),
 }
 
 

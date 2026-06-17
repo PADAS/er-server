@@ -84,6 +84,15 @@ class TestRegistry:
         # Ships off for everyone; flip global_override to True to make public.
         assert PREVIEW_FEATURES["community_input_admin_enabled"].global_override is None
 
+    def test_attachment_property_is_registered(self):
+        feature = PREVIEW_FEATURES["attachment_property"]
+        assert isinstance(feature, PreviewFeature)
+        assert feature.default is False
+        assert feature.description
+
+    def test_attachment_property_has_no_global_override_by_default(self):
+        assert PREVIEW_FEATURES["attachment_property"].global_override is None
+
 
 class TestGetResolvedPreviewFeatures:
     def test_returns_one_entry_per_registered_feature(self):
