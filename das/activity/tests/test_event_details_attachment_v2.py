@@ -1080,6 +1080,7 @@ class TestV2AttachmentReadPath:
         assert attachment["status"] == "in_progress"
         assert "files" not in attachment
         assert "file_type" in attachment
+        assert attachment["filename"] == "photo.jpg"
 
     def test_metadata_status_complete_renders_files_original_and_file_type(self, v2_attachment_event_type) -> None:
         """A finalized ImageFileContent yields status=complete with files.original proxy URL."""
@@ -1093,6 +1094,7 @@ class TestV2AttachmentReadPath:
         attachment = data["metadata"]["attachments"][uid]
         assert attachment["status"] == "complete"
         assert attachment["file_type"] == "image"
+        assert attachment["filename"] == "photo.jpg"
         assert "files" in attachment
         assert f"/api/v1.0/usercontent/{uid}/" in attachment["files"]["original"]
         for rendition in ("icon", "thumbnail", "large", "xlarge"):
@@ -1111,11 +1113,12 @@ class TestV2AttachmentReadPath:
         attachment = data["metadata"]["attachments"][uid]
         assert attachment["status"] == "complete"
         assert attachment["file_type"] == "document"
+        assert attachment["filename"] == "report.pdf"
         assert f"/api/v1.0/usercontent/{uid}/" in attachment["files"]["original"]
         assert set(attachment["files"].keys()) == {"original"}
 
     def test_metadata_hydration_skips_files_when_request_absent(self, v2_attachment_event_type) -> None:
-        """Socket-emit (no request): complete attachment gets status+file_type but no files key."""
+        """Socket-emit (no request): complete attachment gets status+file_type+filename but no files key."""
         ifc = _insert_imagefilecontent(user=self.user, filename="photo.jpg")
         uid = str(ifc.id)
         event = _make_event(v2_attachment_event_type, self.user)
@@ -1128,6 +1131,7 @@ class TestV2AttachmentReadPath:
         attachment = data["metadata"]["attachments"][uid]
         assert attachment["status"] == "complete"
         assert attachment["file_type"] == "image"
+        assert attachment["filename"] == "photo.jpg"
         assert "files" not in attachment
 
     def test_no_placeholders_means_no_metadata_key(self, v2_attachment_event_type) -> None:
@@ -1235,6 +1239,31 @@ class TestV2AttachmentReadPath:
         assert attachment["status"] == "complete"
         assert attachment["file_type"] == "image"
         assert set(attachment["files"].keys()) == {"original"}
+
+    def test_metadata_filename_is_none_for_in_progress_session_without_filename(self, v2_attachment_event_type) -> None:
+        """An in-progress session with no filename stored yields filename=None in the metadata entry."""
+        uid = str(uuid.uuid4())
+        tenant_id = str(get_tenant_settings().id)
+        # Seed a session with an empty filename string — get_attachment_info returns None for it.
+        upload_sessions.create(
+            tenant_id,
+            uid,
+            storage_path=f"tenant/image_fileuploads/2024/1/1/{uid}/",
+            filename="",
+            size=1024,
+            chunk_size=512,
+            user_id=str(self.user.pk),
+            is_image=True,
+            file_content_id=uid,
+        )
+        event = _make_event(v2_attachment_event_type, self.user)
+        self._make_details_with_metadata(event, {"photo": [{"uploadId": uid}]}, [uid])
+
+        read_ser = EventSerializer(instance=event, context=self._event_context())
+        data = read_ser.data
+        attachment = data["metadata"]["attachments"][uid]
+        assert attachment["status"] == "in_progress"
+        assert attachment["filename"] is None
 
     def test_jpg_stored_as_imagefilecontent_emits_renditions(self, v2_attachment_event_type) -> None:
         """A .jpg file stored as ImageFileContent DOES emit rendition URLs.

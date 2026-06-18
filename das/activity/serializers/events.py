@@ -1069,10 +1069,13 @@ class EventSerializer(EventSerializerMixin, ModelSerializer):
 
         For ``complete`` attachments, ``files`` is only emitted when a *request* is
         present (URL building requires one).  Request-less paths (e.g. socket emit)
-        receive ``{"status": "complete", "file_type": ...}`` without the ``files`` key.
+        receive ``{"status": "complete", "file_type": ..., "filename": ...}`` without
+        the ``files`` key.
         For ``complete`` image attachments, ``files`` contains ``original`` plus the
         configured renditions (``icon``, ``thumbnail``, ``large``, ``xlarge``).  For
         non-image ``complete`` attachments, ``files`` contains only ``original``.
+        ``filename`` is included for both ``complete`` and ``in_progress`` attachments
+        and reflects the original uploaded filename (``None`` when not available).
         """
         # Resolve the EventDetails row
         if hasattr(event, "event_details_set") and event.event_details_set:
@@ -1091,7 +1094,7 @@ class EventSerializer(EventSerializerMixin, ModelSerializer):
         for attachment_uuid in placeholders:
             info = get_attachment_info(attachment_uuid)
             if info.status == "complete":
-                entry: dict = {"status": "complete", "file_type": info.file_type}
+                entry: dict = {"status": "complete", "file_type": info.file_type, "filename": info.filename}
                 if request is not None:
                     files = {"original": utils.add_base_url(request, f"/api/v1.0/usercontent/{attachment_uuid}/")}
                     if info.has_renditions:
@@ -1104,7 +1107,11 @@ class EventSerializer(EventSerializerMixin, ModelSerializer):
                     entry["files"] = files
                 hydrated[attachment_uuid] = entry
             elif info.status == "in_progress":
-                hydrated[attachment_uuid] = {"status": "in_progress", "file_type": info.file_type}
+                hydrated[attachment_uuid] = {
+                    "status": "in_progress",
+                    "file_type": info.file_type,
+                    "filename": info.filename,
+                }
             else:
                 hydrated[attachment_uuid] = {"status": "unknown"}
 
