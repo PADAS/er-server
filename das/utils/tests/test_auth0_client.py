@@ -99,9 +99,10 @@ class TestAuthZeroUserProvisioner:
             email=expected_auth0_user_email,
         )
 
+        # include_totals=True avoids auth0-python #856 (include_totals=False raises ParsingError).
         mock_auth0.users.list.assert_called_once_with(
             q='username:"testuser" AND identities.connection:"test-connection"',
-            include_totals=False,
+            include_totals=True,
             fields="user_id",
         )
 

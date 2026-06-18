@@ -81,10 +81,15 @@ class AuthZeroUserProvisioner:
 
     @retry_on_exception(ValueError, delay=5, max_retries=6)
     def _get_auth0_user_id_by_username(self) -> str:
+        # auth0-python #856: users.list(include_totals=False) raises ParsingError on a
+        # successful 200 because the SDK validates the bare-array response against the
+        # dict-shaped ListUsersOffsetPaginatedResponseContent model. include_totals=True
+        # is the only response shape the SyncPager can parse, so request it and iterate
+        # the pager for the user items. https://github.com/auth0/auth0-python/issues/856
         matching_users = list(
             self.auth0.users.list(
                 q=f'username:"{self.das_user_username}" AND identities.connection:"{self.connection_name}"',
-                include_totals=False,
+                include_totals=True,
                 fields="user_id",
             )
         )
