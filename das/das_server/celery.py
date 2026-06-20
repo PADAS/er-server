@@ -1,17 +1,20 @@
 from __future__ import absolute_import
 
 import os
+import time
 from datetime import timedelta
 
 from celery import Celery
 from celery.schedules import crontab
 from celery.signals import (
+    before_task_publish,
     setup_logging,
     task_failure,
     task_postrun,
     task_prerun,
     task_revoked,
     task_success,
+    worker_process_init,
 )
 from kombu import Exchange, Queue
 
@@ -301,9 +304,36 @@ def das_server_logging(loglevel, **kwargs):
     add_log_filters()
 
 
+@worker_process_init.connect
+def init_metrics_after_fork(**kwargs):
+    """Initialize the OTel metric pipeline per worker process.
+
+    The PeriodicExportingMetricReader thread cannot be inherited across
+    Celery's prefork boundary, so it must be (re)created in each child.
+    """
+    from das_server.otel_metrics import configure_metrics
+
+    configure_metrics()
+
+
+@before_task_publish.connect
+def inject_published_at(headers, **kwargs):
+    if headers is not None:
+        headers["published_at"] = time.time()
+
+
 @task_prerun.connect
 def task_prerun_handler(task, *args, **kwargs):
     utils.stats.increment("task", tags=[f"name:{task.name}", "state:prerun"])
+    published_at = (task.request.headers or {}).get("published_at")
+    if published_at:
+        try:
+            wait = max(0.0, time.time() - float(published_at))
+        except (TypeError, ValueError):
+            pass
+        else:
+            queue_name = (task.request.delivery_info or {}).get("routing_key", "unknown")
+            utils.stats.histogram("task.queue_wait", wait, tags=[f"queue:{queue_name}"])
 
 
 @task_postrun.connect

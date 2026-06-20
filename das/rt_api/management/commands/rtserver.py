@@ -67,6 +67,19 @@ class Command(RunCommand):
 
         close_old_connections()
 
+        # Initialize the OTel metric pipeline in this serving process. rt-api is
+        # neither a gunicorn worker nor a celery prefork child, so neither
+        # post_fork nor worker_process_init fires here — without this call every
+        # metric emitted from rt_api/views.py and das_server/pubsub.py would
+        # silently no-op. Imported locally (matching das_server/celery.py) to
+        # avoid import-time side effects. Under eventlet's full monkey_patch the
+        # PeriodicExportingMetricReader's background thread becomes a greenlet,
+        # which is fine. inner_run runs in the child serving process when the
+        # autoreloader is active, so the reader is created in the right process.
+        from das_server.otel_metrics import configure_metrics
+
+        configure_metrics()
+
         client.init_redis_storage()
         client.start_trace_consumer()
 

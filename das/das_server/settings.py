@@ -12,6 +12,7 @@ https://docs.djangoproject.com/en/1.8/ref/settings/
 
 # Build paths inside the project like this: os.path.join(BASE_DIR, ...)
 import os
+import socket
 
 import environ
 from corsheaders.defaults import default_headers
@@ -873,6 +874,11 @@ TENANT_ID = env.str("TENANT_ID", "")
 
 CLUSTER_NAME = env.str("CLUSTER_NAME", "UNSET")
 CLUSTER_NAMESPACE = env.str("CLUSTER_NAMESPACE", "UNSET")
+CLUSTER_LOCATION = env.str("CLUSTER_LOCATION", "global")
+# Inside a Kubernetes pod the hostname defaults to the pod name, so this gives
+# a sensible per-pod value even when POD_NAME isn't plumbed via the downward API.
+POD_NAME = env.str("POD_NAME", "") or socket.gethostname()
+GCP_PROJECT_ID = env.str("GOOGLE_CLOUD_PROJECT", "") or env.str("GCP_PROJECT_ID", "")
 
 
 if CLUSTER_NAME in ["das1-prod-asia", "das-prod1"]:

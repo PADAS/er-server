@@ -55,6 +55,13 @@ logger = logging.getLogger(__name__)
 
 MAX_MAINTAIN_SUBJECTSTATUS_DELAY_SECONDS = 600
 
+# Histogram bucket boundaries for the segment-task metrics that are NOT in
+# seconds (the module default in utils.stats is seconds-scale). Counts (batch
+# size, sources checked, gaps) and millisecond wall-clock durations need their
+# own ranges so PromQL percentiles stay meaningful.
+_COUNT_BUCKETS: tuple[float, ...] = (1, 5, 10, 25, 50, 100, 250, 500, 1000, 2500, 5000, 10000)
+_DURATION_MS_BUCKETS: tuple[float, ...] = (1, 5, 10, 25, 50, 100, 250, 500, 1000, 2500, 5000, 10000, 30000, 60000)
+
 
 def _emit_segment_task_metrics(
     metric_prefix: str,
@@ -73,8 +80,13 @@ def _emit_segment_task_metrics(
       ``OBSERVATION_SEGMENT_BACKLOG_LAG_WARN_SECONDS``.
     """
     tags = [f"domain:{domain}"] if domain else []
-    stats.histogram(f"observation_segment.{metric_prefix}.batch_size", batch_size, tags=tags)
-    stats.histogram(f"observation_segment.{metric_prefix}.duration_ms", duration_ms, tags=tags)
+    # The module default buckets are seconds-scale; these two metrics are a row
+    # count and a millisecond duration, so give them their own count- and
+    # ms-scale boundaries (first-call-wins, per stats.histogram).
+    stats.histogram(f"observation_segment.{metric_prefix}.batch_size", batch_size, tags=tags, buckets=_COUNT_BUCKETS)
+    stats.histogram(
+        f"observation_segment.{metric_prefix}.duration_ms", duration_ms, tags=tags, buckets=_DURATION_MS_BUCKETS
+    )
 
     if oldest_recorded_at is None:
         return
@@ -405,9 +417,9 @@ def reconcile_observation_segments_task(**kwargs: Any) -> None:
             logger.exception("reconcile_observation_segments_task: recompute failed for source %s", source_id)
 
     duration_ms = (time.monotonic() - started) * 1000.0
-    stats.histogram("observation_segment.reconcile.sources_checked", sources_checked, tags=tags)
-    stats.histogram("observation_segment.reconcile.gaps_detected", gaps_detected, tags=tags)
-    stats.histogram("observation_segment.reconcile.duration_ms", duration_ms, tags=tags)
+    stats.histogram("observation_segment.reconcile.sources_checked", sources_checked, tags=tags, buckets=_COUNT_BUCKETS)
+    stats.histogram("observation_segment.reconcile.gaps_detected", gaps_detected, tags=tags, buckets=_COUNT_BUCKETS)
+    stats.histogram("observation_segment.reconcile.duration_ms", duration_ms, tags=tags, buckets=_DURATION_MS_BUCKETS)
     if gaps_detected:
         stats.increment("observation_segment.reconcile.gap_detected", value=gaps_detected, tags=tags)
         logger.warning(

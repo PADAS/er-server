@@ -73,7 +73,7 @@ DEFAULT_LOGGING = {
         "PIL.Image": {
             "level": "WARNING",
         },
-        "datadog.dogstatsd": {"level": "ERROR"},
+        "opentelemetry": {"level": "WARNING"},
     },
 }
 
