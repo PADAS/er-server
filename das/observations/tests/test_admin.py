@@ -1,3 +1,4 @@
+import datetime
 import uuid
 
 import pytest
@@ -6,7 +7,9 @@ from django.contrib.admin import site as admin_site
 from django.contrib.admin.models import ADDITION, DELETION, LogEntry
 from django.contrib.contenttypes.models import ContentType
 from django.contrib.messages.storage.fallback import FallbackStorage
-from django.test import RequestFactory
+from django.test import Client, RequestFactory
+from django.urls import reverse
+from django.utils import timezone
 
 from factories import (
     ObservationFactory,
@@ -247,4 +250,29 @@ class TestSourceAdminChangeView:
         assert str(observation.pk) in rendered, (
             "The rendered inline must contain the real observation pk; "
             "an empty string means 'id' was missing from .values()"
+        )
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("tenant_settings", "das_tenant_monkeypatch")
+class TestSubjectAdminChangeView:
+    """Regression test for ERA-13490: editing a Subject in the admin raised
+    NoReverseMatch because the inline observations link reversed
+    'observations_observation_change' without the 'admin:' namespace."""
+
+    def test_change_view_renders_observation_link(self, superuser_client: Client) -> None:
+        now = timezone.now()
+        subject_source = SubjectSourceFactory(
+            assigned_range=(now - datetime.timedelta(days=10), now + datetime.timedelta(days=10)),
+        )
+        observation = ObservationFactory(
+            source=subject_source.source,
+            recorded_at=now - datetime.timedelta(hours=1),
+        )
+        url = reverse("admin:observations_subject_change", args=(str(subject_source.subject.pk),))
+        response = superuser_client.get(url)
+        assert response.status_code == 200
+        assert str(observation.pk) in response.content.decode(), (
+            "The rendered inline must contain the real observation pk and the "
+            "namespaced admin URL must reverse cleanly."
         )
