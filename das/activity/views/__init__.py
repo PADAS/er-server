@@ -38,8 +38,7 @@ from .patrols import (
     PatrolSegmentsView,
     PatrolSegmentView,
     PatrolsView,
-    PatrolTypesView,
-    PatrolTypeView,
+    PatrolTypeViewSet,
     PatrolView,
 )
 from .schemas import (
@@ -98,8 +97,7 @@ __all__ = (
     "PatrolSegmentsView",
     "PatrolSegmentView",
     "PatrolsView",
-    "PatrolTypesView",
-    "PatrolTypeView",
+    "PatrolTypeViewSet",
     "PatrolView",
     "TrackedBySchema",
 )

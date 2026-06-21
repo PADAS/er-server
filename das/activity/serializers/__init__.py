@@ -48,7 +48,7 @@ from .patrols import (
     PatrolSegmentSerializer,
     PatrolSerializer,
     PatrolTemplateSerializer,
-    PatrolTypeSerializer,
+    PatrolTypeCRUDSerializer,
     TrackedBySerializer,
 )
 from .schemas import EventJSONSchema
@@ -98,8 +98,8 @@ __all__ = (
     "PatrolSegmentSerializer",
     "PatrolSerializer",
     "PatrolTemplateSerializer",
+    "PatrolTypeCRUDSerializer",
     "PatrolTypeRelatedField",
-    "PatrolTypeSerializer",
     "ReportedByRelatedField",
     "TrackedBySerializer",
 )

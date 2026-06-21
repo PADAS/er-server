@@ -4,6 +4,11 @@ from activity import alerts_views, views
 from activity.views.events.types import IconDownloadView, IconsListView
 from utils.constants import regex
 
+_patrol_types_view = views.PatrolTypeViewSet.as_view({"get": "list", "post": "create"})
+_patrol_type_detail_view = views.PatrolTypeViewSet.as_view(
+    {"get": "retrieve", "put": "update", "patch": "partial_update", "delete": "destroy"}
+)
+
 urlpatterns = [
     re_path(r"^events/?$", views.EventsView.as_view(), name="events"),
     re_path(r"^events/bulk-delete/?$", views.EventBulkDeleteView.as_view(), name="events-bulk-delete"),
@@ -152,12 +157,8 @@ urlpatterns = [
         views.EventRelationshipView.as_view(),
         name="event-view-relationship",
     ),
-    re_path(r"^patrols/types/?$", views.PatrolTypesView.as_view(), name="patrol-types"),
-    re_path(
-        rf"^patrols/types/(?P<id>{regex.UUID})/?$",
-        views.PatrolTypeView.as_view(),
-        name="patrol-type",
-    ),
+    re_path(r"^patrols/types/?$", _patrol_types_view, name="patrol-types"),
+    re_path(rf"^patrols/types/(?P<id>{regex.UUID})/?$", _patrol_type_detail_view, name="patrol-type"),
     re_path(r"^patrols/?$", views.PatrolsView.as_view(), name="patrols"),
     re_path(rf"^patrols/(?P<id>{regex.UUID})/?$", views.PatrolView.as_view(), name="patrol"),
     re_path(

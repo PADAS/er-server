@@ -49,6 +49,30 @@ GET /api/v1.0/activity/patrols/types/<patrol_type_id>
 
 Use the patrol type **UUID**. Supports **conditional GET** (ETag and Last-Modified). Use when you need to refresh or check a single type; for full catalog sync, the list endpoint with conditional GET is simpler.
 
+### Patrol type response fields
+
+| Field              | Writable | Description |
+|--------------------|----------|-------------|
+| `id`               | No       | UUID primary key. |
+| `value`            | Yes      | Unique string identifier for this type (e.g. `"foot"`). |
+| `display`          | Yes      | Human-readable label. |
+| `ordernum`         | Yes      | Sort order hint. Nullable. |
+| `icon`             | Yes      | Raw stored icon identifier. Empty string when no explicit icon has been set. |
+| `icon_id`          | No       | Resolved icon identifier. Equals `icon` when an icon is stored; falls back to `value` when `icon` is empty and a static marker image exists for that value, otherwise `"generic_rep"`. **Use `icon_id` for display** — it handles the fallback. Write `icon` when setting or clearing an icon. |
+| `default_priority` | Yes      | Default priority for patrols of this type. |
+| `is_active`        | Yes      | Whether this type is available for new patrols. |
+
+### Patrol type write endpoints
+
+| Method   | URL                                       | Description       |
+|----------|-------------------------------------------|-------------------|
+| `POST`   | `/api/v1.0/activity/patrols/types`        | Create a patrol type. |
+| `PUT`    | `/api/v1.0/activity/patrols/types/<id>`   | Replace a patrol type. |
+| `PATCH`  | `/api/v1.0/activity/patrols/types/<id>`   | Partially update a patrol type. |
+| `DELETE` | `/api/v1.0/activity/patrols/types/<id>`   | Delete a patrol type. |
+
+`value` must be unique per tenant. Attempting to create a duplicate returns **400 Bad Request**. Required permissions: `add_patroltype`, `change_patroltype`, or `delete_patroltype` respectively.
+
 ---
 
 ## Tracked-by schema (segment leaders / "reported by")

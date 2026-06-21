@@ -18,7 +18,7 @@ BASE_MODULE_NAME = "activity"
         ("eventfilters/schema/", views.EventFilterSchemaView),
         ("eventproviders/", views.EventProvidersView),
         ("patrols/", views.PatrolsView),
-        ("patrols/types/", views.PatrolTypesView),
+        ("patrols/types/", views.PatrolTypeViewSet),
         ("patrols/segments/", views.PatrolSegmentsView),
         ("patrols/trackedby/", views.TrackedBySchema),
     ),

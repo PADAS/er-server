@@ -1,26 +1,30 @@
+from __future__ import annotations
+
 import copy
 import json
 import logging
 import mimetypes
+from typing import NoReturn
 
 import versatileimagefield.files
 from rest_framework_condition import condition
 
 from django.db import transaction
-from django.db.models import CharField, Exists, OuterRef, Prefetch, Q
+from django.db.models import CharField, Exists, OuterRef, Prefetch, Q, QuerySet
 from django.db.models.functions import Cast
 from django.db.utils import IntegrityError
 from django.http import HttpResponse
 from rest_framework import status
+from rest_framework.exceptions import ValidationError
 from rest_framework.generics import (
-    ListAPIView,
     ListCreateAPIView,
-    RetrieveAPIView,
     RetrieveUpdateAPIView,
     RetrieveUpdateDestroyAPIView,
     get_object_or_404,
 )
+from rest_framework.request import Request
 from rest_framework.response import Response
+from rest_framework.viewsets import ModelViewSet
 
 from activity.libs.constants import ActivityConstants
 from activity.models import (
@@ -37,7 +41,7 @@ from activity.serializers import (
     PatrolNoteSerializer,
     PatrolSegmentSerializer,
     PatrolSerializer,
-    PatrolTypeSerializer,
+    PatrolTypeCRUDSerializer,
 )
 from activity.views.helpers import get_segments
 from observations.models import Subject
@@ -181,29 +185,43 @@ class PatrolNotesView(ListCreateAPIView):
         return get_object_or_404(Patrol.objects.all(), pk=self.kwargs.get("id"))
 
 
-class PatrolTypeView(RetrieveAPIView):
+class PatrolTypeViewSet(ModelViewSet):
+    permission_classes = (PatrolTypePermissions,)
+    serializer_class = PatrolTypeCRUDSerializer
     lookup_field = "id"
-    serializer_class = PatrolTypeSerializer
-    permission_classes = (PatrolTypePermissions,)
+    queryset = PatrolType.objects.none()
 
-    def get_queryset(self):
-        return PatrolType.objects.all()
+    def get_queryset(self) -> QuerySet[PatrolType]:
+        return PatrolType.objects.all().order_by("ordernum", "display")
 
-    @condition(etag_func=build_patrol_type_etag_header, last_modified_func=build_patrol_type_last_modified_header)
-    def get(self, request, *args, **kwargs):
-        return super().get(request, *args, **kwargs)
+    _VALUE_CONSTRAINT = "activity_patroltype_unique_value_across_tenants"
 
+    def _handle_integrity_error(self, exc: IntegrityError) -> NoReturn:
+        if self._VALUE_CONSTRAINT in str(exc):
+            raise ValidationError({"value": "A patrol type with this value already exists."})
+        raise exc
 
-class PatrolTypesView(ListAPIView):
-    serializer_class = PatrolTypeSerializer
-    permission_classes = (PatrolTypePermissions,)
+    def create(self, request: Request, *args: object, **kwargs: object) -> Response:
+        try:
+            with transaction.atomic():
+                return super().create(request, *args, **kwargs)
+        except IntegrityError as exc:
+            self._handle_integrity_error(exc)
 
-    def get_queryset(self):
-        return PatrolType.objects.all()
+    def update(self, request: Request, *args: object, **kwargs: object) -> Response:
+        try:
+            with transaction.atomic():
+                return super().update(request, *args, **kwargs)
+        except IntegrityError as exc:
+            self._handle_integrity_error(exc)
 
     @condition(etag_func=build_patrol_types_etag_header, last_modified_func=build_patrol_types_last_modified_header)
-    def get(self, request, *args, **kwargs):
-        return super().get(request, *args, **kwargs)
+    def list(self, request: Request, *args: object, **kwargs: object) -> Response:
+        return super().list(request, *args, **kwargs)
+
+    @condition(etag_func=build_patrol_type_etag_header, last_modified_func=build_patrol_type_last_modified_header)
+    def retrieve(self, request: Request, *args: object, **kwargs: object) -> Response:
+        return super().retrieve(request, *args, **kwargs)
 
 
 class PatrolView(RetrieveUpdateDestroyAPIView):

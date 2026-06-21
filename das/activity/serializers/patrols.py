@@ -1,6 +1,10 @@
+from __future__ import annotations
+
 import copy
 import json
 from datetime import datetime, timezone
+
+from django_multitenant.utils import get_current_tenant
 
 from django.contrib.contenttypes.models import ContentType
 from django.urls import reverse
@@ -13,11 +17,13 @@ from rest_framework.serializers import (
     IntegerField,
     ModelSerializer,
     PrimaryKeyRelatedField,
+    ReadOnlyField,
     Serializer,
     SerializerMethodField,
     UUIDField,
     ValidationError,
 )
+from rest_framework.validators import UniqueValidator
 
 import utils
 from accounts.serializers import UserDisplaySerializer, get_user_display
@@ -75,19 +81,23 @@ def update_patrol_state(validated_data):
     return state
 
 
-class PatrolTypeSerializer(ModelSerializer):
+class PatrolTypeCRUDSerializer(ModelSerializer):
+    icon_id = ReadOnlyField()
+
     class Meta:
         model = PatrolType
-        read_only_fields = (
-            "id",
-            "value",
-            "display",
-            "ordernum",
-            "icon_id",
-            "default_priority",
-            "is_active",
-        )
-        fields = read_only_fields
+        fields = ("id", "value", "display", "ordernum", "icon", "icon_id", "default_priority", "is_active")
+        read_only_fields = ("id",)
+
+    def __init__(self, *args: object, **kwargs: object) -> None:
+        super().__init__(*args, **kwargs)
+        tenant = get_current_tenant()
+        self.fields["value"].validators = [
+            UniqueValidator(
+                queryset=PatrolType.objects.filter(das_tenant=tenant),
+                message="A patrol type with this value already exists.",
+            )
+        ]
 
 
 class PatrolFileSerializer(FileSerializerMixin, BaseSerializer, RevisionMixin):

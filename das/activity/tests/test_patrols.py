@@ -179,7 +179,7 @@ class TestPatrol(BaseAPITest):
 
         request = self.factory.get(url)
         self.force_authenticate(request, self.user)
-        response = views.PatrolTypesView.as_view()(request)
+        response = views.PatrolTypeViewSet.as_view({"get": "list"})(request)
         self.assertEqual(response.status_code, 200)
         self.assertEqual(len(response.data), len(patrol_types))
 
@@ -189,7 +189,7 @@ class TestPatrol(BaseAPITest):
 
         request = self.factory.get(url)
         self.force_authenticate(request, self.user)
-        response = views.PatrolTypeView.as_view()(request, id=dog_patrol_id)
+        response = views.PatrolTypeViewSet.as_view({"get": "retrieve"})(request, id=dog_patrol_id)
         self.assertEqual(response.status_code, 200)
 
     def test_get_all_patrols(self):
@@ -1674,7 +1674,7 @@ class TestPatrol(BaseAPITest):
         url = reverse("patrol-types")
         request = self.factory.get(url)
         self.force_authenticate(request, self.radio_room_user)
-        response = views.PatrolTypesView.as_view()(request)
+        response = views.PatrolTypeViewSet.as_view({"get": "list"})(request)
         assert response.status_code == 403
 
     @patch("utils.tenant.providers.tenant_document_cache_client")
