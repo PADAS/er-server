@@ -1,3 +1,4 @@
+import datetime
 import uuid
 
 import pytest
@@ -6,7 +7,9 @@ from django.contrib.admin import site as admin_site
 from django.contrib.admin.models import ADDITION, DELETION, LogEntry
 from django.contrib.contenttypes.models import ContentType
 from django.contrib.messages.storage.fallback import FallbackStorage
-from django.test import RequestFactory
+from django.test import Client, RequestFactory
+from django.urls import reverse
+from django.utils import timezone
 
 from factories import (
     ObservationFactory,
@@ -247,4 +250,81 @@ class TestSourceAdminChangeView:
         assert str(observation.pk) in rendered, (
             "The rendered inline must contain the real observation pk; "
             "an empty string means 'id' was missing from .values()"
+        )
+
+    def test_das_admin_change_view_returns_200_without_observation_link(self, superuser_client: Client) -> None:
+        """Regression test for ERA-13490 follow-up: the dasadmin site must not
+        500 on the Source change page because Observation is not registered there.
+        The inline observation row must degrade to plain text."""
+        now = timezone.now()
+        subject_source = SubjectSourceFactory(
+            assigned_range=(now - datetime.timedelta(days=10), now + datetime.timedelta(days=10)),
+        )
+        observation = ObservationFactory(
+            source=subject_source.source,
+            recorded_at=now - datetime.timedelta(hours=1),
+        )
+        url = reverse("das_admin:observations_source_change", args=(str(subject_source.source.pk),))
+        response = superuser_client.get(url)
+        assert (
+            response.status_code == 200
+        ), "dasadmin Source change page must not 500 even though Observation is not registered there."
+        content = response.content.decode()
+        observation_change_url = reverse("admin:observations_observation_change", args=(str(observation.pk),))
+        assert observation_change_url not in content, (
+            "The dasadmin site must not emit a link to the observation change page; "
+            "the row must degrade to plain text."
+        )
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("tenant_settings", "das_tenant_monkeypatch")
+class TestSubjectAdminChangeView:
+    """Regression test for ERA-13490: editing a Subject in the admin raised
+    NoReverseMatch because the inline observations link reversed
+    'observations_observation_change' without the 'admin:' namespace."""
+
+    def test_change_view_renders_observation_link(self, superuser_client: Client) -> None:
+        now = timezone.now()
+        subject_source = SubjectSourceFactory(
+            assigned_range=(now - datetime.timedelta(days=10), now + datetime.timedelta(days=10)),
+        )
+        observation = ObservationFactory(
+            source=subject_source.source,
+            recorded_at=now - datetime.timedelta(hours=1),
+        )
+        url = reverse("admin:observations_subject_change", args=(str(subject_source.subject.pk),))
+        response = superuser_client.get(url)
+        assert response.status_code == 200
+        content = response.content.decode()
+        assert str(observation.pk) in content, (
+            "The rendered inline must contain the real observation pk and the "
+            "namespaced admin URL must reverse cleanly."
+        )
+        expected_link = reverse("admin:observations_observation_change", args=(str(observation.pk),))
+        assert expected_link in content, "The default admin site must render a link to the observation change page."
+
+    def test_das_admin_change_view_returns_200_without_observation_link(self, superuser_client: Client) -> None:
+        """Regression test for ERA-13490 follow-up: the dasadmin site must not
+        500 when rendering the Subject change page, because Observation is not
+        registered on that site.  The observation row must degrade to plain text
+        instead of attempting to reverse 'das_admin:observations_observation_change'."""
+        now = timezone.now()
+        subject_source = SubjectSourceFactory(
+            assigned_range=(now - datetime.timedelta(days=10), now + datetime.timedelta(days=10)),
+        )
+        observation = ObservationFactory(
+            source=subject_source.source,
+            recorded_at=now - datetime.timedelta(hours=1),
+        )
+        url = reverse("das_admin:observations_subject_change", args=(str(subject_source.subject.pk),))
+        response = superuser_client.get(url)
+        assert (
+            response.status_code == 200
+        ), "dasadmin Subject change page must not 500 even though Observation is not registered there."
+        content = response.content.decode()
+        observation_change_url = reverse("admin:observations_observation_change", args=(str(observation.pk),))
+        assert observation_change_url not in content, (
+            "The dasadmin site must not emit a link to the observation change page "
+            "because Observation is not registered there; the row must degrade to plain text."
         )
