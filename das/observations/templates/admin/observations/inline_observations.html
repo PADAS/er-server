@@ -63,7 +63,7 @@
             {% for observation in observations %}
             <tr class="{% cycle 'row1' 'row2' %}">
                 <td>{{ observation.source__manufacturer_id }}</td>
-                <td>{% if observation.id %}<a href="{% url 'admin:observations_observation_change' observation.id %}">{{ observation.recorded_at }}</a>{% else %}{{ observation.recorded_at }}{% endif %}</td>
+                <td>{% if observation.change_url %}<a href="{{ observation.change_url }}">{{ observation.recorded_at }}</a>{% else %}{{ observation.recorded_at }}{% endif %}</td>
                 <td>{{ observation.recorded_at|naturaltime }}</td>
                 <td>{{ observation.location.x }}</td>
                 <td>{{ observation.location.y }}</td>

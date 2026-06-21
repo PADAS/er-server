@@ -44,6 +44,7 @@ from django.db.models import (
     F,
     Max,
     Min,
+    Model,
     OuterRef,
     Q,
     Subquery,
@@ -57,7 +58,7 @@ from django.http.response import HttpResponseRedirect
 from django.shortcuts import redirect, render
 from django.template.loader import render_to_string
 from django.template.response import TemplateResponse
-from django.urls import path, reverse
+from django.urls import NoReverseMatch, path, reverse
 from django.utils.functional import cached_property
 from django.utils.html import escape, format_html
 from django.utils.safestring import mark_safe
@@ -1064,11 +1065,31 @@ class SourceSourceProviderFilter(SourceProviderFilter):
 
 
 class ObservationsContextMixin:
+    # Provided by the ModelAdmin subclass this mixin is combined with.
+    admin_site: admin.AdminSite
+    model: type[Model]
+
     def get_observations_context(self, extra_context, observations, id):
         """Update extra context for rendering observations"""
         model_name = self.model._meta.model_name
         extra_context = extra_context or {}
-        extra_context["observations"] = observations[:25]
+
+        obs_list: list[dict] = list(observations[:25])
+        for obs in obs_list:
+            obs_id = obs.get("id")
+            change_url: str | None = None
+            if obs_id:
+                try:
+                    change_url = reverse(
+                        "admin:observations_observation_change",
+                        args=[obs_id],
+                        current_app=self.admin_site.name,
+                    )
+                except NoReverseMatch:
+                    change_url = None
+            obs["change_url"] = change_url
+
+        extra_context["observations"] = obs_list
         extra_context["timezone"] = TIMEZONE_USED
         extra_context["filter_params"] = f"?{str(model_name)}_id={str(id)}"
 
