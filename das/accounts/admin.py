@@ -315,17 +315,35 @@ class UserAdmin(ModelAdminDisplayingManyToManyFieldMixin, DefaultFilterMixin, Fi
         }
 
     def get_fieldsets(self, request, obj=None):
+        require_idp, _ = self._idp_field_policy()
         if not obj:
-            return super().get_fieldsets(request)
+            fieldsets = super().get_fieldsets(request)
+            if require_idp:
+                # The password-set inputs are inert on IdP tenants: they are
+                # optional (CustomUserCreationForm forces required=False) and
+                # save_model overwrites any entered value via
+                # set_unusable_password() on create. Drop the whole section that
+                # carries them rather than show controls that do nothing.
+                password_set_fields = {"password1", "password2"}
+                fieldsets = tuple(
+                    section for section in fieldsets if password_set_fields.isdisjoint(section[1].get("fields", ()))
+                )
+            return fieldsets
 
         fieldsets = copy.deepcopy(self.fieldsets)
-        require_idp, _ = self._idp_field_policy()
         if require_idp:
             # Email is read-only on IdP tenants; render it through a display
             # field carrying the "mirrors your Auth0 identity" hint, since a
             # read-only model field would only show the model's own help text.
             fieldsets[0][1]["fields"] = tuple(
                 "_email_with_idp_hint" if field == "email" else field for field in fieldsets[0][1]["fields"]
+            )
+            # The local password is not operative for these accounts and the
+            # change-password view is blocked (see user_change_password), so drop
+            # the password field — its read-only hash display and the "change
+            # password" link it carries are both dead here.
+            fieldsets = self._remove_fields_from_fieldsets(
+                fieldsets=fieldsets, field_to_remove="password", fieldset_index=0
             )
         if User.objects.filter(act_as_profiles__in=[obj]):
             fieldsets = self._remove_fields_from_fieldsets(

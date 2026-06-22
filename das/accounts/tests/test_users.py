@@ -516,3 +516,45 @@ class TestUserAdminPasswordChangeViewGuard:
                 result = self.admin.user_change_password(self.request, "1")
         assert result == "delegated"
         mock_super.assert_called_once()
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("das_tenant_monkeypatch")
+class TestUserAdminPasswordControlsHidden:
+    """On Auth0/IdP tenants the local password is not operative, so the admin
+    forms hide the password-set controls: the change form drops the password
+    hash widget (and its "change password" link), and the add form drops the
+    password1/password2 inputs (save_model sets an unusable password on create).
+    Non-Auth0 tenants keep the standard controls."""
+
+    @pytest.fixture(autouse=True)
+    def _admin(self, das_tenant):
+        self.admin = UserAdmin(User, site)
+        self.request = RequestFactory().get("/")
+        self.request.user = MagicMock()
+        self.user = User.objects.create_user(
+            username="idpuser", email="real@auth0.example", das_tenant=das_tenant, is_active=True
+        )
+
+    def _fields(self, *, require_idp, obj):
+        tenant_settings = MagicMock()
+        tenant_settings.feature_flags.require_idp = require_idp
+        tenant_settings.feature_flags.idp_org_id = None
+        with patch("accounts.admin.get_tenant_settings", return_value=tenant_settings):
+            return flatten_fieldsets(self.admin.get_fieldsets(self.request, obj=obj))
+
+    def test_change_form_hides_password_on_idp_tenant(self):
+        assert "password" not in self._fields(require_idp=True, obj=self.user)
+
+    def test_change_form_keeps_password_on_non_idp_tenant(self):
+        assert "password" in self._fields(require_idp=False, obj=self.user)
+
+    def test_add_form_hides_password_inputs_on_idp_tenant(self):
+        fields = self._fields(require_idp=True, obj=None)
+        assert "password1" not in fields
+        assert "password2" not in fields
+
+    def test_add_form_keeps_password_inputs_on_non_idp_tenant(self):
+        fields = self._fields(require_idp=False, obj=None)
+        assert "password1" in fields
+        assert "password2" in fields
