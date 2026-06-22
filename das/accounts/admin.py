@@ -300,13 +300,13 @@ class UserAdmin(ModelAdminDisplayingManyToManyFieldMixin, DefaultFilterMixin, Fi
             form.current_user = obj
             require_idp, is_org_scoped = self._idp_field_policy()
             # On non-org IdP sites username stays editable; hint that it is the
-            # ER username corresponding to the Auth0 account (org sites lock it).
+            # user's ER username for this site (org sites lock it).
             # Mutating base_fields is per-request safe: ModelAdmin.get_form builds
             # a fresh form class per call and username is model-derived (not a
             # shared declared field), so this help_text does not leak across
             # requests.
             if require_idp and not is_org_scoped and "username" in form.base_fields:
-                form.base_fields["username"].help_text = "The ER username for the Auth0 account (identified by email)."
+                form.base_fields["username"].help_text = "User's EarthRanger username for this site."
         return form
 
     def render_change_form(self, request, context, add=False, change=False, form_url="", obj=None):
@@ -395,7 +395,8 @@ class UserAdmin(ModelAdminDisplayingManyToManyFieldMixin, DefaultFilterMixin, Fi
 
     def _email_with_idp_hint(self, instance):
         return format_html(
-            '{}<br><span class="help">Mirrors the user\'s Auth0 login identity; ' "not editable here.</span>",
+            '{}<br><span class="help">User\'s email address when they created their '
+            "EarthRanger Identity account.</span>",
             instance.email or "",
         )
 

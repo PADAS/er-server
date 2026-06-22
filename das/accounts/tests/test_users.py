@@ -372,8 +372,8 @@ class TestUserAdminEmailEditability:
 @pytest.mark.django_db
 @pytest.mark.usefixtures("das_tenant_monkeypatch")
 class TestUserAdminIdpEmailHint:
-    """On an IdP change form the read-only email is shown with a hint that it
-    mirrors the user's Auth0 login identity (not a free-form local value), so
+    """On an IdP change form the read-only email is shown with a hint describing
+    it as the email the user's EarthRanger Identity account was created with, so
     admins understand why it can't be edited. The hint rides on a read-only
     display field standing in for the plain email field — Django renders a
     read-only *model* field's help text from the model, so the hint has to
@@ -405,10 +405,10 @@ class TestUserAdminIdpEmailHint:
         assert "_email_with_idp_hint" in readonly
         assert "email" not in fields
 
-    def test_idp_email_hint_names_the_auth0_identity(self):
+    def test_idp_email_hint_describes_earthranger_identity(self):
         rendered = str(self.admin._email_with_idp_hint(self.user))
         assert "real@auth0.example" in rendered
-        assert "Auth0 login identity" in rendered
+        assert "EarthRanger Identity" in rendered
 
     def test_non_idp_change_form_keeps_plain_email(self):
         fields, _ = self._change_form_fields(require_idp=False)
@@ -454,10 +454,9 @@ class TestUserAdminUsernameEditability:
 @pytest.mark.django_db
 @pytest.mark.usefixtures("das_tenant_monkeypatch")
 class TestUserAdminNonOrgUsernameHint:
-    """On a non-org IdP site the username stays editable but is hinted as the ER
-    username corresponding to the Auth0 account (identified by email), so admins
-    understand its relationship to the Auth0 identity. Non-Auth0 sites get no
-    such hint."""
+    """On a non-org IdP site the username stays editable but is hinted as the
+    user's EarthRanger username for this site. Non-Auth0 sites get no such
+    hint."""
 
     @pytest.fixture(autouse=True)
     def _admin(self, das_tenant):
@@ -478,11 +477,11 @@ class TestUserAdminNonOrgUsernameHint:
             return ""
         return str(form.base_fields["username"].help_text)
 
-    def test_non_org_idp_username_hints_auth0_correspondence(self):
-        assert "Auth0 account" in self._username_help_text(require_idp=True, idp_org_id=None)
+    def test_non_org_idp_username_shows_site_hint(self):
+        assert "EarthRanger username" in self._username_help_text(require_idp=True, idp_org_id=None)
 
-    def test_non_idp_username_has_no_auth0_hint(self):
-        assert "Auth0 account" not in self._username_help_text(require_idp=False, idp_org_id=None)
+    def test_non_idp_username_has_no_site_hint(self):
+        assert "EarthRanger username" not in self._username_help_text(require_idp=False, idp_org_id=None)
 
 
 class TestUserAdminPasswordChangeViewGuard:
