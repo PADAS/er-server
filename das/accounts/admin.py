@@ -362,7 +362,12 @@ class UserAdmin(ModelAdminDisplayingManyToManyFieldMixin, DefaultFilterMixin, Fi
         should_send_idp_email = False
 
         if tenant_settings.feature_flags.require_idp:
-            should_send_idp_email = not change and bool(obj.email)
+            # Org-scoped (Auth0 organization) sites invite users through Auth0
+            # out-of-band, and account linking — where the magic link points —
+            # already rejects them. Suppress the dead-end invitation email.
+            org_id = tenant_settings.feature_flags.idp_org_id
+            is_org_scoped = bool(org_id and org_id.strip())
+            should_send_idp_email = not change and bool(obj.email) and not is_org_scoped
             if not change:
                 obj.set_unusable_password()
         else:
