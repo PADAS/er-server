@@ -558,3 +558,41 @@ class TestUserAdminPasswordControlsHidden:
         fields = self._fields(require_idp=False, obj=None)
         assert "password1" in fields
         assert "password2" in fields
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("das_tenant_monkeypatch")
+class TestUserAdminResetPasswordViewGuard:
+    """On Auth0/IdP tenants the Django password-reset email is a dead end — the
+    new password never reaches Auth0 — so the admin reset-password action
+    (.../reset-password/, behind the "Email password reset" button) is blocked
+    with a 403. Non-Auth0 tenants keep sending the reset email."""
+
+    @pytest.fixture(autouse=True)
+    def _admin(self, das_tenant):
+        self.admin = UserAdmin(User, site)
+        self.request = RequestFactory().get("/")
+        self.request.user = MagicMock()
+        self.user = User.objects.create_user(
+            username="idpuser", email="real@auth0.example", das_tenant=das_tenant, is_active=True
+        )
+
+    @staticmethod
+    def _tenant_settings(*, require_idp):
+        tenant_settings = MagicMock()
+        tenant_settings.feature_flags.require_idp = require_idp
+        tenant_settings.feature_flags.idp_org_id = None
+        return tenant_settings
+
+    def test_blocks_reset_password_on_idp_tenant(self):
+        with patch("accounts.admin.get_tenant_settings", return_value=self._tenant_settings(require_idp=True)):
+            with patch.object(self.admin, "_send_reset_email"):
+                with pytest.raises(PermissionDenied):
+                    self.admin.reset_password(self.request, str(self.user.id))
+
+    def test_sends_reset_email_on_non_idp_tenant(self):
+        with patch("accounts.admin.get_tenant_settings", return_value=self._tenant_settings(require_idp=False)):
+            with patch.object(self.admin, "_send_reset_email") as mock_send:
+                response = self.admin.reset_password(self.request, str(self.user.id))
+        mock_send.assert_called_once()
+        assert response.status_code == 302

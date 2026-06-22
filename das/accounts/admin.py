@@ -426,6 +426,12 @@ class UserAdmin(ModelAdminDisplayingManyToManyFieldMixin, DefaultFilterMixin, Fi
         return super().user_change_password(request, id, form_url)
 
     def reset_password(self, request, user_id):
+        require_idp, _ = self._idp_field_policy()
+        if require_idp:
+            # The Django password-reset email is a dead end for Auth0-linked
+            # accounts — the new password never reaches Auth0. Block the action;
+            # what the reset button should do instead is decided in ERA-13481.
+            raise PermissionDenied
         if not self.has_change_permission(request):
             raise PermissionDenied
         user = get_object_or_404(self.model, pk=user_id)
