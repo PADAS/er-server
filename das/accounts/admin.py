@@ -317,6 +317,16 @@ class UserAdmin(ModelAdminDisplayingManyToManyFieldMixin, DefaultFilterMixin, Fi
 
         return fieldsets
 
+    def get_readonly_fields(self, request, obj=None):
+        readonly_fields = super().get_readonly_fields(request, obj)
+        # On Auth0/IdP tenants the email mirrors the user's Auth0 login identity;
+        # editing an existing account here only diverges ER from Auth0 (the root
+        # cause of the RCU incident). The add form keeps email editable so new
+        # accounts can still be created.
+        if obj is not None and get_tenant_settings().feature_flags.require_idp:
+            readonly_fields = (*readonly_fields, "email")
+        return readonly_fields
+
     def display_name(self, instance):
         full_name = instance.get_full_name()
         if not full_name:

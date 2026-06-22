@@ -1,9 +1,14 @@
+from unittest.mock import MagicMock, patch
+
 import pytest
 from django_multitenant.utils import get_current_tenant, set_current_tenant
 from faker import Faker
 
+from django.contrib.admin import site
 from django.core.exceptions import ValidationError
+from django.test import RequestFactory
 
+from accounts.admin import UserAdmin
 from accounts.models import User
 
 faker = Faker()
@@ -319,3 +324,44 @@ class TestUserAuth0Integration:
 
         error_message = str(exc_info.value)
         assert "unique_auth0_id_per_tenant" in error_message
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("das_tenant_monkeypatch")
+class TestUserAdminEmailEditability:
+    """Observable behavior: which admin forms expose email as an editable field.
+    On Auth0/IdP tenants the email mirrors the user's authoritative Auth0 login
+    identity, so the change form locks it — email is not an editable field, so a
+    save cannot change its value (the root cause of the RCU incident). The add
+    form keeps it editable, since a new account's email becomes that Auth0
+    identity. Asserting against the form Django builds (get_form) exercises the
+    real get_form -> get_readonly_fields path, proving the wiring rather than
+    trusting it."""
+
+    @pytest.fixture(autouse=True)
+    def _admin(self, das_tenant):
+        self.admin = UserAdmin(User, site)
+        self.request = RequestFactory().get("/")
+        # UserAdmin.get_form reads request.user; its identity is irrelevant to
+        # which fields are editable.
+        self.request.user = MagicMock()
+        self.existing_user = User.objects.create_user(
+            username="idpuser", email="real@auth0.example", das_tenant=das_tenant, is_active=True
+        )
+
+    def _email_is_editable(self, *, require_idp, obj, change):
+        tenant_settings = MagicMock()
+        tenant_settings.feature_flags.require_idp = require_idp
+        tenant_settings.feature_flags.idp_org_id = None
+        with patch("accounts.admin.get_tenant_settings", return_value=tenant_settings):
+            form = self.admin.get_form(self.request, obj=obj, change=change)
+        return "email" in form.base_fields
+
+    def test_change_form_locks_email_on_idp_tenant(self):
+        assert self._email_is_editable(require_idp=True, obj=self.existing_user, change=True) is False
+
+    def test_change_form_keeps_email_editable_on_non_idp_tenant(self):
+        assert self._email_is_editable(require_idp=False, obj=self.existing_user, change=True) is True
+
+    def test_add_form_keeps_email_editable_on_idp_tenant(self):
+        assert self._email_is_editable(require_idp=True, obj=None, change=False) is True
