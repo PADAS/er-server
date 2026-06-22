@@ -29,6 +29,7 @@ from django.shortcuts import get_object_or_404
 from django.template.loader import render_to_string
 from django.urls import re_path, reverse
 from django.utils.crypto import get_random_string
+from django.utils.html import format_html
 from django.utils.safestring import mark_safe
 from django.utils.translation import gettext_lazy as _
 
@@ -297,6 +298,13 @@ class UserAdmin(ModelAdminDisplayingManyToManyFieldMixin, DefaultFilterMixin, Fi
             return super().get_fieldsets(request)
 
         fieldsets = copy.deepcopy(self.fieldsets)
+        if get_tenant_settings().feature_flags.require_idp:
+            # Email is read-only on IdP tenants; render it through a display
+            # field carrying the "mirrors your Auth0 identity" hint, since a
+            # read-only model field would only show the model's own help text.
+            fieldsets[0][1]["fields"] = tuple(
+                "_email_with_idp_hint" if field == "email" else field for field in fieldsets[0][1]["fields"]
+            )
         if User.objects.filter(act_as_profiles__in=[obj]):
             fieldsets = self._remove_fields_from_fieldsets(
                 fieldsets=fieldsets, field_to_remove="act_as_profiles", fieldset_index=3
@@ -319,13 +327,23 @@ class UserAdmin(ModelAdminDisplayingManyToManyFieldMixin, DefaultFilterMixin, Fi
 
     def get_readonly_fields(self, request, obj=None):
         readonly_fields = super().get_readonly_fields(request, obj)
-        # On Auth0/IdP tenants the email mirrors the user's Auth0 login identity;
-        # editing an existing account here only diverges ER from Auth0 (the root
-        # cause of the RCU incident). The add form keeps email editable so new
-        # accounts can still be created.
+        # On Auth0/IdP tenants email mirrors the user's Auth0 login identity, so
+        # it is read-only. "email" must stay in readonly_fields: the admin form
+        # declares email explicitly, and listing it here is what strips that
+        # declared field from the form so a save cannot change it. get_fieldsets
+        # renders it through _email_with_idp_hint, which carries the identity
+        # hint. The add form keeps email editable so new accounts can be created.
         if obj is not None and get_tenant_settings().feature_flags.require_idp:
-            readonly_fields = (*readonly_fields, "email")
+            readonly_fields = (*readonly_fields, "email", "_email_with_idp_hint")
         return readonly_fields
+
+    def _email_with_idp_hint(self, instance):
+        return format_html(
+            '{}<br><span class="help">Mirrors the user\'s Auth0 login identity; ' "not editable here.</span>",
+            instance.email or "",
+        )
+
+    _email_with_idp_hint.short_description = "Email"
 
     def display_name(self, instance):
         full_name = instance.get_full_name()

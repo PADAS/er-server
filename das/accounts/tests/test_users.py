@@ -5,6 +5,7 @@ from django_multitenant.utils import get_current_tenant, set_current_tenant
 from faker import Faker
 
 from django.contrib.admin import site
+from django.contrib.admin.utils import flatten_fieldsets
 from django.core.exceptions import ValidationError
 from django.test import RequestFactory
 
@@ -365,3 +366,50 @@ class TestUserAdminEmailEditability:
 
     def test_add_form_keeps_email_editable_on_idp_tenant(self):
         assert self._email_is_editable(require_idp=True, obj=None, change=False) is True
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("das_tenant_monkeypatch")
+class TestUserAdminIdpEmailHint:
+    """On an IdP change form the read-only email is shown with a hint that it
+    mirrors the user's Auth0 login identity (not a free-form local value), so
+    admins understand why it can't be edited. The hint rides on a read-only
+    display field standing in for the plain email field — Django renders a
+    read-only *model* field's help text from the model, so the hint has to
+    travel with the value."""
+
+    @pytest.fixture(autouse=True)
+    def _admin(self, das_tenant):
+        self.admin = UserAdmin(User, site)
+        self.request = RequestFactory().get("/")
+        self.request.user = MagicMock()
+        self.user = User.objects.create_user(
+            username="idpuser", email="real@auth0.example", das_tenant=das_tenant, is_active=True
+        )
+
+    def _change_form_fields(self, *, require_idp):
+        tenant_settings = MagicMock()
+        tenant_settings.feature_flags.require_idp = require_idp
+        tenant_settings.feature_flags.idp_org_id = None
+        with patch("accounts.admin.get_tenant_settings", return_value=tenant_settings):
+            fieldsets = self.admin.get_fieldsets(self.request, obj=self.user)
+            readonly = self.admin.get_readonly_fields(self.request, obj=self.user)
+        return flatten_fieldsets(fieldsets), readonly
+
+    def test_idp_change_form_renders_email_through_readonly_hint_field(self):
+        fields, readonly = self._change_form_fields(require_idp=True)
+        # Email is shown via a read-only display field (so the hint can ride with
+        # the value) instead of the plain, editable model field.
+        assert "_email_with_idp_hint" in fields
+        assert "_email_with_idp_hint" in readonly
+        assert "email" not in fields
+
+    def test_idp_email_hint_names_the_auth0_identity(self):
+        rendered = str(self.admin._email_with_idp_hint(self.user))
+        assert "real@auth0.example" in rendered
+        assert "Auth0 login identity" in rendered
+
+    def test_non_idp_change_form_keeps_plain_email(self):
+        fields, _ = self._change_form_fields(require_idp=False)
+        assert "email" in fields
+        assert "_email_with_idp_hint" not in fields
