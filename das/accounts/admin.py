@@ -309,6 +309,13 @@ class UserAdmin(ModelAdminDisplayingManyToManyFieldMixin, DefaultFilterMixin, Fi
                 form.base_fields["username"].help_text = "The ER username for the Auth0 account (identified by email)."
         return form
 
+    def render_change_form(self, request, context, add=False, change=False, form_url="", obj=None):
+        # Expose whether the tenant is Auth0-linked so the change-form template
+        # can disable the (already-blocked) "Email password reset" button.
+        require_idp, _ = self._idp_field_policy()
+        context["idp_linked"] = require_idp
+        return super().render_change_form(request, context, add, change, form_url, obj)
+
     def get_default_filters(self, request):
         return {
             "is_active__exact": 1,

@@ -8,6 +8,7 @@ from django.contrib.admin import site
 from django.contrib.admin.utils import flatten_fieldsets
 from django.core.exceptions import PermissionDenied, ValidationError
 from django.test import RequestFactory
+from django.urls import reverse
 
 from accounts.admin import UserAdmin
 from accounts.models import User
@@ -596,3 +597,58 @@ class TestUserAdminResetPasswordViewGuard:
                 response = self.admin.reset_password(self.request, str(self.user.id))
         mock_send.assert_called_once()
         assert response.status_code == 302
+
+
+class TestUserAdminChangeFormIdpFlag:
+    """render_change_form exposes an idp_linked flag to the change-form
+    template, which uses it to disable the "Email password reset" button on
+    Auth0/IdP tenants (the action itself is blocked in reset_password)."""
+
+    @pytest.fixture(autouse=True)
+    def _admin(self):
+        self.admin = UserAdmin(User, site)
+        self.request = RequestFactory().get("/")
+
+    def _idp_linked_flag(self, *, require_idp):
+        tenant_settings = MagicMock()
+        tenant_settings.feature_flags.require_idp = require_idp
+        tenant_settings.feature_flags.idp_org_id = None
+        context = {}
+        with patch("accounts.admin.get_tenant_settings", return_value=tenant_settings):
+            with patch("django.contrib.auth.admin.UserAdmin.render_change_form", return_value="rendered"):
+                self.admin.render_change_form(self.request, context, change=True, obj=MagicMock())
+        return context.get("idp_linked")
+
+    def test_change_form_flags_idp_linked_on_idp_tenant(self):
+        assert self._idp_linked_flag(require_idp=True) is True
+
+    def test_change_form_not_flagged_on_non_idp_tenant(self):
+        assert self._idp_linked_flag(require_idp=False) is False
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("tenant_settings", "das_tenant_monkeypatch")
+class TestUserAdminPasswordViewsBlockedEndToEnd:
+    """End-to-end: on Auth0/IdP tenants the password-change view and the
+    reset-password action return 403 when reached by URL — confirming Django
+    routes those URLs to the guarded overrides, not merely that the overrides
+    raise. This is the direct-URL back-door check; hiding/disabling the buttons
+    is separate and cosmetic."""
+
+    def test_password_views_return_403_on_idp_tenant(self, superuser_client, das_tenant):
+        user = User.objects.create_user(
+            username="idpuser", email="real@auth0.example", das_tenant=das_tenant, is_active=True
+        )
+        change_url = reverse("admin:accounts_user_change", args=[user.pk])
+        password_url = change_url.replace("/change/", "/password/")
+        reset_url = change_url + "reset-password/"
+
+        tenant_settings = MagicMock()
+        tenant_settings.feature_flags.require_idp = True
+        tenant_settings.feature_flags.idp_org_id = None
+        with patch("accounts.admin.get_tenant_settings", return_value=tenant_settings):
+            password_response = superuser_client.get(password_url)
+            reset_response = superuser_client.get(reset_url)
+
+        assert password_response.status_code == 403
+        assert reset_response.status_code == 403
