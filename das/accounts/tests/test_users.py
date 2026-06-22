@@ -6,7 +6,7 @@ from faker import Faker
 
 from django.contrib.admin import site
 from django.contrib.admin.utils import flatten_fieldsets
-from django.core.exceptions import ValidationError
+from django.core.exceptions import PermissionDenied, ValidationError
 from django.test import RequestFactory
 
 from accounts.admin import UserAdmin
@@ -482,3 +482,37 @@ class TestUserAdminNonOrgUsernameHint:
 
     def test_non_idp_username_has_no_auth0_hint(self):
         assert "Auth0 account" not in self._username_help_text(require_idp=False, idp_org_id=None)
+
+
+class TestUserAdminPasswordChangeViewGuard:
+    """On Auth0/IdP tenants the local password is not operative, so the admin
+    password-change view (.../password/) is blocked with a 403 — it is the only
+    path that would set a local password after an account is created. Non-Auth0
+    tenants keep Django's standard password-change behavior."""
+
+    @pytest.fixture(autouse=True)
+    def _admin(self):
+        self.admin = UserAdmin(User, site)
+        self.request = RequestFactory().get("/")
+
+    @staticmethod
+    def _tenant_settings(*, require_idp):
+        tenant_settings = MagicMock()
+        tenant_settings.feature_flags.require_idp = require_idp
+        tenant_settings.feature_flags.idp_org_id = None
+        return tenant_settings
+
+    def test_blocks_password_change_on_idp_tenant(self):
+        with patch("accounts.admin.get_tenant_settings", return_value=self._tenant_settings(require_idp=True)):
+            with patch("django.contrib.auth.admin.UserAdmin.user_change_password", return_value="delegated"):
+                with pytest.raises(PermissionDenied):
+                    self.admin.user_change_password(self.request, "1")
+
+    def test_allows_password_change_on_non_idp_tenant(self):
+        with patch("accounts.admin.get_tenant_settings", return_value=self._tenant_settings(require_idp=False)):
+            with patch(
+                "django.contrib.auth.admin.UserAdmin.user_change_password", return_value="delegated"
+            ) as mock_super:
+                result = self.admin.user_change_password(self.request, "1")
+        assert result == "delegated"
+        mock_super.assert_called_once()

@@ -398,6 +398,15 @@ class UserAdmin(ModelAdminDisplayingManyToManyFieldMixin, DefaultFilterMixin, Fi
     member_permission_sets.short_description = "Member Permission Sets"
     member_permission_sets.allow_tags = True
 
+    def user_change_password(self, request, id, form_url=""):
+        require_idp, _ = self._idp_field_policy()
+        if require_idp:
+            # The local password is not operative for Auth0-linked accounts, so
+            # the admin password-change view must not set one — it is the only
+            # path that would after creation. Login/identity lives in Auth0.
+            raise PermissionDenied
+        return super().user_change_password(request, id, form_url)
+
     def reset_password(self, request, user_id):
         if not self.has_change_permission(request):
             raise PermissionDenied
