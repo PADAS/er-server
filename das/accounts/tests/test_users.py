@@ -413,3 +413,72 @@ class TestUserAdminIdpEmailHint:
         fields, _ = self._change_form_fields(require_idp=False)
         assert "email" in fields
         assert "_email_with_idp_hint" not in fields
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("das_tenant_monkeypatch")
+class TestUserAdminUsernameEditability:
+    """Observable behavior: on Auth0 Organizations (org-enabled) sites the
+    username is itself a valid Auth0 login identifier, so the change form locks
+    it — a save cannot change it. On non-org IdP sites and non-Auth0 sites the
+    username stays editable. Org state comes from feature_flags.idp_org_id."""
+
+    @pytest.fixture(autouse=True)
+    def _admin(self, das_tenant):
+        self.admin = UserAdmin(User, site)
+        self.request = RequestFactory().get("/")
+        self.request.user = MagicMock()
+        self.user = User.objects.create_user(
+            username="idpuser", email="real@auth0.example", das_tenant=das_tenant, is_active=True
+        )
+
+    def _username_is_editable(self, *, require_idp, idp_org_id):
+        tenant_settings = MagicMock()
+        tenant_settings.feature_flags.require_idp = require_idp
+        tenant_settings.feature_flags.idp_org_id = idp_org_id
+        with patch("accounts.admin.get_tenant_settings", return_value=tenant_settings):
+            form = self.admin.get_form(self.request, obj=self.user, change=True)
+        return "username" in form.base_fields
+
+    def test_change_form_locks_username_on_org_enabled_tenant(self):
+        assert self._username_is_editable(require_idp=True, idp_org_id="org_rcuksa_abc123") is False
+
+    def test_change_form_keeps_username_editable_on_non_org_idp_tenant(self):
+        assert self._username_is_editable(require_idp=True, idp_org_id=None) is True
+
+    def test_change_form_keeps_username_editable_on_non_idp_tenant(self):
+        assert self._username_is_editable(require_idp=False, idp_org_id=None) is True
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("das_tenant_monkeypatch")
+class TestUserAdminNonOrgUsernameHint:
+    """On a non-org IdP site the username stays editable but is hinted as the ER
+    username corresponding to the Auth0 account (identified by email), so admins
+    understand its relationship to the Auth0 identity. Non-Auth0 sites get no
+    such hint."""
+
+    @pytest.fixture(autouse=True)
+    def _admin(self, das_tenant):
+        self.admin = UserAdmin(User, site)
+        self.request = RequestFactory().get("/")
+        self.request.user = MagicMock()
+        self.user = User.objects.create_user(
+            username="idpuser", email="real@auth0.example", das_tenant=das_tenant, is_active=True
+        )
+
+    def _username_help_text(self, *, require_idp, idp_org_id):
+        tenant_settings = MagicMock()
+        tenant_settings.feature_flags.require_idp = require_idp
+        tenant_settings.feature_flags.idp_org_id = idp_org_id
+        with patch("accounts.admin.get_tenant_settings", return_value=tenant_settings):
+            form = self.admin.get_form(self.request, obj=self.user, change=True)
+        if "username" not in form.base_fields:
+            return ""
+        return str(form.base_fields["username"].help_text)
+
+    def test_non_org_idp_username_hints_auth0_correspondence(self):
+        assert "Auth0 account" in self._username_help_text(require_idp=True, idp_org_id=None)
+
+    def test_non_idp_username_has_no_auth0_hint(self):
+        assert "Auth0 account" not in self._username_help_text(require_idp=False, idp_org_id=None)

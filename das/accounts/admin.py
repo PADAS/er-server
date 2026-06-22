@@ -281,11 +281,32 @@ class UserAdmin(ModelAdminDisplayingManyToManyFieldMixin, DefaultFilterMixin, Fi
         ),
     )
 
+    def _idp_field_policy(self):
+        """Identity-field policy for the current tenant: (require_idp, is_org_scoped).
+
+        require_idp means the tenant is Auth0/IdP-backed; is_org_scoped means it
+        is an Auth0 Organizations (org-enabled) site, where the username is
+        itself a login identifier. Together they drive which identity fields the
+        admin renders read-only or hinted.
+        """
+        feature_flags = get_tenant_settings().feature_flags
+        org_id = feature_flags.idp_org_id
+        return feature_flags.require_idp, bool(org_id and org_id.strip())
+
     def get_form(self, request, obj=None, **kwargs):
         form = super().get_form(request, obj=obj, **kwargs)
         form.request_user = request.user
         if obj:
             form.current_user = obj
+            require_idp, is_org_scoped = self._idp_field_policy()
+            # On non-org IdP sites username stays editable; hint that it is the
+            # ER username corresponding to the Auth0 account (org sites lock it).
+            # Mutating base_fields is per-request safe: ModelAdmin.get_form builds
+            # a fresh form class per call and username is model-derived (not a
+            # shared declared field), so this help_text does not leak across
+            # requests.
+            if require_idp and not is_org_scoped and "username" in form.base_fields:
+                form.base_fields["username"].help_text = "The ER username for the Auth0 account (identified by email)."
         return form
 
     def get_default_filters(self, request):
@@ -298,7 +319,8 @@ class UserAdmin(ModelAdminDisplayingManyToManyFieldMixin, DefaultFilterMixin, Fi
             return super().get_fieldsets(request)
 
         fieldsets = copy.deepcopy(self.fieldsets)
-        if get_tenant_settings().feature_flags.require_idp:
+        require_idp, _ = self._idp_field_policy()
+        if require_idp:
             # Email is read-only on IdP tenants; render it through a display
             # field carrying the "mirrors your Auth0 identity" hint, since a
             # read-only model field would only show the model's own help text.
@@ -327,14 +349,23 @@ class UserAdmin(ModelAdminDisplayingManyToManyFieldMixin, DefaultFilterMixin, Fi
 
     def get_readonly_fields(self, request, obj=None):
         readonly_fields = super().get_readonly_fields(request, obj)
-        # On Auth0/IdP tenants email mirrors the user's Auth0 login identity, so
-        # it is read-only. "email" must stay in readonly_fields: the admin form
-        # declares email explicitly, and listing it here is what strips that
-        # declared field from the form so a save cannot change it. get_fieldsets
-        # renders it through _email_with_idp_hint, which carries the identity
-        # hint. The add form keeps email editable so new accounts can be created.
-        if obj is not None and get_tenant_settings().feature_flags.require_idp:
+        if obj is None:
+            # The add form keeps identity fields editable so new accounts (and
+            # their Auth0 identity) can be created.
+            return readonly_fields
+        require_idp, is_org_scoped = self._idp_field_policy()
+        if require_idp:
+            # On Auth0/IdP tenants email mirrors the user's Auth0 login identity,
+            # so it is read-only. "email" must stay in readonly_fields: the admin
+            # form declares email explicitly, and listing it here is what strips
+            # that declared field from the form so a save cannot change it.
+            # get_fieldsets renders it through _email_with_idp_hint, which
+            # carries the identity hint.
             readonly_fields = (*readonly_fields, "email", "_email_with_idp_hint")
+            # On org-enabled (Auth0 Organizations) sites the username is itself a
+            # valid Auth0 login identifier, so it is read-only too.
+            if is_org_scoped:
+                readonly_fields = (*readonly_fields, "username")
         return readonly_fields
 
     def _email_with_idp_hint(self, instance):
@@ -385,16 +416,14 @@ class UserAdmin(ModelAdminDisplayingManyToManyFieldMixin, DefaultFilterMixin, Fi
         return HttpResponseRedirect("..")
 
     def save_model(self, request, obj, form, change):
-        tenant_settings = get_tenant_settings()
         should_notify_of_password_reset = False
         should_send_idp_email = False
 
-        if tenant_settings.feature_flags.require_idp:
+        require_idp, is_org_scoped = self._idp_field_policy()
+        if require_idp:
             # Org-scoped (Auth0 organization) sites invite users through Auth0
             # out-of-band, and account linking — where the magic link points —
             # already rejects them. Suppress the dead-end invitation email.
-            org_id = tenant_settings.feature_flags.idp_org_id
-            is_org_scoped = bool(org_id and org_id.strip())
             should_send_idp_email = not change and bool(obj.email) and not is_org_scoped
             if not change:
                 obj.set_unusable_password()
