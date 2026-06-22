@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import datetime
 import uuid
 
@@ -11,6 +13,7 @@ from django.test import Client, RequestFactory
 from django.urls import reverse
 from django.utils import timezone
 
+from das_server.admin import dasadmin_site
 from factories import (
     ObservationFactory,
     ProviderFactory,
@@ -328,3 +331,37 @@ class TestSubjectAdminChangeView:
             "The dasadmin site must not emit a link to the observation change page "
             "because Observation is not registered there; the row must degrade to plain text."
         )
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("tenant_settings", "das_tenant_monkeypatch")
+class TestDasAdminSiteGetAppList:
+    """Regression tests for the DasAdminSite.get_app_list signature.
+
+    Django 4.2 changed AdminSite.app_index to call get_app_list(request, app_label),
+    passing two positional arguments.  The override previously only accepted one
+    (request), causing a TypeError when the app_index view was requested.
+    """
+
+    def test_get_app_list_without_app_label_does_not_raise(self, superuser: object) -> None:
+        request = RequestFactory().get("/")
+        request.user = superuser
+        # Must not raise TypeError even when app_label is omitted (index view path).
+        result = dasadmin_site.get_app_list(request)
+        assert isinstance(result, list)
+
+    def test_get_app_list_with_app_label_does_not_raise(self, superuser: object) -> None:
+        request = RequestFactory().get("/")
+        request.user = superuser
+        # Must not raise "takes 2 positional arguments but 3 were given".
+        result = dasadmin_site.get_app_list(request, "observations")
+        assert isinstance(result, list)
+
+    def test_app_index_view_returns_200(self, superuser_client: Client) -> None:
+        # Exercises the full Django 4.2 app_index path that calls
+        # get_app_list(request, app_label) with two arguments.
+        url = reverse("das_admin:app_list", kwargs={"app_label": "observations"})
+        response = superuser_client.get(url)
+        assert (
+            response.status_code == 200
+        ), "dasadmin app_index must not raise TypeError from get_app_list signature mismatch"

@@ -3,13 +3,26 @@ import logging
 from django.contrib.admin import AdminSite
 from django.utils.translation import gettext_lazy as _
 
-from observations.admin import (SourceAdmin, SubjectAdmin, SubjectGroupAdmin,
-                                SubjectSourceAdmin, SubjectSourceSummaryAdmin,
-                                SubjectStatusAdmin, SubjectSubTypeAdmin,
-                                SubjectTypeAdmin)
-from observations.models import (Source, Subject, SubjectGroup, SubjectSource,
-                                 SubjectSourceSummary, SubjectStatus,
-                                 SubjectSubType, SubjectType)
+from observations.admin import (
+    SourceAdmin,
+    SubjectAdmin,
+    SubjectGroupAdmin,
+    SubjectSourceAdmin,
+    SubjectSourceSummaryAdmin,
+    SubjectStatusAdmin,
+    SubjectSubTypeAdmin,
+    SubjectTypeAdmin,
+)
+from observations.models import (
+    Source,
+    Subject,
+    SubjectGroup,
+    SubjectSource,
+    SubjectSourceSummary,
+    SubjectStatus,
+    SubjectSubType,
+    SubjectType,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -22,8 +35,8 @@ class DasAdminSite(AdminSite):
 
     index_template = "admin/simple_admin_index.html"
 
-    def get_app_list(self, request):
-        applist = super().get_app_list(request)
+    def get_app_list(self, request, app_label=None):
+        applist = super().get_app_list(request, app_label)
         return applist
 
 
