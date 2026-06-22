@@ -241,8 +241,12 @@ class TestSaveModelWithIdp:
 
     @pytest.fixture(autouse=True)
     def idp_tenant_settings(self):
+        # A non-org (common-DB) IdP site: require_idp on, no idp_org_id — the one
+        # configuration that sends the invitation. This class covers what the
+        # sent email contains; TestIdpInvitationEmail covers when it is sent.
         mock = MagicMock()
         mock.feature_flags.require_idp = True
+        mock.feature_flags.idp_org_id = None
         with patch("accounts.admin.get_tenant_settings", return_value=mock):
             yield mock
 
@@ -285,33 +289,102 @@ class TestSaveModelWithIdp:
 
         assert not user_with_email.has_usable_password()
 
-    class TestShouldNotSendIdpEmail:
 
-        def test_no_email_when_change_is_true(
-            self,
-            user_admin,
-            fake_request,
-            user_with_email,
-            form,
-            mock_super_save_model,
-            mailoutbox,
-        ):
-            user_admin.save_model(fake_request, user_with_email, form, change=True)
+@pytest.mark.django_db
+class TestIdpInvitationEmail:
+    """When save_model sends the IdP magic-link invitation. It is sent for
+    exactly one configuration — a brand-new user (change=False) with an email,
+    on a common-DB IdP tenant (require_idp on, idp_org_id unset) — and withheld
+    for every other combination. (What the email contains is covered by
+    TestSaveModelWithIdp.)"""
 
-            assert len(mailoutbox) == 0
+    @pytest.fixture(autouse=True)
+    def _run_on_commit_callbacks(self):
+        with patch("accounts.admin.transaction.on_commit", side_effect=lambda func: func()):
+            yield
 
-        def test_no_email_when_user_has_no_email(
-            self,
-            user_admin,
-            fake_request,
-            user_without_email,
-            form,
-            mock_super_save_model,
-            mailoutbox,
-        ):
-            user_admin.save_model(fake_request, user_without_email, form, change=False)
+    @pytest.fixture(autouse=True)
+    def create_token(self):
+        # Exposed so withhold tests can assert no magic-link token was generated.
+        with patch("accounts.admin.create_magic_link_token", return_value="test-token") as mock:
+            yield mock
 
-            assert len(mailoutbox) == 0
+    @pytest.fixture(autouse=True)
+    def _steady_email_environment(self, settings):
+        # Pin the rendering dependencies so each case varies only by the
+        # save_model inputs under test, never by tenant identity.
+        settings.DEFAULT_FROM_EMAIL = "noreply@example.com"
+        with patch("accounts.admin.get_current_tenant") as current_tenant:
+            current_tenant.return_value.domain = "testsite.pamdas.org"
+            yield
+
+    @pytest.fixture
+    def sendable(self):
+        # The one tenant configuration that sends an invitation. Each test below
+        # starts here and flips a single axis to show what withholds the email.
+        tenant_settings = MagicMock()
+        tenant_settings.feature_flags.require_idp = True
+        tenant_settings.feature_flags.idp_org_id = None
+        return tenant_settings
+
+    @pytest.fixture
+    def invite(self, user_admin, fake_request, form, mock_super_save_model, mock_send_reset_email):
+        # Runs the admin create flow for one user. _send_reset_email is mocked
+        # (via mock_send_reset_email) because the require_idp-off path also sends
+        # a password-reset email; suppressing it keeps the outbox a clean signal
+        # for the IdP invitation alone.
+        def _invite(tenant_settings, *, email="newuser@example.com", change=False):
+            user = User.objects.create_user(username="newuser", email=email, is_active=True)
+            with patch("accounts.admin.get_tenant_settings", return_value=tenant_settings):
+                user_admin.save_model(fake_request, user, form, change=change)
+
+        return _invite
+
+    def test_sends_to_new_idp_user_with_email(self, sendable, invite, mailoutbox):
+        invite(sendable)
+
+        assert len(mailoutbox) == 1
+
+    def test_withholds_for_existing_user(self, sendable, invite, mailoutbox, create_token):
+        invite(sendable, change=True)
+
+        assert mailoutbox == []
+        create_token.assert_not_called()
+
+    def test_withholds_when_user_has_no_email(self, sendable, invite, mailoutbox, create_token):
+        invite(sendable, email=None)
+
+        assert mailoutbox == []
+        create_token.assert_not_called()
+
+    def test_withholds_on_org_scoped_tenant(self, sendable, invite, mailoutbox, create_token):
+        sendable.feature_flags.idp_org_id = "org_rcuksa_abc123"
+
+        invite(sendable)
+
+        assert mailoutbox == []
+        create_token.assert_not_called()
+
+    def test_withholds_when_idp_not_required(self, sendable, invite, mailoutbox, create_token):
+        sendable.feature_flags.require_idp = False
+
+        invite(sendable)
+
+        assert mailoutbox == []
+        create_token.assert_not_called()
+
+    def test_withholds_when_idp_not_required_even_on_org_scoped_tenant(
+        self, sendable, invite, mailoutbox, create_token
+    ):
+        # require_idp gates the invitation before idp_org_id is read, so an
+        # org-scoped tenant with require_idp off still sends nothing.
+        sendable.feature_flags.require_idp = False
+        sendable.feature_flags.idp_org_id = "org_rcuksa_abc123"
+
+        invite(sendable)
+
+        assert mailoutbox == []
+        create_token.assert_not_called()
 
 
 @pytest.mark.django_db(transaction=True)
@@ -359,6 +432,7 @@ class TestEmailDeferredToCommit:
 
         mock_ts = MagicMock()
         mock_ts.feature_flags.require_idp = True
+        mock_ts.feature_flags.idp_org_id = None
         with patch("accounts.admin.get_tenant_settings", return_value=mock_ts):
             with patch("accounts.admin.create_magic_link_token", return_value="test-token"):
                 with patch("accounts.admin.get_current_tenant") as mock_tenant:
