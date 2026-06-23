@@ -442,35 +442,50 @@ class TestUserAdminIdpEmailHint:
 @pytest.mark.usefixtures("das_tenant_monkeypatch")
 class TestUserAdminUsernameEditability:
     """Observable behavior: on Auth0 Organizations (org-enabled) sites the
-    username is itself a valid Auth0 login identifier, so the change form locks
-    it — a save cannot change it. On non-org IdP sites and non-Auth0 sites the
-    username stays editable. Org state comes from feature_flags.idp_org_id."""
+    username is a valid Auth0 login identifier, so once the account is linked
+    (auth0_id set) the change form locks it — a save cannot change it. Until
+    linked, and on non-org / non-Auth0 sites, the username stays editable. Org
+    state comes from feature_flags.idp_org_id."""
 
     @pytest.fixture(autouse=True)
     def _admin(self, das_tenant):
         self.admin = UserAdmin(User, site)
         self.request = RequestFactory().get("/")
         self.request.user = MagicMock()
-        self.user = User.objects.create_user(
-            username="idpuser", email="real@auth0.example", das_tenant=das_tenant, is_active=True
+        self.linked_user = User.objects.create_user(
+            username="linkeduser",
+            email="linked@auth0.example",
+            auth0_id="auth0|linked",
+            das_tenant=das_tenant,
+            is_active=True,
+        )
+        self.unlinked_user = User.objects.create_user(
+            username="unlinkeduser", email="unlinked@auth0.example", das_tenant=das_tenant, is_active=True
         )
 
-    def _username_is_editable(self, *, require_idp, idp_org_id):
+    def _username_is_editable(self, *, require_idp, idp_org_id, obj):
         tenant_settings = MagicMock()
         tenant_settings.feature_flags.require_idp = require_idp
         tenant_settings.feature_flags.idp_org_id = idp_org_id
         with patch("accounts.admin.get_tenant_settings", return_value=tenant_settings):
-            form = self.admin.get_form(self.request, obj=self.user, change=True)
+            form = self.admin.get_form(self.request, obj=obj, change=True)
         return "username" in form.base_fields
 
-    def test_change_form_locks_username_on_org_enabled_tenant(self):
-        assert self._username_is_editable(require_idp=True, idp_org_id="org_rcuksa_abc123") is False
+    def test_change_form_locks_username_for_linked_org_user(self):
+        assert (
+            self._username_is_editable(require_idp=True, idp_org_id="org_rcuksa_abc123", obj=self.linked_user) is False
+        )
+
+    def test_change_form_keeps_username_editable_for_unlinked_org_user(self):
+        assert (
+            self._username_is_editable(require_idp=True, idp_org_id="org_rcuksa_abc123", obj=self.unlinked_user) is True
+        )
 
     def test_change_form_keeps_username_editable_on_non_org_idp_tenant(self):
-        assert self._username_is_editable(require_idp=True, idp_org_id=None) is True
+        assert self._username_is_editable(require_idp=True, idp_org_id=None, obj=self.linked_user) is True
 
     def test_change_form_keeps_username_editable_on_non_idp_tenant(self):
-        assert self._username_is_editable(require_idp=False, idp_org_id=None) is True
+        assert self._username_is_editable(require_idp=False, idp_org_id=None, obj=self.linked_user) is True
 
 
 @pytest.mark.django_db

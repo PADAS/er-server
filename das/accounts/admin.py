@@ -383,21 +383,21 @@ class UserAdmin(ModelAdminDisplayingManyToManyFieldMixin, DefaultFilterMixin, Fi
             # their Auth0 identity) can be created.
             return readonly_fields
         require_idp, is_org_scoped = self._idp_field_policy()
-        if require_idp:
-            # Once the account is linked (auth0_id set), email mirrors the user's
-            # Auth0 login identity, so it is read-only. "email" must stay in
-            # readonly_fields: the admin form declares email explicitly, and
-            # listing it here is what strips that declared field from the form so
-            # a save cannot change it. get_fieldsets renders it through
-            # _email_with_idp_hint, which carries the identity hint. Until linked,
-            # email is still a local value (and the invitation target) and stays
-            # editable.
-            if obj.auth0_id:
-                readonly_fields = (*readonly_fields, "email", "_email_with_idp_hint")
+        if require_idp and obj.auth0_id:
+            # Once the account is linked (auth0_id set), the identity fields
+            # mirror the user's Auth0 login identity, so they are read-only.
+            # "email" must stay in readonly_fields: the admin form declares email
+            # explicitly, and listing it here is what strips that declared field
+            # from the form so a save cannot change it. get_fieldsets renders it
+            # through _email_with_idp_hint, which carries the identity hint.
+            readonly_fields = (*readonly_fields, "email", "_email_with_idp_hint")
             # On org-enabled (Auth0 Organizations) sites the username is itself a
-            # valid Auth0 login identifier, so it is read-only too.
+            # valid Auth0 login identifier, so it is read-only once linked too.
             if is_org_scoped:
                 readonly_fields = (*readonly_fields, "username")
+        # Until linked, email and username stay editable — local values the admin
+        # curates (email is the invitation target; username is what support will
+        # provision into the Auth0 org on org-scoped sites).
         return readonly_fields
 
     def _email_with_idp_hint(self, instance):
