@@ -1,9 +1,16 @@
+from unittest.mock import MagicMock, patch
+
 import pytest
 from django_multitenant.utils import get_current_tenant, set_current_tenant
 from faker import Faker
 
-from django.core.exceptions import ValidationError
+from django.contrib.admin import site
+from django.contrib.admin.utils import flatten_fieldsets
+from django.core.exceptions import PermissionDenied, ValidationError
+from django.test import RequestFactory
+from django.urls import reverse
 
+from accounts.admin import UserAdmin
 from accounts.models import User
 
 faker = Faker()
@@ -319,3 +326,442 @@ class TestUserAuth0Integration:
 
         error_message = str(exc_info.value)
         assert "unique_auth0_id_per_tenant" in error_message
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("das_tenant_monkeypatch")
+class TestUserAdminEmailEditability:
+    """Observable behavior: which admin forms expose email as an editable field.
+    Once an account is linked to Auth0 (auth0_id set), its email mirrors the
+    authoritative Auth0 login identity, so the change form locks it — a save
+    cannot change its value (the root cause of the RCU incident). Until linked,
+    the email is still a local value (and the invitation target), so it stays
+    editable; the add form likewise keeps it editable. Asserting against the form
+    Django builds (get_form) exercises the real get_form -> get_readonly_fields
+    path, proving the wiring rather than trusting it."""
+
+    @pytest.fixture(autouse=True)
+    def _admin(self, das_tenant):
+        self.admin = UserAdmin(User, site)
+        self.request = RequestFactory().get("/")
+        # UserAdmin.get_form reads request.user; its identity is irrelevant to
+        # which fields are editable.
+        self.request.user = MagicMock()
+        self.linked_user = User.objects.create_user(
+            username="linkeduser",
+            email="linked@auth0.example",
+            auth0_id="auth0|linked",
+            das_tenant=das_tenant,
+            is_active=True,
+        )
+        self.unlinked_user = User.objects.create_user(
+            username="unlinkeduser", email="unlinked@auth0.example", das_tenant=das_tenant, is_active=True
+        )
+
+    def _email_is_editable(self, *, require_idp, obj, change):
+        tenant_settings = MagicMock()
+        tenant_settings.feature_flags.require_idp = require_idp
+        tenant_settings.feature_flags.idp_org_id = None
+        with patch("accounts.admin.get_tenant_settings", return_value=tenant_settings):
+            form = self.admin.get_form(self.request, obj=obj, change=change)
+        return "email" in form.base_fields
+
+    def test_change_form_locks_email_for_linked_idp_user(self):
+        assert self._email_is_editable(require_idp=True, obj=self.linked_user, change=True) is False
+
+    def test_change_form_keeps_email_editable_for_unlinked_idp_user(self):
+        assert self._email_is_editable(require_idp=True, obj=self.unlinked_user, change=True) is True
+
+    def test_change_form_keeps_email_editable_on_non_idp_tenant(self):
+        assert self._email_is_editable(require_idp=False, obj=self.linked_user, change=True) is True
+
+    def test_add_form_keeps_email_editable_on_idp_tenant(self):
+        assert self._email_is_editable(require_idp=True, obj=None, change=False) is True
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("das_tenant_monkeypatch")
+class TestUserAdminIdpEmailHint:
+    """Once linked, the read-only email is shown with a hint describing it as the
+    email the user's EarthRanger Identity account was created with, so admins
+    understand why it can't be edited. The hint rides on a read-only display
+    field standing in for the plain email field (Django renders a read-only
+    model field's help text from the model, so the hint has to travel with the
+    value). Until linked, the email stays a plain editable field with no hint."""
+
+    @pytest.fixture(autouse=True)
+    def _admin(self, das_tenant):
+        self.admin = UserAdmin(User, site)
+        self.request = RequestFactory().get("/")
+        self.request.user = MagicMock()
+        self.linked_user = User.objects.create_user(
+            username="linkeduser",
+            email="linked@auth0.example",
+            auth0_id="auth0|linked",
+            das_tenant=das_tenant,
+            is_active=True,
+        )
+        self.unlinked_user = User.objects.create_user(
+            username="unlinkeduser", email="unlinked@auth0.example", das_tenant=das_tenant, is_active=True
+        )
+
+    def _change_form_fields(self, *, require_idp, obj):
+        tenant_settings = MagicMock()
+        tenant_settings.feature_flags.require_idp = require_idp
+        tenant_settings.feature_flags.idp_org_id = None
+        with patch("accounts.admin.get_tenant_settings", return_value=tenant_settings):
+            fieldsets = self.admin.get_fieldsets(self.request, obj=obj)
+            readonly = self.admin.get_readonly_fields(self.request, obj=obj)
+        return flatten_fieldsets(fieldsets), readonly
+
+    def test_linked_idp_email_rendered_through_readonly_hint_field(self):
+        fields, readonly = self._change_form_fields(require_idp=True, obj=self.linked_user)
+        # Email is shown via a read-only display field (so the hint can ride with
+        # the value) instead of the plain, editable model field.
+        assert "_email_with_idp_hint" in fields
+        assert "_email_with_idp_hint" in readonly
+        assert "email" not in fields
+
+    def test_unlinked_idp_email_stays_plain_editable(self):
+        fields, _ = self._change_form_fields(require_idp=True, obj=self.unlinked_user)
+        assert "email" in fields
+        assert "_email_with_idp_hint" not in fields
+
+    def test_idp_email_hint_describes_earthranger_identity(self):
+        rendered = str(self.admin._email_with_idp_hint(self.linked_user))
+        assert "linked@auth0.example" in rendered
+        assert "EarthRanger Identity" in rendered
+
+    def test_non_idp_change_form_keeps_plain_email(self):
+        fields, _ = self._change_form_fields(require_idp=False, obj=self.linked_user)
+        assert "email" in fields
+        assert "_email_with_idp_hint" not in fields
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("das_tenant_monkeypatch")
+class TestUserAdminUsernameEditability:
+    """Observable behavior: on Auth0 Organizations (org-enabled) sites the
+    username is a valid Auth0 login identifier, so once the account is linked
+    (auth0_id set) the change form locks it — a save cannot change it. Until
+    linked, and on non-org / non-Auth0 sites, the username stays editable. Org
+    state comes from feature_flags.idp_org_id."""
+
+    @pytest.fixture(autouse=True)
+    def _admin(self, das_tenant):
+        self.admin = UserAdmin(User, site)
+        self.request = RequestFactory().get("/")
+        self.request.user = MagicMock()
+        self.linked_user = User.objects.create_user(
+            username="linkeduser",
+            email="linked@auth0.example",
+            auth0_id="auth0|linked",
+            das_tenant=das_tenant,
+            is_active=True,
+        )
+        self.unlinked_user = User.objects.create_user(
+            username="unlinkeduser", email="unlinked@auth0.example", das_tenant=das_tenant, is_active=True
+        )
+
+    def _username_is_editable(self, *, require_idp, idp_org_id, obj):
+        tenant_settings = MagicMock()
+        tenant_settings.feature_flags.require_idp = require_idp
+        tenant_settings.feature_flags.idp_org_id = idp_org_id
+        with patch("accounts.admin.get_tenant_settings", return_value=tenant_settings):
+            form = self.admin.get_form(self.request, obj=obj, change=True)
+        return "username" in form.base_fields
+
+    def test_change_form_locks_username_for_linked_org_user(self):
+        assert (
+            self._username_is_editable(require_idp=True, idp_org_id="org_rcuksa_abc123", obj=self.linked_user) is False
+        )
+
+    def test_change_form_keeps_username_editable_for_unlinked_org_user(self):
+        assert (
+            self._username_is_editable(require_idp=True, idp_org_id="org_rcuksa_abc123", obj=self.unlinked_user) is True
+        )
+
+    def test_change_form_keeps_username_editable_on_non_org_idp_tenant(self):
+        assert self._username_is_editable(require_idp=True, idp_org_id=None, obj=self.linked_user) is True
+
+    def test_change_form_keeps_username_editable_on_non_idp_tenant(self):
+        assert self._username_is_editable(require_idp=False, idp_org_id=None, obj=self.linked_user) is True
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("das_tenant_monkeypatch")
+class TestUserAdminNonOrgUsernameHint:
+    """On a non-org IdP site the username stays editable but is hinted as the
+    user's EarthRanger username for this site. Non-Auth0 sites get no such
+    hint."""
+
+    @pytest.fixture(autouse=True)
+    def _admin(self, das_tenant):
+        self.admin = UserAdmin(User, site)
+        self.request = RequestFactory().get("/")
+        self.request.user = MagicMock()
+        self.user = User.objects.create_user(
+            username="idpuser", email="real@auth0.example", das_tenant=das_tenant, is_active=True
+        )
+
+    def _username_help_text(self, *, require_idp, idp_org_id):
+        tenant_settings = MagicMock()
+        tenant_settings.feature_flags.require_idp = require_idp
+        tenant_settings.feature_flags.idp_org_id = idp_org_id
+        with patch("accounts.admin.get_tenant_settings", return_value=tenant_settings):
+            form = self.admin.get_form(self.request, obj=self.user, change=True)
+        if "username" not in form.base_fields:
+            return ""
+        return str(form.base_fields["username"].help_text)
+
+    def test_non_org_idp_username_shows_site_hint(self):
+        assert "EarthRanger username" in self._username_help_text(require_idp=True, idp_org_id=None)
+
+    def test_non_idp_username_has_no_site_hint(self):
+        assert "EarthRanger username" not in self._username_help_text(require_idp=False, idp_org_id=None)
+
+
+class TestUserAdminPasswordChangeViewGuard:
+    """On Auth0/IdP tenants the local password is not operative, so the admin
+    password-change view (.../password/) is blocked with a 403 — it is the only
+    path that would set a local password after an account is created. Non-Auth0
+    tenants keep Django's standard password-change behavior."""
+
+    @pytest.fixture(autouse=True)
+    def _admin(self):
+        self.admin = UserAdmin(User, site)
+        self.request = RequestFactory().get("/")
+
+    @staticmethod
+    def _tenant_settings(*, require_idp):
+        tenant_settings = MagicMock()
+        tenant_settings.feature_flags.require_idp = require_idp
+        tenant_settings.feature_flags.idp_org_id = None
+        return tenant_settings
+
+    def test_blocks_password_change_on_idp_tenant(self):
+        with patch("accounts.admin.get_tenant_settings", return_value=self._tenant_settings(require_idp=True)):
+            with patch("django.contrib.auth.admin.UserAdmin.user_change_password", return_value="delegated"):
+                with pytest.raises(PermissionDenied):
+                    self.admin.user_change_password(self.request, "1")
+
+    def test_allows_password_change_on_non_idp_tenant(self):
+        with patch("accounts.admin.get_tenant_settings", return_value=self._tenant_settings(require_idp=False)):
+            with patch(
+                "django.contrib.auth.admin.UserAdmin.user_change_password", return_value="delegated"
+            ) as mock_super:
+                result = self.admin.user_change_password(self.request, "1")
+        assert result == "delegated"
+        mock_super.assert_called_once()
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("das_tenant_monkeypatch")
+class TestUserAdminPasswordControlsHidden:
+    """On Auth0/IdP tenants the local password is not operative, so the admin
+    forms hide the password-set controls: the change form drops the password
+    hash widget (and its "change password" link), and the add form drops the
+    password1/password2 inputs (save_model sets an unusable password on create).
+    Non-Auth0 tenants keep the standard controls."""
+
+    @pytest.fixture(autouse=True)
+    def _admin(self, das_tenant):
+        self.admin = UserAdmin(User, site)
+        self.request = RequestFactory().get("/")
+        self.request.user = MagicMock()
+        self.user = User.objects.create_user(
+            username="idpuser", email="real@auth0.example", das_tenant=das_tenant, is_active=True
+        )
+
+    def _fields(self, *, require_idp, obj):
+        tenant_settings = MagicMock()
+        tenant_settings.feature_flags.require_idp = require_idp
+        tenant_settings.feature_flags.idp_org_id = None
+        with patch("accounts.admin.get_tenant_settings", return_value=tenant_settings):
+            return flatten_fieldsets(self.admin.get_fieldsets(self.request, obj=obj))
+
+    def test_change_form_hides_password_on_idp_tenant(self):
+        assert "password" not in self._fields(require_idp=True, obj=self.user)
+
+    def test_change_form_keeps_password_on_non_idp_tenant(self):
+        assert "password" in self._fields(require_idp=False, obj=self.user)
+
+    def test_add_form_hides_password_inputs_on_idp_tenant(self):
+        fields = self._fields(require_idp=True, obj=None)
+        assert "password1" not in fields
+        assert "password2" not in fields
+
+    def test_add_form_keeps_password_inputs_on_non_idp_tenant(self):
+        fields = self._fields(require_idp=False, obj=None)
+        assert "password1" in fields
+        assert "password2" in fields
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("das_tenant_monkeypatch")
+class TestUserAdminResetPasswordViewGuard:
+    """On Auth0/IdP tenants the Django password-reset email is a dead end — the
+    new password never reaches Auth0 — so the admin reset-password action
+    (.../reset-password/, behind the "Email password reset" button) is blocked
+    with a 403. Non-Auth0 tenants keep sending the reset email."""
+
+    @pytest.fixture(autouse=True)
+    def _admin(self, das_tenant):
+        self.admin = UserAdmin(User, site)
+        self.request = RequestFactory().get("/")
+        self.request.user = MagicMock()
+        self.user = User.objects.create_user(
+            username="idpuser", email="real@auth0.example", das_tenant=das_tenant, is_active=True
+        )
+
+    @staticmethod
+    def _tenant_settings(*, require_idp):
+        tenant_settings = MagicMock()
+        tenant_settings.feature_flags.require_idp = require_idp
+        tenant_settings.feature_flags.idp_org_id = None
+        return tenant_settings
+
+    def test_blocks_reset_password_on_idp_tenant(self):
+        with patch("accounts.admin.get_tenant_settings", return_value=self._tenant_settings(require_idp=True)):
+            with patch.object(self.admin, "_send_reset_email"):
+                with pytest.raises(PermissionDenied):
+                    self.admin.reset_password(self.request, str(self.user.id))
+
+    def test_sends_reset_email_on_non_idp_tenant(self):
+        with patch("accounts.admin.get_tenant_settings", return_value=self._tenant_settings(require_idp=False)):
+            with patch.object(self.admin, "_send_reset_email") as mock_send:
+                response = self.admin.reset_password(self.request, str(self.user.id))
+        mock_send.assert_called_once()
+        assert response.status_code == 302
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("das_tenant_monkeypatch")
+class TestUserAdminResetButtonState:
+    """render_change_form exposes reset_button_state to the change-form template
+    so it can render the right control per the link/site/email matrix: a live
+    reset (non-Auth0), self-service guidance (linked), a (re)send invitation
+    (unlinked non-org with an email), an add-email nudge (unlinked non-org with
+    no email), or a contact-support note (unlinked org)."""
+
+    @pytest.fixture(autouse=True)
+    def _admin(self, das_tenant):
+        self.admin = UserAdmin(User, site)
+        self.request = RequestFactory().get("/")
+        self.das_tenant = das_tenant
+
+    def _button_state(self, *, require_idp, idp_org_id, auth0_id, email):
+        user = User.objects.create_user(
+            username="targetuser", email=email, auth0_id=auth0_id, das_tenant=self.das_tenant, is_active=True
+        )
+        tenant_settings = MagicMock()
+        tenant_settings.feature_flags.require_idp = require_idp
+        tenant_settings.feature_flags.idp_org_id = idp_org_id
+        context = {}
+        with patch("accounts.admin.get_tenant_settings", return_value=tenant_settings):
+            with patch("django.contrib.auth.admin.UserAdmin.render_change_form", return_value="rendered"):
+                self.admin.render_change_form(self.request, context, change=True, obj=user)
+        return context.get("reset_button_state")
+
+    def test_non_idp_site_uses_live_reset(self):
+        assert (
+            self._button_state(require_idp=False, idp_org_id=None, auth0_id=None, email="u@x.example") == "live_reset"
+        )
+
+    def test_linked_account_shows_self_service(self):
+        assert (
+            self._button_state(require_idp=True, idp_org_id=None, auth0_id="auth0|x", email="u@x.example")
+            == "self_service"
+        )
+
+    def test_unlinked_non_org_with_email_offers_resend(self):
+        assert self._button_state(require_idp=True, idp_org_id=None, auth0_id=None, email="u@x.example") == "resend"
+
+    def test_unlinked_non_org_without_email_needs_email(self):
+        assert self._button_state(require_idp=True, idp_org_id=None, auth0_id=None, email=None) == "needs_email"
+
+    def test_unlinked_org_says_contact_support(self):
+        assert (
+            self._button_state(require_idp=True, idp_org_id="org_rcuksa_abc123", auth0_id=None, email="u@x.example")
+            == "contact_support"
+        )
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("tenant_settings", "das_tenant_monkeypatch")
+class TestUserAdminPasswordViewsBlockedEndToEnd:
+    """End-to-end: on Auth0/IdP tenants the password-change view and the
+    reset-password action return 403 when reached by URL — confirming Django
+    routes those URLs to the guarded overrides, not merely that the overrides
+    raise. This is the direct-URL back-door check; hiding/disabling the buttons
+    is separate and cosmetic."""
+
+    def test_password_views_return_403_on_idp_tenant(self, superuser_client, das_tenant):
+        user = User.objects.create_user(
+            username="idpuser", email="real@auth0.example", das_tenant=das_tenant, is_active=True
+        )
+        change_url = reverse("admin:accounts_user_change", args=[user.pk])
+        password_url = change_url.replace("/change/", "/password/")
+        reset_url = change_url + "reset-password/"
+
+        tenant_settings = MagicMock()
+        tenant_settings.feature_flags.require_idp = True
+        tenant_settings.feature_flags.idp_org_id = None
+        with patch("accounts.admin.get_tenant_settings", return_value=tenant_settings):
+            password_response = superuser_client.get(password_url)
+            reset_response = superuser_client.get(reset_url)
+
+        assert password_response.status_code == 403
+        assert reset_response.status_code == 403
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("das_tenant_monkeypatch")
+class TestUserAdminResendInvitationView:
+    """The "(Re)send EarthRanger Identity invitation" admin action sends the
+    magic-link invitation — but only for an unlinked account on a common-DB
+    (non-org) IdP site that has an email. Every other state (linked, org-scoped,
+    no email, non-Auth0) is blocked with a 403, since the magic-link linker only
+    serves unlinked common-DB accounts with somewhere to send the invite."""
+
+    @pytest.fixture(autouse=True)
+    def _admin(self, das_tenant):
+        self.admin = UserAdmin(User, site)
+        self.request = RequestFactory().get("/")
+        self.request.user = MagicMock()  # has_change_permission -> truthy
+        self.das_tenant = das_tenant
+
+    def _call_resend(self, *, require_idp, idp_org_id, auth0_id, email):
+        user = User.objects.create_user(
+            username="targetuser", email=email, auth0_id=auth0_id, das_tenant=self.das_tenant, is_active=True
+        )
+        tenant_settings = MagicMock()
+        tenant_settings.feature_flags.require_idp = require_idp
+        tenant_settings.feature_flags.idp_org_id = idp_org_id
+        with patch("accounts.admin.get_tenant_settings", return_value=tenant_settings):
+            with patch.object(self.admin, "_send_idp_invitation_email") as mock_send:
+                response = self.admin.resend_idp_invitation(self.request, str(user.id))
+        return response, mock_send
+
+    def test_sends_invitation_for_unlinked_non_org_idp_user_with_email(self):
+        response, mock_send = self._call_resend(
+            require_idp=True, idp_org_id=None, auth0_id=None, email="unlinked@auth0.example"
+        )
+        mock_send.assert_called_once()
+        assert response.status_code == 302
+
+    def test_blocks_when_account_already_linked(self):
+        with pytest.raises(PermissionDenied):
+            self._call_resend(require_idp=True, idp_org_id=None, auth0_id="auth0|linked", email="linked@auth0.example")
+
+    def test_blocks_on_org_scoped_site(self):
+        with pytest.raises(PermissionDenied):
+            self._call_resend(require_idp=True, idp_org_id="org_rcuksa_abc123", auth0_id=None, email="u@auth0.example")
+
+    def test_blocks_when_user_has_no_email(self):
+        with pytest.raises(PermissionDenied):
+            self._call_resend(require_idp=True, idp_org_id=None, auth0_id=None, email=None)
+
+    def test_blocks_on_non_idp_site(self):
+        with pytest.raises(PermissionDenied):
+            self._call_resend(require_idp=False, idp_org_id=None, auth0_id=None, email="u@auth0.example")

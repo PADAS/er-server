@@ -6,7 +6,17 @@
             {% if app_label == 'accounts' and opts and opts.object_name == 'User' %}
             {# You can also give a name to that pattern and refer to it below using 'url' #}
             <li><a href="get-kml-link/" class="historylink">Email user's KML link</a></li>
+            {% if reset_button_state == "resend" %}
+            <li><a href="resend-invitation/" class="historylink">(Re)send EarthRanger Identity invitation</a></li>
+            {% elif reset_button_state == "self_service" %}
+            <li><span class="historylink" style="opacity: .5; cursor: not-allowed;" title="This user signs in with their EarthRanger Identity — they can reset their own password from the sign-in page (Forgot password).">Email password reset</span></li>
+            {% elif reset_button_state == "needs_email" %}
+            <li><span class="historylink" style="opacity: .5; cursor: not-allowed;" title="Add an email address above and save, then you can send an EarthRanger Identity invitation.">(Re)send EarthRanger Identity invitation</span></li>
+            {% elif reset_button_state == "contact_support" %}
+            <li><span class="historylink" style="opacity: .5; cursor: not-allowed;" title="Contact EarthRanger support to set up this user's EarthRanger Identity sign-in.">Email password reset</span></li>
+            {% else %}
             <li><a href="reset-password/" class="historylink">Email password reset</a></li>
+            {% endif %}
             {% endif %}
             <li>
                 {% url opts|admin_urlname:'history' original.pk|admin_urlquote as history_url %}

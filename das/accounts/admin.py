@@ -29,6 +29,7 @@ from django.shortcuts import get_object_or_404
 from django.template.loader import render_to_string
 from django.urls import re_path, reverse
 from django.utils.crypto import get_random_string
+from django.utils.html import format_html
 from django.utils.safestring import mark_safe
 from django.utils.translation import gettext_lazy as _
 
@@ -280,12 +281,61 @@ class UserAdmin(ModelAdminDisplayingManyToManyFieldMixin, DefaultFilterMixin, Fi
         ),
     )
 
+    def _idp_field_policy(self):
+        """Identity-field policy for the current tenant: (require_idp, is_org_scoped).
+
+        require_idp means the tenant is Auth0/IdP-backed; is_org_scoped means it
+        is an Auth0 Organizations (org-enabled) site, where the username is
+        itself a login identifier. Together they drive which identity fields the
+        admin renders read-only or hinted.
+        """
+        feature_flags = get_tenant_settings().feature_flags
+        org_id = feature_flags.idp_org_id
+        return feature_flags.require_idp, bool(org_id and org_id.strip())
+
     def get_form(self, request, obj=None, **kwargs):
         form = super().get_form(request, obj=obj, **kwargs)
         form.request_user = request.user
         if obj:
             form.current_user = obj
+            require_idp, is_org_scoped = self._idp_field_policy()
+            # On non-org IdP sites username stays editable; hint that it is the
+            # user's ER username for this site (org sites lock it).
+            # Mutating base_fields is per-request safe: ModelAdmin.get_form builds
+            # a fresh form class per call and username is model-derived (not a
+            # shared declared field), so this help_text does not leak across
+            # requests.
+            if require_idp and not is_org_scoped and "username" in form.base_fields:
+                form.base_fields["username"].help_text = "User's EarthRanger username for this site."
         return form
+
+    def _reset_button_state(self, obj):
+        """Which password-reset control the change form should show, per the
+        link/site/email matrix. Returns one of:
+
+        - "live_reset"      non-Auth0 site: the normal Django reset link
+        - "self_service"    linked account: user resets via Auth0 themselves
+        - "resend"          unlinked, non-org, has email: (re)send the invitation
+        - "needs_email"     unlinked, non-org, no email: add an email first
+        - "contact_support" unlinked, org: provisioned out-of-band by support
+        """
+        require_idp, is_org_scoped = self._idp_field_policy()
+        if not require_idp:
+            return "live_reset"
+        if obj is not None and obj.auth0_id:
+            return "self_service"
+        if is_org_scoped:
+            return "contact_support"
+        if obj is not None and obj.email:
+            return "resend"
+        return "needs_email"
+
+    def render_change_form(self, request, context, add=False, change=False, form_url="", obj=None):
+        # Tell the change-form template which password-reset control to render
+        # for this account (live reset / self-service / resend invite / add-email
+        # / contact support). The matching action views enforce the same policy.
+        context["reset_button_state"] = self._reset_button_state(obj)
+        return super().render_change_form(request, context, add, change, form_url, obj)
 
     def get_default_filters(self, request):
         return {
@@ -293,10 +343,40 @@ class UserAdmin(ModelAdminDisplayingManyToManyFieldMixin, DefaultFilterMixin, Fi
         }
 
     def get_fieldsets(self, request, obj=None):
+        require_idp, _ = self._idp_field_policy()
         if not obj:
-            return super().get_fieldsets(request)
+            fieldsets = super().get_fieldsets(request)
+            if require_idp:
+                # The password-set inputs are inert on IdP tenants: they are
+                # optional (CustomUserCreationForm forces required=False) and
+                # save_model overwrites any entered value via
+                # set_unusable_password() on create. Drop the whole section that
+                # carries them rather than show controls that do nothing.
+                password_set_fields = {"password1", "password2"}
+                fieldsets = tuple(
+                    section for section in fieldsets if password_set_fields.isdisjoint(section[1].get("fields", ()))
+                )
+            return fieldsets
 
         fieldsets = copy.deepcopy(self.fieldsets)
+        if require_idp:
+            # Once the account is linked, email is read-only; render it through a
+            # display field carrying the identity hint, since a read-only model
+            # field would only show the model's own help text. Until linked, leave
+            # the plain editable email field in place (it is the invitation target
+            # and not yet an Auth0 identity).
+            if obj.auth0_id:
+                fieldsets[0][1]["fields"] = tuple(
+                    "_email_with_idp_hint" if field == "email" else field for field in fieldsets[0][1]["fields"]
+                )
+            # The local password is not operative for these accounts and the
+            # change-password view is blocked (see user_change_password), so drop
+            # the password field — its read-only hash display and the "change
+            # password" link it carries are both dead here. (Applies whether or
+            # not the account is linked — login is always Auth0 on these sites.)
+            fieldsets = self._remove_fields_from_fieldsets(
+                fieldsets=fieldsets, field_to_remove="password", fieldset_index=0
+            )
         if User.objects.filter(act_as_profiles__in=[obj]):
             fieldsets = self._remove_fields_from_fieldsets(
                 fieldsets=fieldsets, field_to_remove="act_as_profiles", fieldset_index=3
@@ -316,6 +396,39 @@ class UserAdmin(ModelAdminDisplayingManyToManyFieldMixin, DefaultFilterMixin, Fi
             )
 
         return fieldsets
+
+    def get_readonly_fields(self, request, obj=None):
+        readonly_fields = super().get_readonly_fields(request, obj)
+        if obj is None:
+            # The add form keeps identity fields editable so new accounts (and
+            # their Auth0 identity) can be created.
+            return readonly_fields
+        require_idp, is_org_scoped = self._idp_field_policy()
+        if require_idp and obj.auth0_id:
+            # Once the account is linked (auth0_id set), the identity fields
+            # mirror the user's Auth0 login identity, so they are read-only.
+            # "email" must stay in readonly_fields: the admin form declares email
+            # explicitly, and listing it here is what strips that declared field
+            # from the form so a save cannot change it. get_fieldsets renders it
+            # through _email_with_idp_hint, which carries the identity hint.
+            readonly_fields = (*readonly_fields, "email", "_email_with_idp_hint")
+            # On org-enabled (Auth0 Organizations) sites the username is itself a
+            # valid Auth0 login identifier, so it is read-only once linked too.
+            if is_org_scoped:
+                readonly_fields = (*readonly_fields, "username")
+        # Until linked, email and username stay editable — local values the admin
+        # curates (email is the invitation target; username is what support will
+        # provision into the Auth0 org on org-scoped sites).
+        return readonly_fields
+
+    def _email_with_idp_hint(self, instance):
+        return format_html(
+            '{}<br><span class="help">User\'s email address when they created their '
+            "EarthRanger Identity account.</span>",
+            instance.email or "",
+        )
+
+    _email_with_idp_hint.short_description = "Email"
 
     def display_name(self, instance):
         full_name = instance.get_full_name()
@@ -339,13 +452,45 @@ class UserAdmin(ModelAdminDisplayingManyToManyFieldMixin, DefaultFilterMixin, Fi
     member_permission_sets.short_description = "Member Permission Sets"
     member_permission_sets.allow_tags = True
 
+    def user_change_password(self, request, id, form_url=""):
+        require_idp, _ = self._idp_field_policy()
+        if require_idp:
+            # The local password is not operative on Auth0/IdP sites (login is
+            # Auth0), so the admin password-change view must not set one — it is
+            # the only path that would after account creation. This guard is
+            # site-wide (require_idp), not scoped to linked (auth0_id) accounts.
+            raise PermissionDenied
+        return super().user_change_password(request, id, form_url)
+
     def reset_password(self, request, user_id):
+        require_idp, _ = self._idp_field_policy()
+        if require_idp:
+            # The Django password-reset email is a dead end on Auth0/IdP sites —
+            # the new password never reaches Auth0. Block it site-wide
+            # (require_idp, not scoped to linked accounts); the change form
+            # surfaces the right path instead (self-service when linked, (re)send
+            # invitation when unlinked — see _reset_button_state).
+            raise PermissionDenied
         if not self.has_change_permission(request):
             raise PermissionDenied
         user = get_object_or_404(self.model, pk=user_id)
 
         if user.email:
             self._send_reset_email(request, user)
+        return HttpResponseRedirect("..")
+
+    def resend_idp_invitation(self, request, user_id):
+        if not self.has_change_permission(request):
+            raise PermissionDenied
+        user = get_object_or_404(self.model, pk=user_id)
+        require_idp, is_org_scoped = self._idp_field_policy()
+        # The magic-link invitation only helps an unlinked account on a common-DB
+        # (non-org) IdP site that has an email to send to: linked accounts
+        # self-serve via Auth0, org sites are provisioned out-of-band (the linker
+        # rejects them), and there is nowhere to send without an email.
+        if not (require_idp and not is_org_scoped and not user.auth0_id and user.email):
+            raise PermissionDenied
+        self._send_idp_invitation_email(request, user)
         return HttpResponseRedirect("..")
 
     def get_kml_master_link(self, request, user_id):
@@ -357,16 +502,14 @@ class UserAdmin(ModelAdminDisplayingManyToManyFieldMixin, DefaultFilterMixin, Fi
         return HttpResponseRedirect("..")
 
     def save_model(self, request, obj, form, change):
-        tenant_settings = get_tenant_settings()
         should_notify_of_password_reset = False
         should_send_idp_email = False
 
-        if tenant_settings.feature_flags.require_idp:
+        require_idp, is_org_scoped = self._idp_field_policy()
+        if require_idp:
             # Org-scoped (Auth0 organization) sites invite users through Auth0
             # out-of-band, and account linking — where the magic link points —
             # already rejects them. Suppress the dead-end invitation email.
-            org_id = tenant_settings.feature_flags.idp_org_id
-            is_org_scoped = bool(org_id and org_id.strip())
             should_send_idp_email = not change and bool(obj.email) and not is_org_scoped
             if not change:
                 obj.set_unusable_password()
@@ -442,6 +585,10 @@ class UserAdmin(ModelAdminDisplayingManyToManyFieldMixin, DefaultFilterMixin, Fi
             re_path(
                 r"^(.+)/change/get-kml-link/?$",
                 self.admin_site.admin_view(self.get_kml_master_link),
+            ),
+            re_path(
+                r"^(.+)/change/resend-invitation/?$",
+                self.admin_site.admin_view(self.resend_idp_invitation),
             ),
         ]
         return [*my_urls, *urls]
