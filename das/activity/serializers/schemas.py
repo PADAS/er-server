@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import logging
 from collections import OrderedDict
 
@@ -39,6 +41,7 @@ from rest_framework.serializers import (
 )
 from rest_framework.utils.field_mapping import ClassLookupDict
 
+from activity.serializers.helpers import get_hidden_event_states
 from choices.serializers import ChoiceField
 
 logger = logging.getLogger(__name__)
@@ -104,8 +107,29 @@ class EventJSONSchema(BaseMetadata):
         if hasattr(view, "get_serializer"):
             properties = self.determine_properties(request, view)
             metadata["properties"] = properties
+            self._prune_hidden_event_states(metadata["properties"])
         metadata["description"] = view.get_view_description()
         return metadata
+
+    def _prune_hidden_event_states(self, properties: dict) -> None:
+        """Remove hidden event state values from the rendered schema.
+
+        Filters both ``enum`` and ``enum_ext`` entries on the ``state`` field
+        so that states controlled by a preview feature (e.g. ``SC_REVIEW``) are
+        not exposed to the UI unless the corresponding feature is enabled for
+        the current tenant.  Called at request time — never at class-definition
+        time — so the tenant context is always valid when this runs.
+        """
+        state_field = properties.get("state")
+        if not state_field:
+            return
+        hidden = get_hidden_event_states()
+        if not hidden:
+            return
+        if "enum_ext" in state_field:
+            state_field["enum_ext"] = [entry for entry in state_field["enum_ext"] if entry.get("value") not in hidden]
+        if "enum" in state_field:
+            state_field["enum"] = [v for v in state_field["enum"] if v not in hidden]
 
     def determine_properties(self, request, view):
         """Return the schema properties for a view"""

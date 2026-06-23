@@ -1,4 +1,4 @@
-from typing import List
+from __future__ import annotations
 
 from django.contrib.gis.geos import Point
 
@@ -75,7 +75,7 @@ def resolve_external_event_source(user, external_event_type):
         pass
 
 
-def get_allowed_actions_for_category(user, category_name) -> List[str]:
+def get_allowed_actions_for_category(user, category_name) -> list[str]:
     allowed_actions = set()
 
     actions = {
@@ -95,6 +95,22 @@ def get_allowed_actions_for_category(user, category_name) -> List[str]:
             action = actions[action]
             allowed_actions.add(action)
     return list(allowed_actions)
+
+
+def get_hidden_event_states() -> set[str]:
+    """Return the set of event state values to omit from UI-facing rendered schemas.
+
+    The ``SC_REVIEW`` state is part of the Community Input feature and must be
+    hidden from the event schema and event-filter schema unless the per-tenant
+    ``community_input_admin_enabled`` preview feature is on.  This function is
+    intentionally called at request time, never at import/class-definition time,
+    so it always reflects the current tenant context.
+    """
+    from utils.tenant.preview_features import get_preview_feature
+
+    if get_preview_feature("community_input_admin_enabled"):
+        return set()
+    return {Event.SC_REVIEW}
 
 
 def make_feature(request, event):

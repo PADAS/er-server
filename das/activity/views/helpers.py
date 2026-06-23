@@ -30,8 +30,19 @@ def calculate_event_schema_etag(view_instance, view_method, request, *args, **kw
 
     latest_reported_by_count = len(latest_reported_by_list)
 
+    # Import inside the function to keep tenant context (middleware sets it at
+    # request time) and avoid module-level import cycles — matching the pattern
+    # used in activity/search.py:get_event_search_schema.
+    from activity.serializers.helpers import get_hidden_event_states
+
+    hidden_states_repr = str(sorted(get_hidden_event_states()))
+
     all_updates = (
-        str(latest_et_update) + str(latest_choice_update) + str(latest_reported_by_count) + str(latest_reported_by_list)
+        str(latest_et_update)
+        + str(latest_choice_update)
+        + str(latest_reported_by_count)
+        + str(latest_reported_by_list)
+        + hidden_states_repr
     )
     return str(hash(all_updates))
 
