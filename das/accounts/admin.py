@@ -455,6 +455,20 @@ class UserAdmin(ModelAdminDisplayingManyToManyFieldMixin, DefaultFilterMixin, Fi
             self._send_reset_email(request, user)
         return HttpResponseRedirect("..")
 
+    def resend_idp_invitation(self, request, user_id):
+        if not self.has_change_permission(request):
+            raise PermissionDenied
+        user = get_object_or_404(self.model, pk=user_id)
+        require_idp, is_org_scoped = self._idp_field_policy()
+        # The magic-link invitation only helps an unlinked account on a common-DB
+        # (non-org) IdP site that has an email to send to: linked accounts
+        # self-serve via Auth0, org sites are provisioned out-of-band (the linker
+        # rejects them), and there is nowhere to send without an email.
+        if not (require_idp and not is_org_scoped and not user.auth0_id and user.email):
+            raise PermissionDenied
+        self._send_idp_invitation_email(request, user)
+        return HttpResponseRedirect("..")
+
     def get_kml_master_link(self, request, user_id):
         if not self.has_change_permission(request):
             raise PermissionDenied
@@ -547,6 +561,10 @@ class UserAdmin(ModelAdminDisplayingManyToManyFieldMixin, DefaultFilterMixin, Fi
             re_path(
                 r"^(.+)/change/get-kml-link/?$",
                 self.admin_site.admin_view(self.get_kml_master_link),
+            ),
+            re_path(
+                r"^(.+)/change/resend-invitation/?$",
+                self.admin_site.admin_view(self.resend_idp_invitation),
             ),
         ]
         return [*my_urls, *urls]

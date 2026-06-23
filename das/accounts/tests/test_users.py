@@ -688,3 +688,55 @@ class TestUserAdminPasswordViewsBlockedEndToEnd:
 
         assert password_response.status_code == 403
         assert reset_response.status_code == 403
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("das_tenant_monkeypatch")
+class TestUserAdminResendInvitationView:
+    """The "(Re)send EarthRanger Identity invitation" admin action sends the
+    magic-link invitation — but only for an unlinked account on a common-DB
+    (non-org) IdP site that has an email. Every other state (linked, org-scoped,
+    no email, non-Auth0) is blocked with a 403, since the magic-link linker only
+    serves unlinked common-DB accounts with somewhere to send the invite."""
+
+    @pytest.fixture(autouse=True)
+    def _admin(self, das_tenant):
+        self.admin = UserAdmin(User, site)
+        self.request = RequestFactory().get("/")
+        self.request.user = MagicMock()  # has_change_permission -> truthy
+        self.das_tenant = das_tenant
+
+    def _call_resend(self, *, require_idp, idp_org_id, auth0_id, email):
+        user = User.objects.create_user(
+            username="targetuser", email=email, auth0_id=auth0_id, das_tenant=self.das_tenant, is_active=True
+        )
+        tenant_settings = MagicMock()
+        tenant_settings.feature_flags.require_idp = require_idp
+        tenant_settings.feature_flags.idp_org_id = idp_org_id
+        with patch("accounts.admin.get_tenant_settings", return_value=tenant_settings):
+            with patch.object(self.admin, "_send_idp_invitation_email") as mock_send:
+                response = self.admin.resend_idp_invitation(self.request, str(user.id))
+        return response, mock_send
+
+    def test_sends_invitation_for_unlinked_non_org_idp_user_with_email(self):
+        response, mock_send = self._call_resend(
+            require_idp=True, idp_org_id=None, auth0_id=None, email="unlinked@auth0.example"
+        )
+        mock_send.assert_called_once()
+        assert response.status_code == 302
+
+    def test_blocks_when_account_already_linked(self):
+        with pytest.raises(PermissionDenied):
+            self._call_resend(require_idp=True, idp_org_id=None, auth0_id="auth0|linked", email="linked@auth0.example")
+
+    def test_blocks_on_org_scoped_site(self):
+        with pytest.raises(PermissionDenied):
+            self._call_resend(require_idp=True, idp_org_id="org_rcuksa_abc123", auth0_id=None, email="u@auth0.example")
+
+    def test_blocks_when_user_has_no_email(self):
+        with pytest.raises(PermissionDenied):
+            self._call_resend(require_idp=True, idp_org_id=None, auth0_id=None, email=None)
+
+    def test_blocks_on_non_idp_site(self):
+        with pytest.raises(PermissionDenied):
+            self._call_resend(require_idp=False, idp_org_id=None, auth0_id=None, email="u@auth0.example")
