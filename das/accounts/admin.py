@@ -309,11 +309,32 @@ class UserAdmin(ModelAdminDisplayingManyToManyFieldMixin, DefaultFilterMixin, Fi
                 form.base_fields["username"].help_text = "User's EarthRanger username for this site."
         return form
 
+    def _reset_button_state(self, obj):
+        """Which password-reset control the change form should show, per the
+        link/site/email matrix. Returns one of:
+
+        - "live_reset"      non-Auth0 site: the normal Django reset link
+        - "self_service"    linked account: user resets via Auth0 themselves
+        - "resend"          unlinked, non-org, has email: (re)send the invitation
+        - "needs_email"     unlinked, non-org, no email: add an email first
+        - "contact_support" unlinked, org: provisioned out-of-band by support
+        """
+        require_idp, is_org_scoped = self._idp_field_policy()
+        if not require_idp:
+            return "live_reset"
+        if obj is not None and obj.auth0_id:
+            return "self_service"
+        if is_org_scoped:
+            return "contact_support"
+        if obj is not None and obj.email:
+            return "resend"
+        return "needs_email"
+
     def render_change_form(self, request, context, add=False, change=False, form_url="", obj=None):
-        # Expose whether the tenant is Auth0-linked so the change-form template
-        # can disable the (already-blocked) "Email password reset" button.
-        require_idp, _ = self._idp_field_policy()
-        context["idp_linked"] = require_idp
+        # Tell the change-form template which password-reset control to render
+        # for this account (live reset / self-service / resend invite / add-email
+        # / contact support). The matching action views enforce the same policy.
+        context["reset_button_state"] = self._reset_button_state(obj)
         return super().render_change_form(request, context, add, change, form_url, obj)
 
     def get_default_filters(self, request):

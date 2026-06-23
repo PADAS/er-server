@@ -635,31 +635,56 @@ class TestUserAdminResetPasswordViewGuard:
         assert response.status_code == 302
 
 
-class TestUserAdminChangeFormIdpFlag:
-    """render_change_form exposes an idp_linked flag to the change-form
-    template, which uses it to disable the "Email password reset" button on
-    Auth0/IdP tenants (the action itself is blocked in reset_password)."""
+@pytest.mark.django_db
+@pytest.mark.usefixtures("das_tenant_monkeypatch")
+class TestUserAdminResetButtonState:
+    """render_change_form exposes reset_button_state to the change-form template
+    so it can render the right control per the link/site/email matrix: a live
+    reset (non-Auth0), self-service guidance (linked), a (re)send invitation
+    (unlinked non-org with an email), an add-email nudge (unlinked non-org with
+    no email), or a contact-support note (unlinked org)."""
 
     @pytest.fixture(autouse=True)
-    def _admin(self):
+    def _admin(self, das_tenant):
         self.admin = UserAdmin(User, site)
         self.request = RequestFactory().get("/")
+        self.das_tenant = das_tenant
 
-    def _idp_linked_flag(self, *, require_idp):
+    def _button_state(self, *, require_idp, idp_org_id, auth0_id, email):
+        user = User.objects.create_user(
+            username="targetuser", email=email, auth0_id=auth0_id, das_tenant=self.das_tenant, is_active=True
+        )
         tenant_settings = MagicMock()
         tenant_settings.feature_flags.require_idp = require_idp
-        tenant_settings.feature_flags.idp_org_id = None
+        tenant_settings.feature_flags.idp_org_id = idp_org_id
         context = {}
         with patch("accounts.admin.get_tenant_settings", return_value=tenant_settings):
             with patch("django.contrib.auth.admin.UserAdmin.render_change_form", return_value="rendered"):
-                self.admin.render_change_form(self.request, context, change=True, obj=MagicMock())
-        return context.get("idp_linked")
+                self.admin.render_change_form(self.request, context, change=True, obj=user)
+        return context.get("reset_button_state")
 
-    def test_change_form_flags_idp_linked_on_idp_tenant(self):
-        assert self._idp_linked_flag(require_idp=True) is True
+    def test_non_idp_site_uses_live_reset(self):
+        assert (
+            self._button_state(require_idp=False, idp_org_id=None, auth0_id=None, email="u@x.example") == "live_reset"
+        )
 
-    def test_change_form_not_flagged_on_non_idp_tenant(self):
-        assert self._idp_linked_flag(require_idp=False) is False
+    def test_linked_account_shows_self_service(self):
+        assert (
+            self._button_state(require_idp=True, idp_org_id=None, auth0_id="auth0|x", email="u@x.example")
+            == "self_service"
+        )
+
+    def test_unlinked_non_org_with_email_offers_resend(self):
+        assert self._button_state(require_idp=True, idp_org_id=None, auth0_id=None, email="u@x.example") == "resend"
+
+    def test_unlinked_non_org_without_email_needs_email(self):
+        assert self._button_state(require_idp=True, idp_org_id=None, auth0_id=None, email=None) == "needs_email"
+
+    def test_unlinked_org_says_contact_support(self):
+        assert (
+            self._button_state(require_idp=True, idp_org_id="org_rcuksa_abc123", auth0_id=None, email="u@x.example")
+            == "contact_support"
+        )
 
 
 @pytest.mark.django_db
