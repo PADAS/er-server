@@ -455,18 +455,21 @@ class UserAdmin(ModelAdminDisplayingManyToManyFieldMixin, DefaultFilterMixin, Fi
     def user_change_password(self, request, id, form_url=""):
         require_idp, _ = self._idp_field_policy()
         if require_idp:
-            # The local password is not operative for Auth0-linked accounts, so
-            # the admin password-change view must not set one — it is the only
-            # path that would after creation. Login/identity lives in Auth0.
+            # The local password is not operative on Auth0/IdP sites (login is
+            # Auth0), so the admin password-change view must not set one — it is
+            # the only path that would after account creation. This guard is
+            # site-wide (require_idp), not scoped to linked (auth0_id) accounts.
             raise PermissionDenied
         return super().user_change_password(request, id, form_url)
 
     def reset_password(self, request, user_id):
         require_idp, _ = self._idp_field_policy()
         if require_idp:
-            # The Django password-reset email is a dead end for Auth0-linked
-            # accounts — the new password never reaches Auth0. Block the action;
-            # what the reset button should do instead is decided in ERA-13481.
+            # The Django password-reset email is a dead end on Auth0/IdP sites —
+            # the new password never reaches Auth0. Block it site-wide
+            # (require_idp, not scoped to linked accounts); the change form
+            # surfaces the right path instead (self-service when linked, (re)send
+            # invitation when unlinked — see _reset_button_state).
             raise PermissionDenied
         if not self.has_change_permission(request):
             raise PermissionDenied
