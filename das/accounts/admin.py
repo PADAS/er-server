@@ -339,16 +339,20 @@ class UserAdmin(ModelAdminDisplayingManyToManyFieldMixin, DefaultFilterMixin, Fi
 
         fieldsets = copy.deepcopy(self.fieldsets)
         if require_idp:
-            # Email is read-only on IdP tenants; render it through a display
-            # field carrying the "mirrors your Auth0 identity" hint, since a
-            # read-only model field would only show the model's own help text.
-            fieldsets[0][1]["fields"] = tuple(
-                "_email_with_idp_hint" if field == "email" else field for field in fieldsets[0][1]["fields"]
-            )
+            # Once the account is linked, email is read-only; render it through a
+            # display field carrying the identity hint, since a read-only model
+            # field would only show the model's own help text. Until linked, leave
+            # the plain editable email field in place (it is the invitation target
+            # and not yet an Auth0 identity).
+            if obj.auth0_id:
+                fieldsets[0][1]["fields"] = tuple(
+                    "_email_with_idp_hint" if field == "email" else field for field in fieldsets[0][1]["fields"]
+                )
             # The local password is not operative for these accounts and the
             # change-password view is blocked (see user_change_password), so drop
             # the password field — its read-only hash display and the "change
-            # password" link it carries are both dead here.
+            # password" link it carries are both dead here. (Applies whether or
+            # not the account is linked — login is always Auth0 on these sites.)
             fieldsets = self._remove_fields_from_fieldsets(
                 fieldsets=fieldsets, field_to_remove="password", fieldset_index=0
             )
@@ -380,13 +384,16 @@ class UserAdmin(ModelAdminDisplayingManyToManyFieldMixin, DefaultFilterMixin, Fi
             return readonly_fields
         require_idp, is_org_scoped = self._idp_field_policy()
         if require_idp:
-            # On Auth0/IdP tenants email mirrors the user's Auth0 login identity,
-            # so it is read-only. "email" must stay in readonly_fields: the admin
-            # form declares email explicitly, and listing it here is what strips
-            # that declared field from the form so a save cannot change it.
-            # get_fieldsets renders it through _email_with_idp_hint, which
-            # carries the identity hint.
-            readonly_fields = (*readonly_fields, "email", "_email_with_idp_hint")
+            # Once the account is linked (auth0_id set), email mirrors the user's
+            # Auth0 login identity, so it is read-only. "email" must stay in
+            # readonly_fields: the admin form declares email explicitly, and
+            # listing it here is what strips that declared field from the form so
+            # a save cannot change it. get_fieldsets renders it through
+            # _email_with_idp_hint, which carries the identity hint. Until linked,
+            # email is still a local value (and the invitation target) and stays
+            # editable.
+            if obj.auth0_id:
+                readonly_fields = (*readonly_fields, "email", "_email_with_idp_hint")
             # On org-enabled (Auth0 Organizations) sites the username is itself a
             # valid Auth0 login identifier, so it is read-only too.
             if is_org_scoped:

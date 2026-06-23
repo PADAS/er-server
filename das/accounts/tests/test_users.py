@@ -332,13 +332,13 @@ class TestUserAuth0Integration:
 @pytest.mark.usefixtures("das_tenant_monkeypatch")
 class TestUserAdminEmailEditability:
     """Observable behavior: which admin forms expose email as an editable field.
-    On Auth0/IdP tenants the email mirrors the user's authoritative Auth0 login
-    identity, so the change form locks it — email is not an editable field, so a
-    save cannot change its value (the root cause of the RCU incident). The add
-    form keeps it editable, since a new account's email becomes that Auth0
-    identity. Asserting against the form Django builds (get_form) exercises the
-    real get_form -> get_readonly_fields path, proving the wiring rather than
-    trusting it."""
+    Once an account is linked to Auth0 (auth0_id set), its email mirrors the
+    authoritative Auth0 login identity, so the change form locks it — a save
+    cannot change its value (the root cause of the RCU incident). Until linked,
+    the email is still a local value (and the invitation target), so it stays
+    editable; the add form likewise keeps it editable. Asserting against the form
+    Django builds (get_form) exercises the real get_form -> get_readonly_fields
+    path, proving the wiring rather than trusting it."""
 
     @pytest.fixture(autouse=True)
     def _admin(self, das_tenant):
@@ -347,8 +347,15 @@ class TestUserAdminEmailEditability:
         # UserAdmin.get_form reads request.user; its identity is irrelevant to
         # which fields are editable.
         self.request.user = MagicMock()
-        self.existing_user = User.objects.create_user(
-            username="idpuser", email="real@auth0.example", das_tenant=das_tenant, is_active=True
+        self.linked_user = User.objects.create_user(
+            username="linkeduser",
+            email="linked@auth0.example",
+            auth0_id="auth0|linked",
+            das_tenant=das_tenant,
+            is_active=True,
+        )
+        self.unlinked_user = User.objects.create_user(
+            username="unlinkeduser", email="unlinked@auth0.example", das_tenant=das_tenant, is_active=True
         )
 
     def _email_is_editable(self, *, require_idp, obj, change):
@@ -359,11 +366,14 @@ class TestUserAdminEmailEditability:
             form = self.admin.get_form(self.request, obj=obj, change=change)
         return "email" in form.base_fields
 
-    def test_change_form_locks_email_on_idp_tenant(self):
-        assert self._email_is_editable(require_idp=True, obj=self.existing_user, change=True) is False
+    def test_change_form_locks_email_for_linked_idp_user(self):
+        assert self._email_is_editable(require_idp=True, obj=self.linked_user, change=True) is False
+
+    def test_change_form_keeps_email_editable_for_unlinked_idp_user(self):
+        assert self._email_is_editable(require_idp=True, obj=self.unlinked_user, change=True) is True
 
     def test_change_form_keeps_email_editable_on_non_idp_tenant(self):
-        assert self._email_is_editable(require_idp=False, obj=self.existing_user, change=True) is True
+        assert self._email_is_editable(require_idp=False, obj=self.linked_user, change=True) is True
 
     def test_add_form_keeps_email_editable_on_idp_tenant(self):
         assert self._email_is_editable(require_idp=True, obj=None, change=False) is True
@@ -372,46 +382,58 @@ class TestUserAdminEmailEditability:
 @pytest.mark.django_db
 @pytest.mark.usefixtures("das_tenant_monkeypatch")
 class TestUserAdminIdpEmailHint:
-    """On an IdP change form the read-only email is shown with a hint describing
-    it as the email the user's EarthRanger Identity account was created with, so
-    admins understand why it can't be edited. The hint rides on a read-only
-    display field standing in for the plain email field — Django renders a
-    read-only *model* field's help text from the model, so the hint has to
-    travel with the value."""
+    """Once linked, the read-only email is shown with a hint describing it as the
+    email the user's EarthRanger Identity account was created with, so admins
+    understand why it can't be edited. The hint rides on a read-only display
+    field standing in for the plain email field (Django renders a read-only
+    model field's help text from the model, so the hint has to travel with the
+    value). Until linked, the email stays a plain editable field with no hint."""
 
     @pytest.fixture(autouse=True)
     def _admin(self, das_tenant):
         self.admin = UserAdmin(User, site)
         self.request = RequestFactory().get("/")
         self.request.user = MagicMock()
-        self.user = User.objects.create_user(
-            username="idpuser", email="real@auth0.example", das_tenant=das_tenant, is_active=True
+        self.linked_user = User.objects.create_user(
+            username="linkeduser",
+            email="linked@auth0.example",
+            auth0_id="auth0|linked",
+            das_tenant=das_tenant,
+            is_active=True,
+        )
+        self.unlinked_user = User.objects.create_user(
+            username="unlinkeduser", email="unlinked@auth0.example", das_tenant=das_tenant, is_active=True
         )
 
-    def _change_form_fields(self, *, require_idp):
+    def _change_form_fields(self, *, require_idp, obj):
         tenant_settings = MagicMock()
         tenant_settings.feature_flags.require_idp = require_idp
         tenant_settings.feature_flags.idp_org_id = None
         with patch("accounts.admin.get_tenant_settings", return_value=tenant_settings):
-            fieldsets = self.admin.get_fieldsets(self.request, obj=self.user)
-            readonly = self.admin.get_readonly_fields(self.request, obj=self.user)
+            fieldsets = self.admin.get_fieldsets(self.request, obj=obj)
+            readonly = self.admin.get_readonly_fields(self.request, obj=obj)
         return flatten_fieldsets(fieldsets), readonly
 
-    def test_idp_change_form_renders_email_through_readonly_hint_field(self):
-        fields, readonly = self._change_form_fields(require_idp=True)
+    def test_linked_idp_email_rendered_through_readonly_hint_field(self):
+        fields, readonly = self._change_form_fields(require_idp=True, obj=self.linked_user)
         # Email is shown via a read-only display field (so the hint can ride with
         # the value) instead of the plain, editable model field.
         assert "_email_with_idp_hint" in fields
         assert "_email_with_idp_hint" in readonly
         assert "email" not in fields
 
+    def test_unlinked_idp_email_stays_plain_editable(self):
+        fields, _ = self._change_form_fields(require_idp=True, obj=self.unlinked_user)
+        assert "email" in fields
+        assert "_email_with_idp_hint" not in fields
+
     def test_idp_email_hint_describes_earthranger_identity(self):
-        rendered = str(self.admin._email_with_idp_hint(self.user))
-        assert "real@auth0.example" in rendered
+        rendered = str(self.admin._email_with_idp_hint(self.linked_user))
+        assert "linked@auth0.example" in rendered
         assert "EarthRanger Identity" in rendered
 
     def test_non_idp_change_form_keeps_plain_email(self):
-        fields, _ = self._change_form_fields(require_idp=False)
+        fields, _ = self._change_form_fields(require_idp=False, obj=self.linked_user)
         assert "email" in fields
         assert "_email_with_idp_hint" not in fields
 
