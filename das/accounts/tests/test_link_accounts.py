@@ -17,7 +17,6 @@ from django.test import Client
 
 from accounts.account_linker import SESSION_KEY_PREFIX
 from accounts.link_accounts import (
-    _ALREADY_LINKED_MESSAGE,
     _IDP_NOT_ENABLED_MESSAGE,
     _INVALID_CREDENTIALS_MESSAGE,
 )
@@ -189,9 +188,10 @@ class TestLinkAccountsPostAuth:
 
         assert response.status_code == 400
         assert _INVALID_CREDENTIALS_MESSAGE.encode() in response.content
-        assert _ALREADY_LINKED_MESSAGE.encode() not in response.content
+        # The stricter is_nologin gate wins, so the already-linked dialog is not shown.
+        assert b"Log in normally" not in response.content
 
-    def test_already_linked_user_returns_400(self):
+    def test_already_linked_user_shows_already_linked_dialog(self):
         linked_user = User.objects.create_user(username="alreadylinked", password="secret123")
         linked_user.auth0_id = "auth0|existing_sub"
         linked_user.save(update_fields=["auth0_id"])
@@ -199,8 +199,18 @@ class TestLinkAccountsPostAuth:
 
         response = client.post(_LINK_ACCOUNTS_URL, {"username": "alreadylinked", "password": "secret123"})
 
-        assert response.status_code == 400
-        assert _ALREADY_LINKED_MESSAGE.encode() in response.content
+        # Unified with the landing: an already-linked user gets the same 409
+        # dialog, not an inline form error.
+        assert response.status_code == 409
+        # Served from a single-use session_ref flow, so it must not be cached.
+        assert "no-store" in response.headers.get("Cache-Control", "")
+        content = response.content.decode()
+        assert "This account is already linked to EarthRanger Identity." in content
+        # exactly one "log in normally" CTA, linking to the ER Web root
+        assert content.count('<a class="button" href="/">Log in normally</a>') == 1
+        # No linking attempt is started for an already-linked user.
+        session_keys = [k for k in client.session.keys() if k.startswith(SESSION_KEY_PREFIX)]
+        assert session_keys == []
 
 
 @pytest.mark.django_db
