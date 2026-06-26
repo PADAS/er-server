@@ -50,7 +50,6 @@ jobs:
       artifact-path: ./das/sphinx_docs
       push: true
       workload_identity_provider: ${{ vars.WORKLOAD_IDENTITY_PROVIDER }}
-      service_account: ${{ vars.SERVICE_ACCOUNT }}
 
   check-migrations:
     runs-on: ubuntu-latest
