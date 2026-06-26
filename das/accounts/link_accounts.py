@@ -6,25 +6,25 @@ import secrets
 from django_ratelimit.decorators import ratelimit
 
 from django import forms
-from django.contrib.auth import authenticate, get_user_model
+from django.contrib.auth import authenticate
 from django.http import HttpRequest, HttpResponse
 from django.shortcuts import redirect, render
 from django.urls import reverse
 from django.views.decorators.cache import never_cache
 
-from accounts.account_linker import ACCOUNT_LINKER_LANDING_URL_NAME, SESSION_KEY_PREFIX
+from accounts.account_linker import (
+    ACCOUNT_LINKER_LANDING_URL_NAME,
+    SESSION_KEY_PREFIX,
+    already_linked_response,
+)
 from utils.tenant import get_tenant_settings
 from utils.tenant.decorators import require_enabled_idp_configs
 
 logger = logging.getLogger(__name__)
 
-User = get_user_model()
-
 LINK_ACCOUNTS_URL_NAME = "link_accounts"
-LINK_ACCOUNTS_CONFIRM_URL_NAME = "link_accounts_confirm"
 
 _IDP_NOT_ENABLED_MESSAGE = "Account linking is not available for this site. Please contact support."
-_ALREADY_LINKED_MESSAGE = "This account is already linked to an identity provider. Please sign in using your IdP."
 _INVALID_CREDENTIALS_MESSAGE = "Invalid username or password."
 
 
@@ -109,44 +109,14 @@ def link_accounts(request: HttpRequest) -> HttpResponse:
             user.username,
             user.auth0_id,
         )
-        return render(
-            request,
-            "registration/link_accounts.html",
-            {"form": form, "error": _ALREADY_LINKED_MESSAGE},
-            status=400,
-        )
+        return already_linked_response()
 
     session_ref = secrets.token_urlsafe(32)
     request.session[f"{SESSION_KEY_PREFIX}{session_ref}"] = str(user.id)
 
-    # Post/Redirect/Get: redirect to the confirmation page rather than
-    # rendering it here, so a refresh re-GETs (idempotent) instead of
-    # re-POSTing credentials and burning the rate-limit budget.
-    target = reverse(LINK_ACCOUNTS_CONFIRM_URL_NAME) + f"?session_ref={session_ref}"
+    # Post/Redirect/Get: a successful POST 302s straight to the Account Linker
+    # landing (which immediately redirects to Auth0). The landing is the only
+    # page that pops the session_ref, so a refresh re-GETs the form (idempotent)
+    # instead of re-POSTing credentials.
+    target = reverse(ACCOUNT_LINKER_LANDING_URL_NAME) + f"?session_ref={session_ref}"
     return redirect(target)
-
-
-@never_cache
-@require_enabled_idp_configs(message=_IDP_NOT_ENABLED_MESSAGE, status=400)
-def link_accounts_confirm(request: HttpRequest) -> HttpResponse:
-    """Render the post-login confirmation page (PRG target of ``link_accounts``).
-
-    Peeks at the pending session_ref without consuming it; the Account
-    Linker landing is what pops it. As a plain GET it is safe to refresh.
-    """
-    session_ref = request.GET.get("session_ref", "")
-    user_id = request.session.get(f"{SESSION_KEY_PREFIX}{session_ref}") if session_ref else None
-    user = User.objects.filter(id=user_id).first() if user_id else None
-    if user is None:
-        # No valid pending attempt (direct nav, expired, or already consumed).
-        return redirect(reverse(LINK_ACCOUNTS_URL_NAME))
-
-    next_url = reverse(ACCOUNT_LINKER_LANDING_URL_NAME) + f"?session_ref={session_ref}"
-    return render(
-        request,
-        "registration/link_accounts_confirm.html",
-        {
-            "next_url": next_url,
-            "site_name": get_tenant_settings().name,
-        },
-    )

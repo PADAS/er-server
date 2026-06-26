@@ -21,22 +21,17 @@ from django.contrib.auth.admin import UserAdmin as DjangoUserAdmin
 from django.contrib.auth.forms import PasswordResetForm
 from django.contrib.auth.models import Permission
 from django.core.exceptions import PermissionDenied
-from django.core.mail import send_mail
 from django.db import transaction
 from django.db.models import Prefetch
 from django.http.response import HttpResponseRedirect
 from django.shortcuts import get_object_or_404
-from django.template.loader import render_to_string
-from django.urls import re_path, reverse
+from django.urls import re_path
 from django.utils.crypto import get_random_string
 from django.utils.html import format_html
 from django.utils.safestring import mark_safe
 from django.utils.translation import gettext_lazy as _
 
-from accounts.account_linker import (
-    ACCOUNT_LINKER_LANDING_URL_NAME,
-    create_magic_link_token,
-)
+from accounts.account_linker import send_idp_invitation_email
 from accounts.models import PermissionSet, User
 from accounts.utils import patrol_mgmt_permissions
 from activity.models import AlertRule
@@ -535,17 +530,7 @@ class UserAdmin(ModelAdminDisplayingManyToManyFieldMixin, DefaultFilterMixin, Fi
 
     @staticmethod
     def _send_idp_invitation_email(request, user):
-        token = create_magic_link_token(user.id)
-        landing_path = reverse(ACCOUNT_LINKER_LANDING_URL_NAME) + f"?token={token}"
-        invitation_url = request.build_absolute_uri(landing_path)
-
-        context = {
-            "site_name": get_current_tenant().domain,
-            "invitation_url": invitation_url,
-        }
-        subject = render_to_string("registration/idp_invitation_subject.txt", context).strip()
-        body = render_to_string("registration/idp_invitation_email.html", context)
-        send_mail(subject, body, settings.DEFAULT_FROM_EMAIL, [user.email])
+        send_idp_invitation_email(user, base_url=request.build_absolute_uri("/"))
 
     @staticmethod
     def _send_reset_email(request, user):
@@ -554,6 +539,7 @@ class UserAdmin(ModelAdminDisplayingManyToManyFieldMixin, DefaultFilterMixin, Fi
 
         opts = {
             "email_template_name": "registration/password_reset_email.html",
+            "html_email_template_name": "registration/password_reset_email_html.html",
             "from_email": settings.DEFAULT_FROM_EMAIL,
             "request": request,
             "subject_template_name": "registration/password_reset_subject.txt",
@@ -571,6 +557,7 @@ class UserAdmin(ModelAdminDisplayingManyToManyFieldMixin, DefaultFilterMixin, Fi
             "user": user,
             "subject_template_name": "utility/kml_master_link_subject.txt",
             "email_template_name": "utility/kml_master_link_email.html",
+            "html_email_template_name": "utility/kml_master_link_email_html.html",
         }
 
         form.save(**opts)

@@ -23,6 +23,7 @@ from accounts.account_linker import (
     SESSION_KEY_PREFIX,
     account_linker_callback,
     account_linker_landing,
+    already_linked_response,
     create_magic_link_token,
     resolve_user_from_magic_link_token,
 )
@@ -100,6 +101,22 @@ class TestMagicLinkTokens:
             resolve_user_from_magic_link_token(token)
 
 
+class TestAlreadyLinkedResponse:
+    """The shared dialog helper used by both the landing and the self-service form.
+
+    No @pytest.mark.django_db: the helper renders a static template and touches no DB.
+    Non-cacheability is provided by the views' @never_cache, not the helper, so it is
+    asserted on the view paths rather than here.
+    """
+
+    def test_renders_already_linked_dialog_at_409(self):
+        response = already_linked_response()
+        assert response.status_code == 409
+        content = response.content.decode()
+        assert "This account is already linked to EarthRanger Identity." in content
+        assert content.count('<a class="button" href="/">Log in normally</a>') == 1
+
+
 @pytest.mark.django_db
 class TestAccountLinkerLanding:
 
@@ -127,7 +144,7 @@ class TestAccountLinkerLanding:
                 prompt="login",
             )
 
-    def test_magic_link_reuse_after_linking_returns_400(self, request_factory, active_user, caplog):
+    def test_magic_link_reuse_after_linking_shows_already_linked_dialog(self, request_factory, active_user, caplog):
         token = create_magic_link_token(active_user.id)
 
         # Simulate the user having already completed the Account Linker flow
@@ -140,10 +157,15 @@ class TestAccountLinkerLanding:
         with caplog.at_level(logging.WARNING, logger="accounts.account_linker"):
             result = account_linker_landing(request)
 
-        assert result.status_code == 400
-        assert b"Invalid link" in result.content
+        assert result.status_code == 409
+        # Served from a single-use token/session_ref URL, so it must not be cached.
+        assert "no-store" in result.headers.get("Cache-Control", "")
+        content = result.content.decode()
+        assert "This account is already linked to EarthRanger Identity." in content
+        # exactly one "log in normally" CTA, linking to the ER Web root
+        assert content.count('<a class="button" href="/">Log in normally</a>') == 1
         assert (
-            f"Account linker landing for user {active_user.username} who is already linked (auth0_id=auth0|already_linked)"
+            f"Account linker landing for already-linked user {active_user.username} (auth0_id=auth0|already_linked)"
             in caplog.text
         )
 
@@ -198,7 +220,7 @@ class TestAccountLinkerLanding:
                 prompt="login",
             )
 
-    def test_session_flow_already_linked_user_returns_400(self, request_factory, active_user, caplog):
+    def test_session_flow_already_linked_user_shows_already_linked_dialog(self, request_factory, active_user, caplog):
         active_user.auth0_id = "auth0|already_linked"
         active_user.save(update_fields=["auth0_id"])
 
@@ -209,10 +231,15 @@ class TestAccountLinkerLanding:
         with caplog.at_level(logging.WARNING, logger="accounts.account_linker"):
             result = account_linker_landing(request)
 
-        assert result.status_code == 400
-        assert b"Invalid link" in result.content
+        assert result.status_code == 409
+        # Served from a single-use token/session_ref URL, so it must not be cached.
+        assert "no-store" in result.headers.get("Cache-Control", "")
+        content = result.content.decode()
+        assert "This account is already linked to EarthRanger Identity." in content
+        # exactly one "log in normally" CTA, linking to the ER Web root
+        assert content.count('<a class="button" href="/">Log in normally</a>') == 1
         assert (
-            f"Account linker landing for user {active_user.username} who is already linked (auth0_id=auth0|already_linked)"
+            f"Account linker landing for already-linked user {active_user.username} (auth0_id=auth0|already_linked)"
             in caplog.text
         )
 
@@ -238,6 +265,16 @@ class TestAccountLinkerLanding:
         assert result.status_code == 400
         assert b"Invalid link. Please contact your site administrator" in result.content
         assert "Account linker session_ref contained unknown or inactive user_id" in caplog.text
+
+    def test_landing_response_is_not_cacheable(self, request_factory):
+        # The landing receives a single-use session_ref/token in its URL, so
+        # its response must never be stored by a browser, proxy, or cache.
+        request = request_factory.get("/auth/account-linker/")
+        request.session = {}
+
+        result = account_linker_landing(request)
+
+        assert "no-store" in result.headers.get("Cache-Control", "")
 
 
 @pytest.mark.django_db
@@ -462,6 +499,16 @@ class TestAccountLinkerCallback:
         assert result.status_code == 400
         assert b"Unable to associate your accounts" in result.content
         assert "Auth0 returned error during account linking: access_denied - User cancelled" in caplog.text
+
+    def test_callback_response_is_not_cacheable(self, request_factory):
+        # The callback receives the OAuth code/state in its URL and must never
+        # be stored by a browser, proxy, or cache.
+        request = request_factory.get("/auth/account-linker/callback/")
+        request.session = {}
+
+        result = account_linker_callback(request)
+
+        assert "no-store" in result.headers.get("Cache-Control", "")
 
     def test_missing_link_attempt_returns_400(self, request_factory, caplog):
         request = request_factory.get("/auth/account-linker/callback/")

@@ -9,21 +9,24 @@ Two entry points converge on the same PKCE OAuth flow and callback:
 
 import logging
 import secrets
+from urllib.parse import urljoin
 
 from authlib.integrations.django_client import OAuth
 
 from django.conf import settings
 from django.core import signing
 from django.core.exceptions import ValidationError
-from django.core.mail import send_mail
+from django.core.mail import EmailMultiAlternatives
 from django.db import IntegrityError, transaction
 from django.db.models.functions import Trim
 from django.http import HttpResponse
 from django.shortcuts import redirect
 from django.template.loader import render_to_string
 from django.urls import reverse
+from django.views.decorators.cache import never_cache
 from django.views.decorators.csrf import csrf_exempt
 
+from accounts.email_branding import attach_brand_logo
 from accounts.models import User
 from utils.auth0.helpers import get_auth0_custom_domain
 from utils.tenant import get_tenant_settings
@@ -100,6 +103,20 @@ def resolve_user_from_magic_link_token(token):
     return User.objects.get(id=payload["user_id"], is_active=True)
 
 
+def already_linked_response() -> HttpResponse:
+    """Render the "already linked" dialog (HTTP 409).
+
+    Shared by the landing and the self-service form so an already-linked user
+    sees one consistent dialog regardless of entry point. Rendered without a
+    request to skip context processors — the dialog needs none, and running
+    them would pull in tenant-scoped processors (e.g. EULA) the caller may not
+    have set up.
+    """
+    html = render_to_string("registration/account_linker_already_linked.html")
+    return HttpResponse(html, status=409)
+
+
+@never_cache
 @require_enabled_idp_configs(message=_IDP_NOT_ENABLED_MESSAGE, status=400)
 def account_linker_landing(request):
     """Landing page for the Account Linker which initiates the PKCE flow to Auth0.
@@ -136,16 +153,16 @@ def account_linker_landing(request):
             logger.warning("Account linker session_ref contained unknown or inactive user_id=%s", user_id)
             return HttpResponse(_INVALID_LINK_MESSAGE, status=400)
 
-    # Reject the link if the user is already bound to an Auth0 identity.
-    # This makes magic links effectively single-use: once the Account Linker
-    # flow completes and sets auth0_id, the same link cannot start another
-    # PKCE round trip. The callback also checks auth0_id to guard against
-    # races where linking completes between this check and the callback.
+    # If the user is already bound to an Auth0 identity, don't start another
+    # PKCE round trip — show a dialog explaining the account is already linked
+    # and inviting them to log in normally. This also makes magic links
+    # effectively single-use: once the Account Linker flow completes and sets
+    # auth0_id, the same link cannot re-initiate linking. The callback likewise
+    # checks auth0_id to guard against races where linking completes between
+    # this check and the callback.
     if user.auth0_id:
-        logger.warning(
-            "Account linker landing for user %s who is already linked (auth0_id=%s)", user.username, user.auth0_id
-        )
-        return HttpResponse(_INVALID_LINK_MESSAGE, status=400)
+        logger.warning("Account linker landing for already-linked user %s (auth0_id=%s)", user.username, user.auth0_id)
+        return already_linked_response()
 
     # Each linking attempt gets its own session key, passed as OAuth state
     # so concurrent flows in different tabs cannot collide.
@@ -161,6 +178,7 @@ def account_linker_landing(request):
     )
 
 
+@never_cache
 @csrf_exempt
 @require_enabled_idp_configs(message=_IDP_NOT_ENABLED_MESSAGE, status=400)
 def account_linker_callback(request):
@@ -298,6 +316,37 @@ def account_linker_callback(request):
     return redirect("/")
 
 
+def send_idp_invitation_email(user: User, *, base_url: str) -> None:
+    """Send the EarthRanger Identity (Auth0) magic-link invitation email to *user*.
+
+    ``base_url`` must be the scheme-and-host root of the site, e.g.
+    ``https://mysite.pamdas.org``.  The token is created here so that every
+    call produces a fresh signed token; callers should not pre-build the token.
+
+    Callers with a request object should pass
+    ``request.build_absolute_uri("/").rstrip("/")`` as ``base_url``; callers
+    without a request (e.g. management commands) should pass
+    ``f"https://{tenant_settings.domain}"``.
+    """
+
+    token = create_magic_link_token(user.id)
+    landing_path = reverse(ACCOUNT_LINKER_LANDING_URL_NAME) + f"?token={token}"
+    invitation_url = urljoin(base_url.rstrip("/") + "/", landing_path.lstrip("/"))
+    site_name = get_tenant_settings().domain
+    context = {
+        "site_name": site_name,
+        "invitation_url": invitation_url,
+    }
+
+    subject = render_to_string("registration/idp_invitation_subject.txt", context).strip()
+    text_body = render_to_string("registration/idp_invitation_email.txt", context)
+    html_body = render_to_string("registration/idp_invitation_email.html", context)
+    message = EmailMultiAlternatives(subject, text_body, settings.DEFAULT_FROM_EMAIL, [user.email])
+    message.attach_alternative(html_body, "text/html")
+    attach_brand_logo(message)
+    message.send()
+
+
 def _send_email_changed_notification(prior_email: str) -> None:
     """Send a notification to the prior email address about the change.
 
@@ -308,8 +357,13 @@ def _send_email_changed_notification(prior_email: str) -> None:
         site_name = get_tenant_settings().domain
         recipient = prior_email.strip()
         context = {"site_name": site_name}
+
         subject = render_to_string("registration/account_linker_email_changed_subject.txt", context).strip()
-        body = render_to_string("registration/account_linker_email_changed_email.html", context)
-        send_mail(subject, body, settings.DEFAULT_FROM_EMAIL, [recipient])
+        text_body = render_to_string("registration/account_linker_email_changed_email.txt", context)
+        html_body = render_to_string("registration/account_linker_email_changed_email.html", context)
+        message = EmailMultiAlternatives(subject, text_body, settings.DEFAULT_FROM_EMAIL, [recipient])
+        message.attach_alternative(html_body, "text/html")
+        attach_brand_logo(message)
+        message.send()
     except Exception:
         logger.exception("Failed to send email-changed notification to %s", prior_email)

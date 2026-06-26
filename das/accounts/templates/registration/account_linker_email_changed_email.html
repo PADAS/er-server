@@ -1,5 +1,27 @@
-{% load i18n %}{% autoescape off %}
-{% blocktranslate %}Hello,{% endblocktranslate %}
-{% blocktranslate with site_name=site_name %}Your email address on {{ site_name }} has been updated.{% endblocktranslate %}
-{% blocktranslate %}If you did not make this change, please contact support@earthranger.com{% endblocktranslate %}
-{% endautoescape %}
+{% extends "registration/_email_base.html" %}
+{% load i18n %}
+
+{% block title %}{% blocktranslate with site_name=site_name %}Email address updated on {{ site_name }}{% endblocktranslate %}{% endblock %}
+
+{% block content %}
+<!-- Heading -->
+<h1 style="margin:0 0 16px 0;font-size:22px;font-weight:500;line-height:1.3;color:#105257;font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;">
+  {% blocktranslate with site_name=site_name %}Email address updated on {{ site_name }}{% endblocktranslate %}
+</h1>
+
+<!-- Greeting -->
+<p style="margin:0 0 12px 0;font-size:16px;line-height:22px;color:#000000;font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;">
+  {% blocktranslate %}Hello,{% endblocktranslate %}
+</p>
+
+<!-- Body copy -->
+<p style="margin:0;font-size:16px;line-height:22px;color:#000000;font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;">
+  {% blocktranslate with site_name=site_name %}Your email address on {{ site_name }} has been updated.{% endblocktranslate %}
+</p>
+{% endblock %}
+
+{% block footer_note %}
+<p style="margin:0;font-size:12px;line-height:18px;color:#63666a;font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;">
+  {% blocktranslate %}If you did not make this change, please contact <a href="mailto:support@earthranger.com" style="color:#63666a;">support@earthranger.com</a>{% endblocktranslate %}
+</p>
+{% endblock %}

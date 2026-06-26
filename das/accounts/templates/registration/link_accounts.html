@@ -2,6 +2,13 @@
 {% load i18n %}
 
 {% block content %}
+  <div class="info-card">
+    <h2>{% translate "Set up EarthRanger Identity" %}</h2>
+    <p>{% translate "EarthRanger is moving to a simpler, more secure way to sign in, called EarthRanger Identity." %}</p>
+    <p>{% translate "To convert your account, enter the username and password you use today. Then, create a new EarthRanger Identity account using your email address, or sign-in to your existing EarthRanger Identity account if you already have one." %}</p>
+    <p>{% translate "Nothing else changes, and this one-time step means you will sign in through EarthRanger Identity using your email address from now on." %}</p>
+  </div>
+
   {% if error %}
     <div class="alert" role="alert">{{ error }}</div>
   {% endif %}
@@ -17,6 +24,8 @@
     <input class="input" id="id_password" type="password" name="password"
            autocomplete="current-password" required>
 
-    <button class="button" type="submit">{% translate "Log in" %}</button>
+    <button class="button" type="submit">{% translate "Continue" %}</button>
   </form>
+
+  <p class="helper-text">{% translate "Questions? Reach out to your site admin." %}</p>
 {% endblock %}
