@@ -88,14 +88,12 @@ jobs:
       dockerfile: "Dockerfile.mt"
       build-args: "built_version=${{ github.event.pull_request.head.sha }}"
       base-image-registry: "europe-west3-docker.pkg.dev/serca-artifact-registry"
-      secondary-repository: "europe-west3-docker.pkg.dev/padas-app/er-mt/das-server"
       artifact-download: true
       artifact-name: sphinx_docs
       artifact-path: ./das/sphinx_docs
       pr-env-url-template: "https://{branch-slug}.dev.pamdas.org"
       wait-timeout: 300
       max-wait-for-app: 180
-      workload_identity_provider: ${{ vars.WORKLOAD_IDENTITY_PROVIDER }}
     secrets: inherit
 
   unit-test:
