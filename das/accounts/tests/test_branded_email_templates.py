@@ -118,8 +118,8 @@ class TestPasswordResetHtmlTemplateContent:
         assert "reset" in self.text.lower()
 
     def test_reset_html_uses_base_card_layout(self):
-        """The HTML template inherits the base card structure (cream canvas, white card)."""
-        assert "#faf2e9" in self.html  # canvas background
+        """The HTML template inherits the base card structure (canvas, white card)."""
+        assert "#F3F3F3" in self.html  # canvas background
         assert "#0fcb8c" in self.html  # accent rule
 
 
@@ -327,8 +327,8 @@ class TestKmlEmailHtmlTemplate:
         assert self._KML_LINK in self.html
 
     def test_kml_html_uses_shared_base_canvas(self):
-        """The HTML inherits the cream canvas and accent rule from _email_base.html."""
-        assert "#faf2e9" in self.html
+        """The HTML inherits the canvas and accent rule from _email_base.html."""
+        assert "#F3F3F3" in self.html
         assert "#0fcb8c" in self.html
 
     def test_kml_text_body_unchanged(self):
@@ -501,7 +501,7 @@ class TestAttachBrandLogo:
         """attach_brand_logo raises FileNotFoundError when the PNG cannot be found."""
         msg = EmailMultiAlternatives("subj", "body", "from@example.com", ["to@example.com"])
         with patch.object(finders, "find", return_value=None):
-            with pytest.raises(FileNotFoundError, match="EarthRanger-Logo_icon.png"):
+            with pytest.raises(FileNotFoundError, match="EarthRanger-Logo-2024_Horizontal.png"):
                 attach_brand_logo(msg)
 
 

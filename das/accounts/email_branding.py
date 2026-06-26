@@ -17,9 +17,9 @@ from django.core.mail import EmailMultiAlternatives
 
 logger = logging.getLogger(__name__)
 
-_LOGO_STATIC_PATH = "img/EarthRanger-Logo_icon.png"
+_LOGO_STATIC_PATH = "img/EarthRanger-Logo-2024_Horizontal.png"
 _LOGO_CID = "earthranger-logo"
-_LOGO_FILENAME = "EarthRanger-Logo_icon.png"
+_LOGO_FILENAME = "EarthRanger-Logo-2024_Horizontal.png"
 
 
 def attach_brand_logo(message: EmailMultiAlternatives) -> None:
