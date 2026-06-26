@@ -102,6 +102,19 @@ def resolve_user_from_magic_link_token(token):
     return User.objects.get(id=payload["user_id"], is_active=True)
 
 
+def already_linked_response() -> HttpResponse:
+    """Render the "already linked" dialog (HTTP 409).
+
+    Shared by the landing and the self-service form so an already-linked user
+    sees one consistent dialog regardless of entry point. Rendered without a
+    request to skip context processors — the dialog needs none, and running
+    them would pull in tenant-scoped processors (e.g. EULA) the caller may not
+    have set up.
+    """
+    html = render_to_string("registration/account_linker_already_linked.html")
+    return HttpResponse(html, status=409)
+
+
 @never_cache
 @require_enabled_idp_configs(message=_IDP_NOT_ENABLED_MESSAGE, status=400)
 def account_linker_landing(request):
@@ -139,16 +152,16 @@ def account_linker_landing(request):
             logger.warning("Account linker session_ref contained unknown or inactive user_id=%s", user_id)
             return HttpResponse(_INVALID_LINK_MESSAGE, status=400)
 
-    # Reject the link if the user is already bound to an Auth0 identity.
-    # This makes magic links effectively single-use: once the Account Linker
-    # flow completes and sets auth0_id, the same link cannot start another
-    # PKCE round trip. The callback also checks auth0_id to guard against
-    # races where linking completes between this check and the callback.
+    # If the user is already bound to an Auth0 identity, don't start another
+    # PKCE round trip — show a dialog explaining the account is already linked
+    # and inviting them to log in normally. This also makes magic links
+    # effectively single-use: once the Account Linker flow completes and sets
+    # auth0_id, the same link cannot re-initiate linking. The callback likewise
+    # checks auth0_id to guard against races where linking completes between
+    # this check and the callback.
     if user.auth0_id:
-        logger.warning(
-            "Account linker landing for user %s who is already linked (auth0_id=%s)", user.username, user.auth0_id
-        )
-        return HttpResponse(_INVALID_LINK_MESSAGE, status=400)
+        logger.warning("Account linker landing for already-linked user %s (auth0_id=%s)", user.username, user.auth0_id)
+        return already_linked_response()
 
     # Each linking attempt gets its own session key, passed as OAuth state
     # so concurrent flows in different tabs cannot collide.

@@ -12,7 +12,11 @@ from django.shortcuts import redirect, render
 from django.urls import reverse
 from django.views.decorators.cache import never_cache
 
-from accounts.account_linker import ACCOUNT_LINKER_LANDING_URL_NAME, SESSION_KEY_PREFIX
+from accounts.account_linker import (
+    ACCOUNT_LINKER_LANDING_URL_NAME,
+    SESSION_KEY_PREFIX,
+    already_linked_response,
+)
 from utils.tenant import get_tenant_settings
 from utils.tenant.decorators import require_enabled_idp_configs
 
@@ -21,7 +25,6 @@ logger = logging.getLogger(__name__)
 LINK_ACCOUNTS_URL_NAME = "link_accounts"
 
 _IDP_NOT_ENABLED_MESSAGE = "Account linking is not available for this site. Please contact support."
-_ALREADY_LINKED_MESSAGE = "This account is already linked to an identity provider. Please sign in using your IdP."
 _INVALID_CREDENTIALS_MESSAGE = "Invalid username or password."
 
 
@@ -106,12 +109,7 @@ def link_accounts(request: HttpRequest) -> HttpResponse:
             user.username,
             user.auth0_id,
         )
-        return render(
-            request,
-            "registration/link_accounts.html",
-            {"form": form, "error": _ALREADY_LINKED_MESSAGE},
-            status=400,
-        )
+        return already_linked_response()
 
     session_ref = secrets.token_urlsafe(32)
     request.session[f"{SESSION_KEY_PREFIX}{session_ref}"] = str(user.id)

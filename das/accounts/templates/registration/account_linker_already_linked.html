@@ -1,0 +1,13 @@
+{% extends "registration/account_linking_base.html" %}
+{% load i18n %}
+
+{% block content %}
+  <div class="info-card">
+    <h2>{% translate "This account is already linked" %}</h2>
+    <p>{% translate "This account is already linked to EarthRanger Identity." %}</p>
+  </div>
+
+  <a class="button" href="/">{% translate "Log in normally" %}</a>
+
+  <p class="helper-text">{% translate "Questions? Reach out to your site admin." %}</p>
+{% endblock %}
