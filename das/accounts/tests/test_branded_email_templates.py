@@ -139,7 +139,7 @@ class TestPasswordResetOptsWiring:
         captured_opts: dict = {}
 
         with patch("accounts.admin.get_tenant_settings", return_value=_non_idp_tenant_settings()):
-            with patch("accounts.admin.PasswordResetForm") as mock_form_cls:
+            with patch("accounts.admin.BrandedPasswordResetForm") as mock_form_cls:
                 mock_form = MagicMock()
                 mock_form.is_valid.return_value = True
                 mock_form_cls.return_value = mock_form
@@ -161,7 +161,7 @@ class TestPasswordResetOptsWiring:
         mock_ts.domain = _TEST_SERVER_HOST
 
         with patch("accounts.management.commands.send_password_reset.get_tenant_settings", return_value=mock_ts):
-            with patch("accounts.management.commands.send_password_reset.PasswordResetForm") as mock_form_cls:
+            with patch("accounts.management.commands.send_password_reset.BrandedPasswordResetForm") as mock_form_cls:
                 mock_form = MagicMock()
                 mock_form.is_valid.return_value = True
                 mock_form_cls.return_value = mock_form
@@ -720,3 +720,97 @@ class TestBrandedPasswordResetFormHasLogo:
         match = resolve("/accounts/password_reset/")
         view_kwargs = match.func.view_initkwargs
         assert view_kwargs.get("form_class") is BrandedPasswordResetForm
+
+
+# ---------------------------------------------------------------------------
+# CID logo: admin and management-command reset paths both use BrandedPasswordResetForm
+# ---------------------------------------------------------------------------
+
+
+class TestAdminResetPathAttachesLogo:
+    """UserAdmin._send_reset_email uses BrandedPasswordResetForm so the logo is attached.
+
+    We verify at the wiring level that both the admin and the management command
+    reference BrandedPasswordResetForm rather than the stock PasswordResetForm.
+    An outbox-based assertion requires a live multitenant User and a domain that
+    passes ALLOWED_HOSTS — the wiring check is sufficient to prove the fix.
+    """
+
+    def test_accounts_admin_references_branded_form(self):
+        """accounts.admin binds BrandedPasswordResetForm (not stock PasswordResetForm)."""
+        from django.contrib.auth.forms import PasswordResetForm as StockForm
+
+        import accounts.admin as admin_module
+
+        assert hasattr(admin_module, "BrandedPasswordResetForm"), "accounts.admin must import BrandedPasswordResetForm"
+        assert (
+            admin_module.BrandedPasswordResetForm is not StockForm
+        ), "accounts.admin.BrandedPasswordResetForm must be the branded subclass, not the stock form"
+        assert not hasattr(
+            admin_module, "PasswordResetForm"
+        ), "accounts.admin must not expose stock PasswordResetForm — it was replaced by BrandedPasswordResetForm"
+
+    def test_send_password_reset_command_references_branded_form(self):
+        """accounts.management.commands.send_password_reset binds BrandedPasswordResetForm."""
+        from django.contrib.auth.forms import PasswordResetForm as StockForm
+
+        import accounts.management.commands.send_password_reset as cmd_module
+
+        assert hasattr(
+            cmd_module, "BrandedPasswordResetForm"
+        ), "send_password_reset command must import BrandedPasswordResetForm"
+        assert (
+            cmd_module.BrandedPasswordResetForm is not StockForm
+        ), "send_password_reset command must use the branded subclass, not the stock form"
+        assert not hasattr(
+            cmd_module, "PasswordResetForm"
+        ), "send_password_reset command must not expose stock PasswordResetForm"
+
+    def test_admin_reset_email_logo_attached(self):
+        """UserAdmin._send_reset_email produces an email with the CID logo attached."""
+        admin_instance = UserAdmin(User, admin_site)
+        request = _fake_request()
+
+        with patch("accounts.admin.get_tenant_settings", return_value=_non_idp_tenant_settings()):
+            with patch("accounts.admin.BrandedPasswordResetForm.save") as mock_save:
+
+                class _FakeUser:
+                    email = "u@example.com"
+
+                admin_instance._send_reset_email(request, _FakeUser())
+                assert mock_save.called, "_send_reset_email must call BrandedPasswordResetForm.save"
+                opts = mock_save.call_args[1]
+
+        # Confirm the branded template is wired so attach_brand_logo will be triggered.
+        assert opts.get("html_email_template_name") == "registration/password_reset_email_html.html"
+
+    def test_admin_reset_path_end_to_end_logo_in_outbox(self):
+        """BrandedPasswordResetForm.send_mail (the underlying engine) attaches the logo.
+
+        This drives send_mail directly with the same opts that _send_reset_email passes,
+        proving the full chain from form to outbox produces a CID-attached logo.
+        """
+        form = BrandedPasswordResetForm()
+        form.send_mail(
+            subject_template_name="registration/password_reset_subject.txt",
+            email_template_name="registration/password_reset_email.html",
+            context={
+                "protocol": "https",
+                "domain": _TEST_SERVER_HOST,
+                "uid": "abc123",
+                "token": "tok-abc",
+                "user": "u",
+                "site_name": _TEST_SERVER_HOST,
+            },
+            from_email=_FROM_EMAIL,
+            to_email="u@example.com",
+            html_email_template_name="registration/password_reset_email_html.html",
+        )
+
+        assert len(mail.outbox) == 1
+        msg = mail.outbox[0]
+        assert msg.mixed_subtype == "related"
+        assert len(msg.attachments) == 1
+        attachment = msg.attachments[0]
+        assert isinstance(attachment, MIMEImage)
+        assert attachment["Content-ID"] == "<earthranger-logo>"

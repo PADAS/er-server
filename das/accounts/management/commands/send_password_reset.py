@@ -1,9 +1,9 @@
 from django.conf import settings
 from django.contrib.auth import get_user_model
-from django.contrib.auth.forms import PasswordResetForm
 from django.core.management.base import BaseCommand, CommandError
 from django.http import HttpRequest
 
+from accounts.forms import BrandedPasswordResetForm
 from utils.tenant import get_tenant_settings
 from utils.tenant.commands import TenantCommandMixin
 
@@ -30,7 +30,7 @@ class Command(TenantCommandMixin, BaseCommand):
         try:
             # Find the user by email
             user = User.objects.get(username=username)
-            form = PasswordResetForm(data={"email": user.email})
+            form = BrandedPasswordResetForm(data={"email": user.email})
             assert form.is_valid()
 
             opts = {
