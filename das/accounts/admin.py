@@ -18,7 +18,6 @@ from django.contrib import admin
 from django.contrib.admin.views.main import IncorrectLookupParameters
 from django.contrib.auth.admin import GroupAdmin as DjangoGroupAdmin
 from django.contrib.auth.admin import UserAdmin as DjangoUserAdmin
-from django.contrib.auth.forms import PasswordResetForm
 from django.contrib.auth.models import Permission
 from django.core.exceptions import PermissionDenied
 from django.db import transaction
@@ -48,6 +47,7 @@ from utils.tenant import get_tenant_settings
 
 from .forms import (
     AccessGrantForm,
+    BrandedPasswordResetForm,
     CustomUserCreationForm,
     KmkMasterLinkForm,
     PermissionSetAdminForm,
@@ -538,7 +538,7 @@ class UserAdmin(ModelAdminDisplayingManyToManyFieldMixin, DefaultFilterMixin, Fi
 
     @staticmethod
     def _send_reset_email(request, user):
-        form = PasswordResetForm(data={"email": user.email})
+        form = BrandedPasswordResetForm(data={"email": user.email})
         assert form.is_valid()
 
         opts = {
