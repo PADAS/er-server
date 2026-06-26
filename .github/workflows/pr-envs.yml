@@ -94,6 +94,7 @@ jobs:
       pr-env-url-template: "https://{branch-slug}.dev.pamdas.org"
       wait-timeout: 300
       max-wait-for-app: 180
+      workload_identity_provider: ${{ vars.WORKLOAD_IDENTITY_PROVIDER }}
     secrets: inherit
 
   unit-test:
