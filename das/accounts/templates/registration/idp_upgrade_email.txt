@@ -1,0 +1,7 @@
+{% load i18n %}{% autoescape off %}
+{% blocktranslate %}Hello,{% endblocktranslate %}
+{% blocktranslate with site_name=site_name %}Your EarthRanger site, {{ site_name }}, is upgrading to a simpler, more secure way to sign in.{% endblocktranslate %}
+{% blocktranslate %}To finish the upgrade, follow the link below and create a secure sign-in using your preferred email — or, if you already have one, just sign in with that email. Your existing EarthRanger account, access, and history are then linked automatically; nothing moves or disappears.{% endblocktranslate %}
+{{ invitation_url }}
+{% blocktranslate %}If you have any questions, please contact support@earthranger.com{% endblocktranslate %}
+{% endautoescape %}

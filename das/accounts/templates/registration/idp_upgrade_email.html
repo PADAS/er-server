@@ -1,0 +1,32 @@
+{% extends "registration/_email_base.html" %}
+{% load i18n %}
+
+{% block title %}{% blocktranslate with site_name=site_name %}Upgrade your {{ site_name }} sign-in{% endblocktranslate %}{% endblock %}
+
+{% block content %}
+<!-- Heading -->
+<h1 style="margin:0 0 16px 0;font-size:22px;font-weight:500;line-height:1.3;color:#105257;font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;">
+  {% blocktranslate %}Your sign-in is getting an upgrade{% endblocktranslate %}
+</h1>
+
+<!-- Greeting -->
+<p style="margin:0 0 12px 0;font-size:16px;line-height:22px;color:#000000;font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;">
+  {% blocktranslate %}Hello,{% endblocktranslate %}
+</p>
+
+<!-- Body copy -->
+<p style="margin:0 0 24px 0;font-size:16px;line-height:22px;color:#000000;font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;">
+  {% blocktranslate with site_name=site_name %}Your EarthRanger site, <strong>{{ site_name }}</strong>, is upgrading to a simpler, more secure way to sign in.{% endblocktranslate %}
+  {% blocktranslate %}To finish the upgrade, use the button below to create a secure sign-in using your preferred email — or, if you already have one, just sign in with that email. Your existing EarthRanger account, access, and history are then linked automatically; nothing moves or disappears.{% endblocktranslate %}
+</p>
+
+<!-- CTA button -->
+{% blocktranslate asvar button_label %}Set up secure sign-in{% endblocktranslate %}
+{% include "registration/_email_button.html" with button_url=invitation_url button_label=button_label %}
+
+<!-- Fallback link -->
+<p style="margin:0;font-size:13px;line-height:20px;color:#63666a;font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;">
+  {% blocktranslate %}If the button doesn't work, copy and paste this link into your browser:{% endblocktranslate %}<br>
+  <a href="{{ invitation_url }}" style="color:#0056c7;word-break:break-all;">{{ invitation_url }}</a>
+</p>
+{% endblock %}

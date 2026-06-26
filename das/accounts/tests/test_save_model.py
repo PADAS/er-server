@@ -446,3 +446,134 @@ class TestEmailDeferredToCommit:
                             raise self.Rollback()
 
         assert len(mailoutbox) == 0
+
+
+@pytest.mark.django_db
+class TestSaveModelNewUserInvitationCopy:
+    """save_model for a brand-new IdP user must send the INVITATION copy
+    ("invited to join"), never the upgrade copy."""
+
+    @pytest.fixture(autouse=True)
+    def _run_on_commit_callbacks(self):
+        with patch("accounts.admin.transaction.on_commit", side_effect=lambda func: func()):
+            yield
+
+    @pytest.fixture(autouse=True)
+    def _steady_email_environment(self, settings):
+        settings.DEFAULT_FROM_EMAIL = "noreply@example.com"
+        mock_settings = MagicMock()
+        mock_settings.domain = "testsite.pamdas.org"
+        with patch("accounts.account_linker.get_tenant_settings", return_value=mock_settings):
+            yield
+
+    @pytest.fixture(autouse=True)
+    def _fake_token(self):
+        with patch("accounts.account_linker.create_magic_link_token", return_value="test-token"):
+            yield
+
+    @pytest.fixture(autouse=True)
+    def _idp_tenant(self):
+        mock = MagicMock()
+        mock.feature_flags.require_idp = True
+        mock.feature_flags.idp_org_id = None
+        with patch("accounts.admin.get_tenant_settings", return_value=mock):
+            yield
+
+    def test_new_user_receives_invitation_copy_not_upgrade_copy(
+        self,
+        user_admin,
+        fake_request,
+        form,
+        mock_super_save_model,
+        mailoutbox,
+    ):
+        """A brand-new user (last_login=None) created via admin gets the INVITATION email,
+        not the upgrade email."""
+        user = User.objects.create_user(
+            username="brandnew",
+            email="brandnew@example.com",
+            is_active=True,
+        )
+        assert user.last_login is None
+
+        user_admin.save_model(fake_request, user, form, change=False)
+
+        assert len(mailoutbox) == 1
+        msg = mailoutbox[0]
+        # Subject is the invitation subject
+        assert "Your invitation to" in msg.subject
+        assert "Upgrade your" not in msg.subject
+        html_body, _ = msg.alternatives[0]
+        # Invitation copy present
+        assert "invited" in html_body
+        # Upgrade copy absent
+        assert "Your sign-in is getting an upgrade" not in html_body
+        assert "more secure way to sign in" not in html_body
+
+
+@pytest.mark.django_db
+class TestResendIdpInvitationEmailSelection:
+    """_send_idp_invitation_email selects INVITATION copy for users who have
+    never logged in (last_login=None) and UPGRADE copy for users who have."""
+
+    @pytest.fixture(autouse=True)
+    def _steady_email_environment(self, settings):
+        settings.DEFAULT_FROM_EMAIL = "noreply@example.com"
+        mock_settings = MagicMock()
+        mock_settings.domain = "testsite.pamdas.org"
+        with patch("accounts.account_linker.get_tenant_settings", return_value=mock_settings):
+            yield
+
+    @pytest.fixture(autouse=True)
+    def _fake_token(self):
+        with patch("accounts.account_linker.create_magic_link_token", return_value="test-token"):
+            yield
+
+    def test_sends_invitation_copy_when_last_login_is_none(
+        self,
+        user_admin,
+        fake_request,
+        mailoutbox,
+    ):
+        """User with last_login=None (never logged in) receives the invitation email."""
+        user = User.objects.create_user(
+            username="neverloggedin",
+            email="neverloggedin@example.com",
+            is_active=True,
+        )
+        assert user.last_login is None
+
+        user_admin._send_idp_invitation_email(fake_request, user)
+
+        assert len(mailoutbox) == 1
+        msg = mailoutbox[0]
+        assert "Your invitation to" in msg.subject
+        assert "Upgrade your" not in msg.subject
+        html_body, _ = msg.alternatives[0]
+        assert "Your sign-in is getting an upgrade" not in html_body
+
+    def test_sends_upgrade_copy_when_last_login_is_set(
+        self,
+        user_admin,
+        fake_request,
+        mailoutbox,
+    ):
+        """User with a prior last_login receives the upgrade email."""
+        from datetime import datetime, timezone
+
+        user = User.objects.create_user(
+            username="previouslogin",
+            email="previouslogin@example.com",
+            is_active=True,
+        )
+        user.last_login = datetime(2024, 1, 1, tzinfo=timezone.utc)
+
+        user_admin._send_idp_invitation_email(fake_request, user)
+
+        assert len(mailoutbox) == 1
+        msg = mailoutbox[0]
+        assert "Upgrade your" in msg.subject
+        assert "Your invitation to" not in msg.subject
+        html_body, _ = msg.alternatives[0]
+        assert "Your sign-in is getting an upgrade" in html_body
+        assert "more secure way to sign in" in html_body

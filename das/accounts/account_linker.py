@@ -316,8 +316,19 @@ def account_linker_callback(request):
     return redirect("/")
 
 
-def send_idp_invitation_email(user: User, *, base_url: str) -> None:
-    """Send the EarthRanger Identity (Auth0) magic-link invitation email to *user*.
+def _send_idp_email(
+    user: User,
+    *,
+    base_url: str,
+    subject_template: str,
+    text_template: str,
+    html_template: str,
+) -> None:
+    """Shared implementation for IdP magic-link emails.
+
+    Builds the magic-link token and invitation URL, renders the supplied
+    templates with a ``site_name`` / ``invitation_url`` context, and sends a
+    multipart email with the brand logo CID attachment.
 
     ``base_url`` must be the scheme-and-host root of the site, e.g.
     ``https://mysite.pamdas.org``.  The token is created here so that every
@@ -328,7 +339,6 @@ def send_idp_invitation_email(user: User, *, base_url: str) -> None:
     without a request (e.g. management commands) should pass
     ``f"https://{tenant_settings.domain}"``.
     """
-
     token = create_magic_link_token(user.id)
     landing_path = reverse(ACCOUNT_LINKER_LANDING_URL_NAME) + f"?token={token}"
     invitation_url = urljoin(base_url.rstrip("/") + "/", landing_path.lstrip("/"))
@@ -338,13 +348,63 @@ def send_idp_invitation_email(user: User, *, base_url: str) -> None:
         "invitation_url": invitation_url,
     }
 
-    subject = render_to_string("registration/idp_invitation_subject.txt", context).strip()
-    text_body = render_to_string("registration/idp_invitation_email.txt", context)
-    html_body = render_to_string("registration/idp_invitation_email.html", context)
+    subject = render_to_string(subject_template, context).strip()
+    text_body = render_to_string(text_template, context)
+    html_body = render_to_string(html_template, context)
     message = EmailMultiAlternatives(subject, text_body, settings.DEFAULT_FROM_EMAIL, [user.email])
     message.attach_alternative(html_body, "text/html")
     attach_brand_logo(message)
     message.send()
+
+
+def send_idp_invitation_email(user: User, *, base_url: str) -> None:
+    """Send the new-user IdP magic-link invitation email to *user*.
+
+    Use this for brand-new users who have no prior account history; they
+    receive the "You've been invited to join" copy.
+
+    ``base_url`` must be the scheme-and-host root of the site, e.g.
+    ``https://mysite.pamdas.org``.  The token is created here so that every
+    call produces a fresh signed token; callers should not pre-build the token.
+
+    Callers with a request object should pass
+    ``request.build_absolute_uri("/").rstrip("/")`` as ``base_url``; callers
+    without a request (e.g. management commands) should pass
+    ``f"https://{tenant_settings.domain}"``.
+    """
+    _send_idp_email(
+        user,
+        base_url=base_url,
+        subject_template="registration/idp_invitation_subject.txt",
+        text_template="registration/idp_invitation_email.txt",
+        html_template="registration/idp_invitation_email.html",
+    )
+
+
+def send_idp_upgrade_email(user: User, *, base_url: str) -> None:
+    """Send the IdP upgrade magic-link email to an existing *user*.
+
+    Use this for existing, active users being migrated to IdP sign-in (e.g.
+    via the ``send_idp_invitations`` management command).  They receive the
+    "your site is upgrading to a more secure sign-in" copy, which explains
+    that their existing account, access, and history are preserved.
+
+    ``base_url`` must be the scheme-and-host root of the site, e.g.
+    ``https://mysite.pamdas.org``.  The token is created here so that every
+    call produces a fresh signed token; callers should not pre-build the token.
+
+    Callers with a request object should pass
+    ``request.build_absolute_uri("/").rstrip("/")`` as ``base_url``; callers
+    without a request (e.g. management commands) should pass
+    ``f"https://{tenant_settings.domain}"``.
+    """
+    _send_idp_email(
+        user,
+        base_url=base_url,
+        subject_template="registration/idp_upgrade_subject.txt",
+        text_template="registration/idp_upgrade_email.txt",
+        html_template="registration/idp_upgrade_email.html",
+    )
 
 
 def _send_email_changed_notification(prior_email: str) -> None:
