@@ -55,6 +55,7 @@ body {
   padding: 1rem; margin-bottom: 1.5rem;
 }
 .info-card h2 { color: #0056c7; font-size: 1rem; font-weight: 600; margin: 0 0 0.5rem; }
-.info-card p { color: #63666a; font-size: 0.875rem; line-height: 1.4; margin: 0; }
+.info-card p { color: #63666a; font-size: 0.875rem; line-height: 1.4; margin: 0 0 0.75rem; }
+.info-card p:last-child { margin-bottom: 0; }
 
 .helper-text { color: #63666a; font-size: 0.8125rem; text-align: center; max-width: 20rem; }

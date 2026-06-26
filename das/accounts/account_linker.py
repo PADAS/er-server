@@ -23,6 +23,7 @@ from django.http import HttpResponse
 from django.shortcuts import redirect
 from django.template.loader import render_to_string
 from django.urls import reverse
+from django.views.decorators.cache import never_cache
 from django.views.decorators.csrf import csrf_exempt
 
 from accounts.models import User
@@ -101,6 +102,7 @@ def resolve_user_from_magic_link_token(token):
     return User.objects.get(id=payload["user_id"], is_active=True)
 
 
+@never_cache
 @require_enabled_idp_configs(message=_IDP_NOT_ENABLED_MESSAGE, status=400)
 def account_linker_landing(request):
     """Landing page for the Account Linker which initiates the PKCE flow to Auth0.
@@ -162,6 +164,7 @@ def account_linker_landing(request):
     )
 
 
+@never_cache
 @csrf_exempt
 @require_enabled_idp_configs(message=_IDP_NOT_ENABLED_MESSAGE, status=400)
 def account_linker_callback(request):
