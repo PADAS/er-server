@@ -239,6 +239,16 @@ class TestAccountLinkerLanding:
         assert b"Invalid link. Please contact your site administrator" in result.content
         assert "Account linker session_ref contained unknown or inactive user_id" in caplog.text
 
+    def test_landing_response_is_not_cacheable(self, request_factory):
+        # The landing receives a single-use session_ref/token in its URL, so
+        # its response must never be stored by a browser, proxy, or cache.
+        request = request_factory.get("/auth/account-linker/")
+        request.session = {}
+
+        result = account_linker_landing(request)
+
+        assert "no-store" in result.headers.get("Cache-Control", "")
+
 
 @pytest.mark.django_db
 class TestAccountLinkerCallback:
@@ -462,6 +472,16 @@ class TestAccountLinkerCallback:
         assert result.status_code == 400
         assert b"Unable to associate your accounts" in result.content
         assert "Auth0 returned error during account linking: access_denied - User cancelled" in caplog.text
+
+    def test_callback_response_is_not_cacheable(self, request_factory):
+        # The callback receives the OAuth code/state in its URL and must never
+        # be stored by a browser, proxy, or cache.
+        request = request_factory.get("/auth/account-linker/callback/")
+        request.session = {}
+
+        result = account_linker_callback(request)
+
+        assert "no-store" in result.headers.get("Cache-Control", "")
 
     def test_missing_link_attempt_returns_400(self, request_factory, caplog):
         request = request_factory.get("/auth/account-linker/callback/")
