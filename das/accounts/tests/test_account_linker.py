@@ -577,6 +577,8 @@ class TestAccountLinkerCallback:
         assert "missing or empty sub claim" in caplog.text
 
     def test_email_change_sends_notification_to_prior_address(self, request_factory, active_user):
+        from django.core import mail
+
         request = request_factory.get(f"/auth/account-linker/callback/?state={FAKE_LINK_ATTEMPT}")
         request.session = {f"{SESSION_KEY_PREFIX}{FAKE_LINK_ATTEMPT}": str(active_user.id)}
 
@@ -585,22 +587,27 @@ class TestAccountLinkerCallback:
         ) as mock_exchange:
             mock_exchange.return_value = self._make_mock_token(email="newauth0email@example.com")
 
-            with patch("accounts.account_linker.send_mail") as mock_send_mail:
-                with patch(
-                    "accounts.account_linker.transaction.on_commit",
-                    side_effect=lambda func: func(),
-                ):
-                    result = account_linker_callback(request)
+            with patch(
+                "accounts.account_linker.transaction.on_commit",
+                side_effect=lambda func: func(),
+            ):
+                result = account_linker_callback(request)
 
         assert result.status_code == 302
-        mock_send_mail.assert_called_once()
-        call_args = mock_send_mail.call_args
-        assert call_args[0][2] == settings.DEFAULT_FROM_EMAIL  # from address
-        assert call_args[0][3] == ["prioremail@example.com"]  # to address
-        assert "testsite.pamdas.org" in call_args[0][0]  # site_name in subject
-        assert "newauth0email@example.com" not in call_args[0][1]  # new email must not leak
+        assert len(mail.outbox) == 1
+        msg = mail.outbox[0]
+        assert msg.to == ["prioremail@example.com"]
+        assert msg.from_email == settings.DEFAULT_FROM_EMAIL
+        assert "testsite.pamdas.org" in msg.subject
+        # The new email address must not appear in either the text or HTML body
+        assert "newauth0email@example.com" not in msg.body
+        html_body, mime_type = msg.alternatives[0]
+        assert mime_type == "text/html"
+        assert "newauth0email@example.com" not in html_body
 
     def test_notification_strips_whitespace_from_prior_email(self, request_factory, active_user):
+        from django.core import mail
+
         User.objects.filter(id=active_user.id).update(email=" prioremail@example.com ")
 
         request = request_factory.get(f"/auth/account-linker/callback/?state={FAKE_LINK_ATTEMPT}")
@@ -611,16 +618,15 @@ class TestAccountLinkerCallback:
         ) as mock_exchange:
             mock_exchange.return_value = self._make_mock_token(email="newauth0email@example.com")
 
-            with patch("accounts.account_linker.send_mail") as mock_send_mail:
-                with patch(
-                    "accounts.account_linker.transaction.on_commit",
-                    side_effect=lambda func: func(),
-                ):
-                    result = account_linker_callback(request)
+            with patch(
+                "accounts.account_linker.transaction.on_commit",
+                side_effect=lambda func: func(),
+            ):
+                result = account_linker_callback(request)
 
         assert result.status_code == 302
-        mock_send_mail.assert_called_once()
-        assert mock_send_mail.call_args[0][3] == ["prioremail@example.com"]
+        assert len(mail.outbox) == 1
+        assert mail.outbox[0].to == ["prioremail@example.com"]
 
     def test_notification_send_failure_does_not_break_linking(self, request_factory, active_user, caplog):
         request = request_factory.get(f"/auth/account-linker/callback/?state={FAKE_LINK_ATTEMPT}")
@@ -632,7 +638,7 @@ class TestAccountLinkerCallback:
             mock_exchange.return_value = self._make_mock_token(email="newauth0email@example.com")
 
             with patch(
-                "accounts.account_linker.send_mail",
+                "django.core.mail.EmailMultiAlternatives.send",
                 side_effect=Exception("SMTP connection refused"),
             ):
                 with patch(
@@ -660,6 +666,8 @@ class TestAccountLinkerCallback:
     def test_does_not_send_notification_for_non_substantive_change(
         self, request_factory, active_user, db_email, auth0_email
     ):
+        from django.core import mail
+
         User.objects.filter(id=active_user.id).update(email=db_email)
 
         request = request_factory.get(f"/auth/account-linker/callback/?state={FAKE_LINK_ATTEMPT}")
@@ -670,15 +678,14 @@ class TestAccountLinkerCallback:
         ) as mock_exchange:
             mock_exchange.return_value = self._make_mock_token(email=auth0_email)
 
-            with patch("accounts.account_linker.send_mail") as mock_send_mail:
-                with patch(
-                    "accounts.account_linker.transaction.on_commit",
-                    side_effect=lambda func: func(),
-                ):
-                    result = account_linker_callback(request)
+            with patch(
+                "accounts.account_linker.transaction.on_commit",
+                side_effect=lambda func: func(),
+            ):
+                result = account_linker_callback(request)
 
         assert result.status_code == 302
-        mock_send_mail.assert_not_called()
+        assert len(mail.outbox) == 0
 
     @pytest.mark.parametrize(
         "view_func, path",

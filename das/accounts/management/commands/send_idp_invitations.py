@@ -7,7 +7,7 @@ from django.core.management import CommandError
 from django.core.management.base import BaseCommand
 from django.db.models import Q
 
-from accounts.account_linker import send_idp_invitation_email
+from accounts.account_linker import send_idp_upgrade_email
 from accounts.models import User
 from accounts.system_users import SYSTEM_USERNAMES
 from utils.tenant import get_tenant_settings
@@ -83,9 +83,9 @@ class Command(TenantCommandMixin, BaseCommand):
 
         for user in candidates:
             try:
-                send_idp_invitation_email(user, base_url=base_url)
+                send_idp_upgrade_email(user, base_url=base_url)
                 successes.append(_InvitationSuccess(username=user.username))
-                logger.info("Sent IDP invitation to user %s <%s>", user.username, user.email)
+                logger.info("Sent IDP upgrade email to user %s <%s>", user.username, user.email)
             except Exception as exc:
                 failures.append(_InvitationFailure(username=user.username, exception_message=str(exc)))
                 logger.exception("Failed to send IDP invitation to user %s", user.username)

@@ -243,6 +243,29 @@ class TestSendIdpInvitationsCommand:
         assert 'href="' in html_body
         assert "token=" in html_body
 
+    def test_html_body_contains_new_heading_and_upgrade_copy(self, command):
+        """The HTML body uses the new 'upgrade' heading and body copy."""
+        User.objects.create_user(username="copy-user", email="copy@example.com", is_active=True)
+
+        command.handle(dry_run=False)
+
+        html_body, _ = mail.outbox[0].alternatives[0]
+        assert "Your sign-in is getting an upgrade" in html_body
+        assert "more secure way to sign in" in html_body
+        assert "You have been invited to join" not in html_body
+        assert "To complete your registration, sign in with your email" not in html_body
+
+    def test_plaintext_body_contains_upgrade_copy(self, command):
+        """The plaintext body uses the new upgrade copy and drops the old invitation wording."""
+        User.objects.create_user(username="txt-copy-user", email="txtcopy@example.com", is_active=True)
+
+        command.handle(dry_run=False)
+
+        body = mail.outbox[0].body
+        assert "more secure way to sign in" in body
+        assert "You have been invited to join" not in body
+        assert "complete your registration" not in body
+
     # ------------------------------------------------------------------
     # Resilience — per-user send failures are collected, not fatal
     # ------------------------------------------------------------------
@@ -260,13 +283,11 @@ class TestSendIdpInvitationsCommand:
             if user.username == "will-fail":
                 raise RuntimeError("SMTP timeout")
             # actually enqueue a real email for the other user
-            from accounts.account_linker import send_idp_invitation_email as real_send
+            from accounts.account_linker import send_idp_upgrade_email as real_send
 
             real_send(user, base_url=base_url)
 
-        with patch(
-            "accounts.management.commands.send_idp_invitations.send_idp_invitation_email", side_effect=flaky_send
-        ):
+        with patch("accounts.management.commands.send_idp_invitations.send_idp_upgrade_email", side_effect=flaky_send):
             with pytest.raises(CommandError, match="Failed to send invitations to 1"):
                 command.handle(dry_run=False)
 
@@ -333,3 +354,30 @@ class TestSendIdpInvitationsCommand:
         assert mime_type == "text/html"
         assert "https://testsite.pamdas.org/" in html_body
         assert "token=" in html_body
+
+    def test_send_idp_upgrade_email_builds_url_from_base_url(self):
+        """send_idp_upgrade_email constructs the invitation URL from the supplied base_url,
+        the URL appears in both the plaintext body and the HTML alternative, and the
+        upgrade copy (not the invitation copy) is present."""
+        from accounts.account_linker import send_idp_upgrade_email
+
+        user = User.objects.create_user(username="upgradetest", email="upgradetest@example.com", is_active=True)
+        base_url = "https://testsite.pamdas.org"
+
+        send_idp_upgrade_email(user, base_url=base_url)
+
+        assert len(mail.outbox) == 1
+        msg = mail.outbox[0]
+        # plaintext body must contain the tenant domain and token
+        assert "https://testsite.pamdas.org/" in msg.body
+        assert "token=" in msg.body
+        # HTML alternative must also carry the invitation URL
+        html_body, mime_type = msg.alternatives[0]
+        assert mime_type == "text/html"
+        assert "https://testsite.pamdas.org/" in html_body
+        assert "token=" in html_body
+        # upgrade copy is present; invitation copy is absent
+        assert "Your sign-in is getting an upgrade" in html_body
+        assert "more secure way to sign in" in msg.body
+        assert "You have been invited to join" not in html_body
+        assert "You have been invited to join" not in msg.body

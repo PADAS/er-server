@@ -31,7 +31,7 @@ from django.utils.html import format_html
 from django.utils.safestring import mark_safe
 from django.utils.translation import gettext_lazy as _
 
-from accounts.account_linker import send_idp_invitation_email
+from accounts.account_linker import send_idp_invitation_email, send_idp_upgrade_email
 from accounts.models import PermissionSet, User
 from accounts.utils import patrol_mgmt_permissions
 from activity.models import AlertRule
@@ -530,7 +530,11 @@ class UserAdmin(ModelAdminDisplayingManyToManyFieldMixin, DefaultFilterMixin, Fi
 
     @staticmethod
     def _send_idp_invitation_email(request, user):
-        send_idp_invitation_email(user, base_url=request.build_absolute_uri("/"))
+        base_url = request.build_absolute_uri("/")
+        if user.last_login:
+            send_idp_upgrade_email(user, base_url=base_url)
+        else:
+            send_idp_invitation_email(user, base_url=base_url)
 
     @staticmethod
     def _send_reset_email(request, user):
