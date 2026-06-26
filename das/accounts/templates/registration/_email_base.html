@@ -1,0 +1,66 @@
+{% load i18n %}<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>{% block title %}{% endblock %}</title>
+<!--[if mso]>
+<style type="text/css">
+  .btn-fallback { display: none !important; }
+</style>
+<![endif]-->
+</head>
+<body style="margin:0;padding:0;background-color:#faf2e9;font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;">
+
+<table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="background-color:#faf2e9;">
+  <tr>
+    <td align="center" style="padding:32px 16px;">
+
+      <!-- Outer card -->
+      <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="600" style="max-width:600px;width:100%;background-color:#ffffff;border:1px solid #dddddd;border-radius:8px;overflow:hidden;">
+
+        <!-- Header -->
+        <tr>
+          <td style="background-color:#ffffff;padding:20px 28px 0 28px;">
+            <table role="presentation" cellpadding="0" cellspacing="0" border="0">
+              <tr>
+                <td style="padding-right:10px;vertical-align:middle;">
+                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" width="40" height="40" role="img" aria-label="EarthRanger"><path fill="#008586" d="M94.4,74.2v1.9c0,6.3-1.1,13.4-9.8,18.5L60,110,34.5,94.6c-8.9-5.6-8.9-15-8.9-18.5V74.3Z"/><polygon fill="#008586" points="60 10 23.9 15.9 25.6 36.6 94.4 36.6 96.1 15.9 60 10"/><polygon fill="#008586" points="86.2 42.2 25.6 42.2 25.6 67.9 86.2 67.9 86.2 42.2"/></svg>
+                </td>
+                <td style="vertical-align:middle;">
+                  <span style="color:#105257;font-size:18px;font-weight:600;font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;">EarthRanger</span>
+                </td>
+              </tr>
+            </table>
+          </td>
+        </tr>
+        <!-- Accent rule -->
+        <tr>
+          <td style="padding:12px 0 0 0;">
+            <div style="height:3px;background-color:#0fcb8c;font-size:0;line-height:0;">&nbsp;</div>
+          </td>
+        </tr>
+
+        <!-- Body content -->
+        <tr>
+          <td style="padding:32px 28px 24px 28px;">
+            {% block content %}{% endblock %}
+          </td>
+        </tr>
+
+        <!-- Footer -->
+        <tr>
+          <td style="padding:16px 28px 28px 28px;border-top:1px solid #dddddd;">
+            {% block footer_note %}<p style="margin:0;font-size:12px;line-height:18px;color:#63666a;font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;">{% blocktranslate %}If you have any questions, please contact <a href="mailto:support@earthranger.com" style="color:#63666a;">support@earthranger.com</a>{% endblocktranslate %}</p>{% endblock %}
+          </td>
+        </tr>
+
+      </table>
+      <!-- /Outer card -->
+
+    </td>
+  </tr>
+</table>
+
+</body>
+</html>

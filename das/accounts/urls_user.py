@@ -15,15 +15,18 @@ urlpatterns = [
         name="password_change_done",
     ),
     re_path(
-        r"^password_reset/?$", views.PasswordResetView.as_view(), name="password_reset"
+        r"^password_reset/?$",
+        views.PasswordResetView.as_view(
+            html_email_template_name="registration/password_reset_email_html.html",
+        ),
+        name="password_reset",
     ),
     re_path(
         r"^password_reset/done/?$",
         views.PasswordResetDoneView.as_view(),
         name="password_reset_done",
     ),
-    path('reset/<uidb64>/<token>/', views.PasswordResetConfirmView.as_view(),
-         name="password_reset_confirm"),
+    path("reset/<uidb64>/<token>/", views.PasswordResetConfirmView.as_view(), name="password_reset_confirm"),
     re_path(
         r"^reset/done/?$",
         views.PasswordResetCompleteView.as_view(),

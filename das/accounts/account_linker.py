@@ -9,6 +9,7 @@ Two entry points converge on the same PKCE OAuth flow and callback:
 
 import logging
 import secrets
+from urllib.parse import urljoin
 
 from authlib.integrations.django_client import OAuth
 
@@ -298,6 +299,33 @@ def account_linker_callback(request):
     return redirect("/")
 
 
+def send_idp_invitation_email(user: User, *, base_url: str) -> None:
+    """Send the EarthRanger Identity (Auth0) magic-link invitation email to *user*.
+
+    ``base_url`` must be the scheme-and-host root of the site, e.g.
+    ``https://mysite.pamdas.org``.  The token is created here so that every
+    call produces a fresh signed token; callers should not pre-build the token.
+
+    Callers with a request object should pass
+    ``request.build_absolute_uri("/").rstrip("/")`` as ``base_url``; callers
+    without a request (e.g. management commands) should pass
+    ``f"https://{tenant_settings.domain}"``.
+    """
+
+    token = create_magic_link_token(user.id)
+    landing_path = reverse(ACCOUNT_LINKER_LANDING_URL_NAME) + f"?token={token}"
+    invitation_url = urljoin(base_url.rstrip("/") + "/", landing_path.lstrip("/"))
+    site_name = get_tenant_settings().domain
+    context = {
+        "site_name": site_name,
+        "invitation_url": invitation_url,
+    }
+    subject = render_to_string("registration/idp_invitation_subject.txt", context).strip()
+    text_body = render_to_string("registration/idp_invitation_email.txt", context)
+    html_body = render_to_string("registration/idp_invitation_email.html", context)
+    send_mail(subject, text_body, settings.DEFAULT_FROM_EMAIL, [user.email], html_message=html_body)
+
+
 def _send_email_changed_notification(prior_email: str) -> None:
     """Send a notification to the prior email address about the change.
 
@@ -309,7 +337,8 @@ def _send_email_changed_notification(prior_email: str) -> None:
         recipient = prior_email.strip()
         context = {"site_name": site_name}
         subject = render_to_string("registration/account_linker_email_changed_subject.txt", context).strip()
-        body = render_to_string("registration/account_linker_email_changed_email.html", context)
-        send_mail(subject, body, settings.DEFAULT_FROM_EMAIL, [recipient])
+        text_body = render_to_string("registration/account_linker_email_changed_email.txt", context)
+        html_body = render_to_string("registration/account_linker_email_changed_email.html", context)
+        send_mail(subject, text_body, settings.DEFAULT_FROM_EMAIL, [recipient], html_message=html_body)
     except Exception:
         logger.exception("Failed to send email-changed notification to %s", prior_email)

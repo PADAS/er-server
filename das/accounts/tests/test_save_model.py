@@ -226,13 +226,14 @@ class TestSaveModelWithIdp:
 
     @pytest.fixture(autouse=True)
     def fake_account_linker(self, magic_link_token):
-        with patch("accounts.admin.create_magic_link_token", return_value=magic_link_token):
+        with patch("accounts.account_linker.create_magic_link_token", return_value=magic_link_token):
             yield
 
     @pytest.fixture(autouse=True)
     def mock_current_tenant(self):
-        with patch("accounts.admin.get_current_tenant") as mock:
-            mock.return_value.domain = "testsite.pamdas.org"
+        mock_settings = MagicMock()
+        mock_settings.domain = "testsite.pamdas.org"
+        with patch("accounts.account_linker.get_tenant_settings", return_value=mock_settings) as mock:
             yield mock
 
     @pytest.fixture(autouse=True)
@@ -306,7 +307,7 @@ class TestIdpInvitationEmail:
     @pytest.fixture(autouse=True)
     def create_token(self):
         # Exposed so withhold tests can assert no magic-link token was generated.
-        with patch("accounts.admin.create_magic_link_token", return_value="test-token") as mock:
+        with patch("accounts.account_linker.create_magic_link_token", return_value="test-token") as mock:
             yield mock
 
     @pytest.fixture(autouse=True)
@@ -314,8 +315,9 @@ class TestIdpInvitationEmail:
         # Pin the rendering dependencies so each case varies only by the
         # save_model inputs under test, never by tenant identity.
         settings.DEFAULT_FROM_EMAIL = "noreply@example.com"
-        with patch("accounts.admin.get_current_tenant") as current_tenant:
-            current_tenant.return_value.domain = "testsite.pamdas.org"
+        mock_settings = MagicMock()
+        mock_settings.domain = "testsite.pamdas.org"
+        with patch("accounts.account_linker.get_tenant_settings", return_value=mock_settings):
             yield
 
     @pytest.fixture
@@ -433,11 +435,11 @@ class TestEmailDeferredToCommit:
         mock_ts = MagicMock()
         mock_ts.feature_flags.require_idp = True
         mock_ts.feature_flags.idp_org_id = None
+        mock_linker_ts = MagicMock()
+        mock_linker_ts.domain = "testsite.pamdas.org"
         with patch("accounts.admin.get_tenant_settings", return_value=mock_ts):
-            with patch("accounts.admin.create_magic_link_token", return_value="test-token"):
-                with patch("accounts.admin.get_current_tenant") as mock_tenant:
-                    mock_tenant.return_value.domain = "testsite.pamdas.org"
-
+            with patch("accounts.account_linker.create_magic_link_token", return_value="test-token"):
+                with patch("accounts.account_linker.get_tenant_settings", return_value=mock_linker_ts):
                     with pytest.raises(self.Rollback):
                         with transaction.atomic():
                             user_admin.save_model(fake_request, user_with_email, form, change=False)

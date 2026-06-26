@@ -1,12 +1,12 @@
 {% extends "registration/_email_base.html" %}
 {% load i18n %}
 
-{% block title %}{% blocktranslate with site_name=site_name %}Your invitation to {{ site_name }}{% endblocktranslate %}{% endblock %}
+{% block title %}{% blocktranslate with site_name=site_name %}Your EarthRanger KML feed for {{ site_name }}{% endblocktranslate %}{% endblock %}
 
 {% block content %}
 <!-- Heading -->
 <h1 style="margin:0 0 16px 0;font-size:22px;font-weight:500;line-height:1.3;color:#105257;font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;">
-  {% blocktranslate with site_name=site_name %}You've been invited to {{ site_name }}{% endblocktranslate %}
+  {% blocktranslate %}Your EarthRanger KML feed{% endblocktranslate %}
 </h1>
 
 <!-- Greeting -->
@@ -16,17 +16,17 @@
 
 <!-- Body copy -->
 <p style="margin:0 0 24px 0;font-size:16px;line-height:22px;color:#000000;font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;">
-  {% blocktranslate with site_name=site_name %}You have been invited to join {{ site_name }}.{% endblocktranslate %}
-  {% blocktranslate %}To complete your registration, sign in with your email or create a new account using the button below.{% endblocktranslate %}
+  {% blocktranslate %}You're receiving this email because your EarthRanger administrator requested to send you your KML master link.{% endblocktranslate %}
+  {% blocktranslate %}Follow the link below to download the KML feed.{% endblocktranslate %}
 </p>
 
 <!-- CTA button -->
-{% blocktranslate asvar button_label %}Complete your registration{% endblocktranslate %}
-{% include "registration/_email_button.html" with button_url=invitation_url button_label=button_label %}
+{% blocktranslate asvar button_label %}Download KML feed{% endblocktranslate %}
+{% include "registration/_email_button.html" with button_url=kml_master_link button_label=button_label %}
 
 <!-- Fallback link -->
 <p style="margin:0;font-size:13px;line-height:20px;color:#63666a;font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;">
   {% blocktranslate %}If the button doesn't work, copy and paste this link into your browser:{% endblocktranslate %}<br>
-  <a href="{{ invitation_url }}" style="color:#0056c7;word-break:break-all;">{{ invitation_url }}</a>
+  <a href="{{ kml_master_link }}" style="color:#0056c7;word-break:break-all;">{{ kml_master_link }}</a>
 </p>
 {% endblock %}

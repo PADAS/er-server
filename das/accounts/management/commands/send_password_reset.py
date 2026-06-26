@@ -35,6 +35,7 @@ class Command(TenantCommandMixin, BaseCommand):
 
             opts = {
                 "email_template_name": "registration/password_reset_email.html",
+                "html_email_template_name": "registration/password_reset_email_html.html",
                 "from_email": settings.DEFAULT_FROM_EMAIL,
                 "request": request,
                 "subject_template_name": "registration/password_reset_subject.txt",
