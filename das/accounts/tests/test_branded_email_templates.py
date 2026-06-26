@@ -14,6 +14,7 @@ Covers:
 
 from __future__ import annotations
 
+from email.mime.image import MIMEImage
 from io import StringIO
 from unittest.mock import MagicMock, patch
 
@@ -21,10 +22,21 @@ import pytest
 
 from django.contrib.admin import site as admin_site
 from django.contrib.auth import get_user_model
+from django.contrib.staticfiles import finders
 from django.core import mail
+from django.core.mail import EmailMultiAlternatives
+from django.template.loader import render_to_string
 from django.test import RequestFactory
+from django.urls import resolve
 
+from accounts.account_linker import (
+    _send_email_changed_notification,
+    send_idp_invitation_email,
+)
 from accounts.admin import UserAdmin
+from accounts.email_branding import attach_brand_logo
+from accounts.forms import BrandedPasswordResetForm, KmkMasterLinkForm
+from accounts.management.commands.send_password_reset import Command
 
 User = get_user_model()
 
@@ -73,8 +85,6 @@ class TestPasswordResetHtmlTemplateContent:
 
     @pytest.fixture(autouse=True)
     def _rendered(self):
-        from django.template.loader import render_to_string
-
         ctx = {
             "protocol": "https",
             "domain": _TEST_SERVER_HOST,
@@ -145,8 +155,6 @@ class TestPasswordResetOptsWiring:
 
     def test_send_password_reset_command_passes_html_template(self):
         """send_password_reset management command opts include html_email_template_name."""
-        from accounts.management.commands.send_password_reset import Command
-
         captured_opts: dict = {}
 
         mock_ts = MagicMock()
@@ -185,8 +193,6 @@ class TestPasswordResetViewUrlWiring:
 
     def test_password_reset_view_has_html_email_template_name(self):
         """The PasswordResetView entry in urlpatterns exposes html_email_template_name."""
-        from django.urls import resolve
-
         match = resolve("/accounts/password_reset/")
         # The view is a class-based view; the init_kwargs carry the template names.
         view_kwargs = match.func.view_initkwargs
@@ -216,8 +222,6 @@ class TestEmailChangedNoticeIsMultipart:
 
     @pytest.fixture
     def sent_email_changed(self):
-        from accounts.account_linker import _send_email_changed_notification
-
         _send_email_changed_notification("prior@example.com")
         assert len(mail.outbox) == 1
         return mail.outbox[0]
@@ -271,11 +275,6 @@ class TestSharedBaseRendersWordmarkAcrossEmailTypes:
 
     def test_wordmark_in_invitation_and_email_changed_html(self, das_tenant):
         """Both the invitation email and the email-changed notice share the branded header."""
-        from accounts.account_linker import (
-            _send_email_changed_notification,
-            send_idp_invitation_email,
-        )
-
         # Send an invitation email
         user = User.objects.create_user(
             username="wordmarkuser",
@@ -308,8 +307,6 @@ class TestKmlEmailHtmlTemplate:
 
     @pytest.fixture(autouse=True)
     def _rendered(self):
-        from django.template.loader import render_to_string
-
         ctx = {
             "kml_master_link": self._KML_LINK,
             "site_name": _DOMAIN,
@@ -352,8 +349,6 @@ class TestKmlEmailSendIsMultipart:
 
     @pytest.fixture
     def sent_kml_email(self, das_tenant):
-        from accounts.forms import KmkMasterLinkForm
-
         user = User.objects.create_user(
             username="kmluser",
             email="kmluser@example.com",
@@ -410,8 +405,6 @@ class TestKmlAdminOptsWiring:
     """admin.send_kml_email passes html_email_template_name to KmkMasterLinkForm.save."""
 
     def test_send_kml_email_passes_html_template(self, das_tenant):
-        from accounts.models import User
-
         admin = UserAdmin(User, admin_site)
         request = _fake_request()
 
@@ -430,3 +423,300 @@ class TestKmlAdminOptsWiring:
 
         assert captured_opts.get("html_email_template_name") == "utility/kml_master_link_email_html.html"
         assert captured_opts.get("email_template_name") == "utility/kml_master_link_email.html"
+
+
+# ---------------------------------------------------------------------------
+# CID logo: _email_base.html no longer contains an inline SVG
+# ---------------------------------------------------------------------------
+
+
+class TestEmailBaseTemplateNoCidSvg:
+    """The shared email base template uses a CID img tag, not an inline SVG."""
+
+    @pytest.fixture(autouse=True)
+    def _rendered_base(self):
+        # Render via a concrete template that extends _email_base.html.
+        ctx = {
+            "protocol": "https",
+            "domain": _TEST_SERVER_HOST,
+            "uid": "abc123",
+            "token": "xyz-def456",
+            "user": "resetuser",
+            "site_name": _TEST_SERVER_HOST,
+        }
+        self.html = render_to_string("registration/password_reset_email_html.html", ctx)
+
+    def test_base_does_not_contain_inline_svg(self):
+        """The rendered email HTML no longer contains an inline <svg> element."""
+        assert "<svg" not in self.html
+
+    def test_base_contains_cid_img_tag(self):
+        """The rendered email HTML contains an img referencing cid:earthranger-logo."""
+        assert 'src="cid:earthranger-logo"' in self.html
+
+    def test_base_still_contains_earthranger_wordmark(self):
+        """The EarthRanger text wordmark is still present alongside the logo img."""
+        assert "EarthRanger" in self.html
+
+
+# ---------------------------------------------------------------------------
+# CID logo: attach_brand_logo helper
+# ---------------------------------------------------------------------------
+
+
+class TestAttachBrandLogo:
+    """attach_brand_logo attaches the PNG as a CID inline part."""
+
+    def test_attach_brand_logo_sets_mixed_subtype_to_related(self):
+        """After attach_brand_logo the message mixed_subtype is 'related'."""
+        msg = EmailMultiAlternatives("subj", "body", "from@example.com", ["to@example.com"])
+        attach_brand_logo(msg)
+        assert msg.mixed_subtype == "related"
+
+    def test_attach_brand_logo_adds_one_attachment(self):
+        """attach_brand_logo adds exactly one MIME attachment to the message."""
+
+        msg = EmailMultiAlternatives("subj", "body", "from@example.com", ["to@example.com"])
+        attach_brand_logo(msg)
+        assert len(msg.attachments) == 1
+
+    def test_attach_brand_logo_content_id_is_earthranger_logo(self):
+        """The attached MIME part has Content-ID <earthranger-logo>."""
+        msg = EmailMultiAlternatives("subj", "body", "from@example.com", ["to@example.com"])
+        attach_brand_logo(msg)
+        attachment = msg.attachments[0]
+        assert isinstance(attachment, MIMEImage)
+        assert attachment["Content-ID"] == "<earthranger-logo>"
+
+    def test_attach_brand_logo_content_disposition_is_inline(self):
+        """The attached MIME part has Content-Disposition: inline."""
+
+        msg = EmailMultiAlternatives("subj", "body", "from@example.com", ["to@example.com"])
+        attach_brand_logo(msg)
+        attachment = msg.attachments[0]
+        assert isinstance(attachment, MIMEImage)
+        assert "inline" in attachment["Content-Disposition"]
+
+    def test_attach_brand_logo_raises_if_static_file_missing(self):
+        """attach_brand_logo raises FileNotFoundError when the PNG cannot be found."""
+        msg = EmailMultiAlternatives("subj", "body", "from@example.com", ["to@example.com"])
+        with patch.object(finders, "find", return_value=None):
+            with pytest.raises(FileNotFoundError, match="EarthRanger-Logo_icon.png"):
+                attach_brand_logo(msg)
+
+
+# ---------------------------------------------------------------------------
+# CID logo: IdP invitation email
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("das_tenant_monkeypatch")
+class TestIdpInvitationEmailHasLogo:
+    """send_idp_invitation_email attaches the logo as a CID inline image."""
+
+    @pytest.fixture(autouse=True)
+    def _settings(self, settings):
+        settings.DEFAULT_FROM_EMAIL = _FROM_EMAIL
+
+    @pytest.fixture(autouse=True)
+    def _mock_tenant(self):
+        mock_ts = MagicMock()
+        mock_ts.domain = _DOMAIN
+        with patch("accounts.account_linker.get_tenant_settings", return_value=mock_ts):
+            yield
+
+    @pytest.fixture
+    def sent_invitation(self, das_tenant):
+        user = User.objects.create_user(
+            username="invitelogouser",
+            email="invitelogouser@example.com",
+            das_tenant=das_tenant,
+            is_active=True,
+        )
+        with patch("accounts.account_linker.create_magic_link_token", return_value="tok"):
+            send_idp_invitation_email(user, base_url=f"https://{_DOMAIN}")
+        assert len(mail.outbox) == 1
+        return mail.outbox[0]
+
+    def test_invitation_has_logo_cid_attachment(self, sent_invitation):
+        """The invitation email has exactly one attachment with CID earthranger-logo."""
+        assert len(sent_invitation.attachments) == 1
+        attachment = sent_invitation.attachments[0]
+        assert isinstance(attachment, MIMEImage)
+        assert attachment["Content-ID"] == "<earthranger-logo>"
+
+    def test_invitation_mixed_subtype_is_related(self, sent_invitation):
+        """The invitation email has mixed_subtype 'related'."""
+        assert sent_invitation.mixed_subtype == "related"
+
+    def test_invitation_html_references_cid(self, sent_invitation):
+        """The HTML alternative in the invitation references cid:earthranger-logo."""
+        html_body, _ = sent_invitation.alternatives[0]
+        assert "cid:earthranger-logo" in html_body
+
+
+# ---------------------------------------------------------------------------
+# CID logo: account-linker email-changed notice
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("das_tenant_monkeypatch")
+class TestEmailChangedNoticeHasLogo:
+    """_send_email_changed_notification attaches the logo as a CID inline image."""
+
+    @pytest.fixture(autouse=True)
+    def _settings(self, settings):
+        settings.DEFAULT_FROM_EMAIL = _FROM_EMAIL
+
+    @pytest.fixture(autouse=True)
+    def _mock_tenant(self):
+        mock_ts = MagicMock()
+        mock_ts.domain = _DOMAIN
+        with patch("accounts.account_linker.get_tenant_settings", return_value=mock_ts):
+            yield
+
+    @pytest.fixture
+    def sent_email_changed(self):
+        _send_email_changed_notification("prior@example.com")
+        assert len(mail.outbox) == 1
+        return mail.outbox[0]
+
+    def test_email_changed_has_logo_cid_attachment(self, sent_email_changed):
+        """The email-changed notice has a CID attachment with ID earthranger-logo."""
+        assert len(sent_email_changed.attachments) == 1
+        attachment = sent_email_changed.attachments[0]
+        assert isinstance(attachment, MIMEImage)
+        assert attachment["Content-ID"] == "<earthranger-logo>"
+
+    def test_email_changed_mixed_subtype_is_related(self, sent_email_changed):
+        """The email-changed notice has mixed_subtype 'related'."""
+        assert sent_email_changed.mixed_subtype == "related"
+
+    def test_email_changed_html_references_cid(self, sent_email_changed):
+        """The HTML alternative in the email-changed notice references cid:earthranger-logo."""
+        html_body, _ = sent_email_changed.alternatives[0]
+        assert "cid:earthranger-logo" in html_body
+
+
+# ---------------------------------------------------------------------------
+# CID logo: KML master-link email
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("das_tenant_monkeypatch")
+class TestKmlEmailHasLogo:
+    """KmkMasterLinkForm.send_mail attaches the logo as a CID inline image."""
+
+    _KML_LINK = "https://testsite.pamdas.org/kml/master?token=abc123"
+
+    @pytest.fixture(autouse=True)
+    def _settings(self, settings):
+        settings.FROM_EMAIL = _FROM_EMAIL
+
+    @pytest.fixture
+    def sent_kml_email(self, das_tenant):
+        user = User.objects.create_user(
+            username="kmllogouser",
+            email="kmllogouser@example.com",
+            das_tenant=das_tenant,
+            is_active=True,
+        )
+        form = KmkMasterLinkForm(data={"email": user.email})
+        assert form.is_valid()
+        opts = {
+            "request": _fake_request(),
+            "user": user,
+            "subject_template_name": "utility/kml_master_link_subject.txt",
+            "email_template_name": "utility/kml_master_link_email.html",
+            "html_email_template_name": "utility/kml_master_link_email_html.html",
+        }
+        with patch("accounts.forms.kmlutils.get_kml_master_link", return_value=self._KML_LINK):
+            with patch("accounts.forms.get_current_site") as mock_site:
+                mock_site.return_value.name = _DOMAIN
+                form.save(**opts)
+        assert len(mail.outbox) == 1
+        return mail.outbox[0]
+
+    def test_kml_email_has_logo_cid_attachment(self, sent_kml_email):
+        """The KML email has a CID attachment with ID earthranger-logo."""
+        assert len(sent_kml_email.attachments) == 1
+        attachment = sent_kml_email.attachments[0]
+        assert isinstance(attachment, MIMEImage)
+        assert attachment["Content-ID"] == "<earthranger-logo>"
+
+    def test_kml_email_mixed_subtype_is_related(self, sent_kml_email):
+        """The KML email has mixed_subtype 'related'."""
+        assert sent_kml_email.mixed_subtype == "related"
+
+    def test_kml_email_html_references_cid(self, sent_kml_email):
+        """The HTML alternative in the KML email references cid:earthranger-logo."""
+        html_body, _ = sent_kml_email.alternatives[0]
+        assert "cid:earthranger-logo" in html_body
+
+
+# ---------------------------------------------------------------------------
+# CID logo: BrandedPasswordResetForm
+# ---------------------------------------------------------------------------
+
+
+class TestBrandedPasswordResetFormHasLogo:
+    """BrandedPasswordResetForm.send_mail attaches the logo as a CID inline image."""
+
+    def test_branded_form_attaches_logo_when_html_template_provided(self):
+        """send_mail on BrandedPasswordResetForm attaches logo and sets mixed_subtype."""
+        form = BrandedPasswordResetForm()
+        form.send_mail(
+            subject_template_name="registration/password_reset_subject.txt",
+            email_template_name="registration/password_reset_email.html",
+            context={
+                "protocol": "https",
+                "domain": _TEST_SERVER_HOST,
+                "uid": "abc123",
+                "token": "tok-abc",
+                "user": "u",
+                "site_name": _TEST_SERVER_HOST,
+            },
+            from_email=_FROM_EMAIL,
+            to_email="user@example.com",
+            html_email_template_name="registration/password_reset_email_html.html",
+        )
+
+        assert len(mail.outbox) == 1
+        msg = mail.outbox[0]
+        assert msg.mixed_subtype == "related"
+        assert len(msg.attachments) == 1
+        attachment = msg.attachments[0]
+        assert isinstance(attachment, MIMEImage)
+        assert attachment["Content-ID"] == "<earthranger-logo>"
+
+    def test_branded_form_no_logo_when_no_html_template(self):
+        """send_mail without html_email_template_name sends plain text only — no logo."""
+        form = BrandedPasswordResetForm()
+        form.send_mail(
+            subject_template_name="registration/password_reset_subject.txt",
+            email_template_name="registration/password_reset_email.html",
+            context={
+                "protocol": "https",
+                "domain": _TEST_SERVER_HOST,
+                "uid": "abc123",
+                "token": "tok-abc",
+                "user": "u",
+                "site_name": _TEST_SERVER_HOST,
+            },
+            from_email=_FROM_EMAIL,
+            to_email="user@example.com",
+        )
+
+        assert len(mail.outbox) == 1
+        msg = mail.outbox[0]
+        assert len(msg.attachments) == 0
+
+    def test_password_reset_view_uses_branded_form(self):
+        """The public PasswordResetView URLconf entry uses BrandedPasswordResetForm."""
+
+        match = resolve("/accounts/password_reset/")
+        view_kwargs = match.func.view_initkwargs
+        assert view_kwargs.get("form_class") is BrandedPasswordResetForm

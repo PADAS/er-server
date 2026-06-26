@@ -1,6 +1,8 @@
 from django.contrib.auth import login, logout, views
 from django.urls import path, re_path
 
+from accounts.forms import BrandedPasswordResetForm
+
 urlpatterns = [
     re_path(r"^login/?$", login, name="login"),
     re_path(r"^logout/?$", logout, name="logout"),
@@ -18,6 +20,7 @@ urlpatterns = [
         r"^password_reset/?$",
         views.PasswordResetView.as_view(
             html_email_template_name="registration/password_reset_email_html.html",
+            form_class=BrandedPasswordResetForm,
         ),
         name="password_reset",
     ),

@@ -1,7 +1,13 @@
+from __future__ import annotations
+
 from django import forms
 from django.conf import settings
 from django.contrib.admin.widgets import AdminDateWidget, FilteredSelectMultiple
-from django.contrib.auth.forms import UserChangeForm, UserCreationForm
+from django.contrib.auth.forms import (
+    PasswordResetForm,
+    UserChangeForm,
+    UserCreationForm,
+)
 from django.contrib.auth.models import Permission
 from django.contrib.sites.shortcuts import get_current_site
 from django.core.mail import EmailMultiAlternatives
@@ -10,6 +16,7 @@ from django.urls import reverse
 from django.utils.safestring import mark_safe
 from django.utils.translation import gettext_lazy as _
 
+from accounts.email_branding import attach_brand_logo
 from accounts.models import PermissionSet, User
 from accounts.utils import (
     filter_permissions_by_tenant,
@@ -297,8 +304,10 @@ class KmkMasterLinkForm(forms.Form):
             subject=subject, body=body, from_email=settings.FROM_EMAIL, to=[to_email]
         )
         if html_email_template_name is not None:
+
             html_email = loader.render_to_string(html_email_template_name, context)
             email_message.attach_alternative(html_email, "text/html")
+            attach_brand_logo(email_message)
 
         email_message.send()
 
@@ -321,6 +330,38 @@ class KmkMasterLinkForm(forms.Form):
             user.email,
             html_email_template_name,
         )
+
+
+class BrandedPasswordResetForm(PasswordResetForm):
+    """PasswordResetForm subclass that embeds the EarthRanger logo as a CID
+    inline attachment so the HTML email renders the logo in all major clients.
+    """
+
+    def send_mail(
+        self,
+        subject_template_name: str,
+        email_template_name: str,
+        context: dict,
+        from_email: str | None,
+        to_email: str,
+        html_email_template_name: str | None = None,
+    ) -> None:
+        """Build and send the branded password-reset email.
+
+        Mirrors Django 4.2's ``PasswordResetForm.send_mail`` exactly, but
+        calls ``attach_brand_logo`` before sending so the HTML alternative can
+        resolve ``cid:earthranger-logo``.
+        """
+
+        subject = loader.render_to_string(subject_template_name, context)
+        subject = "".join(subject.splitlines())
+        body = loader.render_to_string(email_template_name, context)
+        email_message = EmailMultiAlternatives(subject, body, from_email, [to_email])
+        if html_email_template_name is not None:
+            html_email = loader.render_to_string(html_email_template_name, context)
+            email_message.attach_alternative(html_email, "text/html")
+            attach_brand_logo(email_message)
+        email_message.send()
 
 
 class AccessGrantForm(forms.ModelForm):

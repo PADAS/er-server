@@ -16,7 +16,7 @@ from authlib.integrations.django_client import OAuth
 from django.conf import settings
 from django.core import signing
 from django.core.exceptions import ValidationError
-from django.core.mail import send_mail
+from django.core.mail import EmailMultiAlternatives
 from django.db import IntegrityError, transaction
 from django.db.models.functions import Trim
 from django.http import HttpResponse
@@ -26,6 +26,7 @@ from django.urls import reverse
 from django.views.decorators.cache import never_cache
 from django.views.decorators.csrf import csrf_exempt
 
+from accounts.email_branding import attach_brand_logo
 from accounts.models import User
 from utils.auth0.helpers import get_auth0_custom_domain
 from utils.tenant import get_tenant_settings
@@ -336,10 +337,14 @@ def send_idp_invitation_email(user: User, *, base_url: str) -> None:
         "site_name": site_name,
         "invitation_url": invitation_url,
     }
+
     subject = render_to_string("registration/idp_invitation_subject.txt", context).strip()
     text_body = render_to_string("registration/idp_invitation_email.txt", context)
     html_body = render_to_string("registration/idp_invitation_email.html", context)
-    send_mail(subject, text_body, settings.DEFAULT_FROM_EMAIL, [user.email], html_message=html_body)
+    message = EmailMultiAlternatives(subject, text_body, settings.DEFAULT_FROM_EMAIL, [user.email])
+    message.attach_alternative(html_body, "text/html")
+    attach_brand_logo(message)
+    message.send()
 
 
 def _send_email_changed_notification(prior_email: str) -> None:
@@ -352,9 +357,13 @@ def _send_email_changed_notification(prior_email: str) -> None:
         site_name = get_tenant_settings().domain
         recipient = prior_email.strip()
         context = {"site_name": site_name}
+
         subject = render_to_string("registration/account_linker_email_changed_subject.txt", context).strip()
         text_body = render_to_string("registration/account_linker_email_changed_email.txt", context)
         html_body = render_to_string("registration/account_linker_email_changed_email.html", context)
-        send_mail(subject, text_body, settings.DEFAULT_FROM_EMAIL, [recipient], html_message=html_body)
+        message = EmailMultiAlternatives(subject, text_body, settings.DEFAULT_FROM_EMAIL, [recipient])
+        message.attach_alternative(html_body, "text/html")
+        attach_brand_logo(message)
+        message.send()
     except Exception:
         logger.exception("Failed to send email-changed notification to %s", prior_email)
