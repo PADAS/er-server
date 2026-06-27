@@ -2351,27 +2351,24 @@ class TestPatrolFilter:
 
     @pytest.mark.parametrize("statuses", [["active", "scheduled"], ["done", "cancelled"]])
     def test_filter_by_patrol_status_list_with_many_values(self, five_patrol_segment, statuses):
-        cancelled_patrol = Patrol.objects.all()[0]
+        segments = five_patrol_segment
+
+        cancelled_patrol = segments[0].patrol
         cancelled_patrol.state = "cancelled"
         cancelled_patrol.save()
 
-        done_patrol = Patrol.objects.all()[1]
+        done_patrol = segments[1].patrol
         done_patrol.state = "cancelled"
         done_patrol.save()
 
-        active_patrol = Patrol.objects.all()[2]
-        tzr = DateTimeTZRange(datetime.now(tz=timezone.utc))
-        active_patrol_segment = active_patrol.patrol_segments.first()
-        active_patrol_segment.time_range = tzr
-        active_patrol_segment.save()
+        active_segment = segments[2]
+        active_segment.time_range = DateTimeTZRange(datetime.now(tz=timezone.utc))
+        active_segment.save()
 
-        scheduled_patrol = Patrol.objects.all()[3]
-        start_date = datetime.now(tz=timezone.utc) + timedelta(days=2)
-        end_date = datetime.now(tz=timezone.utc) + timedelta(days=4)
-        scheduled_patro_segment = scheduled_patrol.patrol_segments.first()
-        scheduled_patro_segment.scheduled_start = start_date
-        scheduled_patro_segment.scheduled_end = end_date
-        scheduled_patro_segment.save()
+        scheduled_segment = segments[3]
+        scheduled_segment.scheduled_start = datetime.now(tz=timezone.utc) + timedelta(days=2)
+        scheduled_segment.scheduled_end = datetime.now(tz=timezone.utc) + timedelta(days=4)
+        scheduled_segment.save()
 
         client = HTTPClient()
         view_patrol_permissionset = PermissionSet.objects.get(name="View Patrols Permissions")
