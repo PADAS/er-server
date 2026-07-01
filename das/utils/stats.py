@@ -105,8 +105,9 @@ def _parse_tags(tags: list[str] | dict[str, str] | None) -> dict[str, str]:
 
     Two input shapes are accepted:
 
-    - A list of Datadog-style ``["key:value", ...]`` strings. Tags without a
-      colon are kept as ``{"tag": "true"}``.
+    - A list of ``["key:value", ...]`` strings using the colon-delimited tag
+      convention from statsd/DogStatsD. Tags without a colon are kept as
+      ``{"tag": "true"}``.
     - A ``{key: value}`` dict, whose items are used directly as attributes.
 
     For both shapes: keys/values are coerced to ``str``, empty keys are
@@ -163,7 +164,7 @@ def _ensure_gauge(name: str) -> None:
 
 
 # ---------------------------------------------------------------------------
-# Public API — drop-in replacements for the former datadog wrappers
+# Public API — drop-in replacements for the former statsd wrapper
 # ---------------------------------------------------------------------------
 
 

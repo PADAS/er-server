@@ -55,10 +55,15 @@ Application code uses four functions from `utils.stats`:
 - `update_gauge(metric, value, tags=None)` — records an absolute gauge value.
 - `histogram(metric, value, tags=None, buckets=None)` — records a sample into a histogram.
 
-`tags` is a list of Datadog-style `"key:value"` strings (carried over from the previous
-statsd implementation); values longer than 1000 characters are truncated to match the
-Stackdriver tag length limit. Tags are translated into OpenTelemetry attributes before
-being attached to each recorded data point.
+`tags` accepts either a list of "key:value" strings (the colon-delimited tag
+convention from statsd/DogStatsD, carried over from the former statsd wrapper — the
+application never ran Datadog itself) or a plain `{key: value}` dict. For both shapes,
+keys and values are coerced to strings, empty keys are skipped, and an empty value maps
+to "true"; a list entry with no colon (e.g. "realtime") is treated the same way
+(`{"realtime": "true"}`). List entries are truncated to 1000 characters before parsing;
+dict values are truncated to 1000 characters to match the Stackdriver tag length limit.
+Tags are translated into OpenTelemetry attributes before being attached to each recorded
+data point.
 
 `histogram` accepts an optional `buckets` (a sequence of upper-bound boundaries) that
 sets the instrument's explicit bucket-boundary advisory. When omitted, the module
