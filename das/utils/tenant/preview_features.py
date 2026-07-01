@@ -43,6 +43,11 @@ PREVIEW_FEATURES: dict[str, PreviewFeature] = {
         "Stays off until all clients support the attachment property feature; "
         "set global_override=True to expose it for every tenant at once.",
     ),
+    "events_vector_tiles": PreviewFeature(
+        default=False,
+        description="Per-tenant gate for serving events as vector tiles. "
+        "Set global_override=True to expose it for every tenant at once.",
+    ),
 }
 
 
