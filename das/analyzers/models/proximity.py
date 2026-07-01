@@ -1,6 +1,7 @@
 from django_multitenant.fields import TenantForeignKey
 
 from django.contrib.gis.db import models
+from django.core.exceptions import ValidationError
 from django.utils.translation import gettext as _
 
 from analyzers.models.base import SubjectAnalyzerConfig
@@ -14,6 +15,12 @@ from mapping.lookups import (
 )
 from mapping.models import SpatialFeatureGroupStatic
 from observations.models import SubjectGroup
+
+
+def validate_positive(value: float) -> None:
+    """Raise ValidationError when *value* is not strictly greater than zero."""
+    if value <= 0:
+        raise ValidationError(_("Proximity Distance must be greater than 0."), code="min_value")
 
 
 class FeatureProximityAnalyzerConfig(SubjectAnalyzerConfig):
@@ -36,6 +43,7 @@ class FeatureProximityAnalyzerConfig(SubjectAnalyzerConfig):
         "within this distance of a designated spatial feature. "
         "<br/>A subject's path is drawn using a straight line between "
         "reported positions.",
+        validators=[validate_positive],
     )
 
     analyzer_category = "proximity"
@@ -63,6 +71,7 @@ class SubjectProximityAnalyzerConfig(SubjectAnalyzerConfig):
         help_text="A proximity event will only occur when either subject's path passes "
         "within this distance of the other subject. A subject's path "
         "is drawn using a straight line between reported positions.",
+        validators=[validate_positive],
     )
     analyzer_category = "subject_proximity"
     analysis_search_time_hours = models.FloatField(

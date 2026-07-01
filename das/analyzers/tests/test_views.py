@@ -514,3 +514,78 @@ class TestTenantIsolation:
 
         assert response.status_code == status.HTTP_400_BAD_REQUEST
         assert "proximal_features" in response.data
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("tenant_settings", "das_tenant_monkeypatch")
+class TestProximityThresholdValidation:
+    """Verify that threshold_dist_meters must be strictly > 0 on both proximity analyzer types."""
+
+    feature_proximity_url = f"{ANALYZERS_BASE}/featureproximity/"
+    subject_proximity_url = f"{ANALYZERS_BASE}/subjectproximity/"
+
+    @pytest.fixture
+    def proximal_feature_group(self, das_tenant):
+        return SpatialFeatureGroupStatic.objects.create(name="test_feature_group", das_tenant=das_tenant)
+
+    @pytest.fixture
+    def second_subject_group(self, das_tenant):
+        return SubjectGroup.objects.create(name="second_group", das_tenant=das_tenant)
+
+    # --- FeatureProximityAnalyzerConfig ---
+
+    @pytest.mark.parametrize("bad_value", [0, -1, -100.5])
+    def test_feature_proximity_rejects_non_positive_threshold(
+        self, superuser_client, subject_group, proximal_feature_group, bad_value: float
+    ) -> None:
+        payload = {
+            "name": f"fp_bad_threshold_{bad_value}",
+            "subject_group": subject_group.id,
+            "proximal_features": proximal_feature_group.id,
+            "threshold_dist_meters": bad_value,
+        }
+        response = superuser_client.post(self.feature_proximity_url, payload, format="json")
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+        assert "threshold_dist_meters" in response.data
+
+    def test_feature_proximity_accepts_positive_threshold(
+        self, superuser_client, subject_group, proximal_feature_group
+    ) -> None:
+        payload = {
+            "name": "fp_valid_threshold",
+            "subject_group": subject_group.id,
+            "proximal_features": proximal_feature_group.id,
+            "threshold_dist_meters": 500.0,
+        }
+        response = superuser_client.post(self.feature_proximity_url, payload, format="json")
+        assert response.status_code == status.HTTP_201_CREATED
+        assert response.data["threshold_dist_meters"] == 500.0
+
+    # --- SubjectProximityAnalyzerConfig ---
+
+    @pytest.mark.parametrize("bad_value", [0, -1, -100.5])
+    def test_subject_proximity_rejects_non_positive_threshold(
+        self, superuser_client, subject_group, second_subject_group, bad_value: float
+    ) -> None:
+        payload = {
+            "name": f"sp_bad_threshold_{bad_value}",
+            "subject_group": subject_group.id,
+            "second_subject_group": second_subject_group.id,
+            "threshold_dist_meters": bad_value,
+        }
+        response = superuser_client.post(self.subject_proximity_url, payload, format="json")
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+        assert "threshold_dist_meters" in response.data
+
+    def test_subject_proximity_accepts_positive_threshold(
+        self, superuser_client, subject_group, second_subject_group
+    ) -> None:
+        payload = {
+            "name": "sp_valid_threshold",
+            "subject_group": subject_group.id,
+            "second_subject_group": second_subject_group.id,
+            "threshold_dist_meters": 100.0,
+        }
+        response = superuser_client.post(self.subject_proximity_url, payload, format="json")
+        assert response.status_code == status.HTTP_201_CREATED
+        assert response.data["threshold_dist_meters"] == 100.0
