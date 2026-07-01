@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 import datetime
+import re
 import uuid
+from urllib.parse import urlencode
 
 import pytest
 
@@ -116,9 +118,13 @@ class TestObservationAdminBulkDelete:
         # With select_across, the template renders <input name="select_across" value="1">
         # exactly once and skips the per-row {% for %} loop.
         assert rendered.count('name="select_across"') == 1
-        assert (
-            rendered.count('name="_selected_action"') == 0
-        ), "select_across path must not iterate the queryset to emit per-row inputs"
+        # It emits exactly ONE _selected_action sentinel (not one per row): the
+        # field must be present so changelist_view dispatches the confirmed POST,
+        # but it must not iterate the queryset to emit per-row inputs.
+        assert rendered.count('name="_selected_action"') == 1, (
+            "select_across path must emit a single _selected_action sentinel "
+            "(required by changelist_view's dispatch gate), not one input per row"
+        )
 
     def test_bulk_delete_get_renders_confirmation_with_summary_count(self, superuser):
         # GET path (initial confirmation) should render the model-count summary so
@@ -143,6 +149,96 @@ class TestObservationAdminBulkDelete:
         actions = admin.get_actions(request)
         assert "delete_selected" not in actions, "default action would re-introduce per-row LogEntry inserts"
         assert "delete_selected_observations" in actions
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("tenant_settings", "das_tenant_monkeypatch")
+class TestObservationAdminChangelistDeleteFlow:
+    """End-to-end regression coverage for the confirmed select-across delete bug.
+
+    The select-across confirmation template emits no per-row _selected_action
+    inputs (by design, to avoid one hidden input per row for huge sets).  But
+    Django's changelist_view only dispatches the confirmed POST to
+    response_action when helpers.ACTION_CHECKBOX_NAME ("_selected_action") is
+    present in request.POST.  Without a sentinel field the confirmation POST is
+    silently dropped and nothing is deleted.
+    """
+
+    CHANGELIST_URL = "admin:observations_observation_changelist"
+
+    @staticmethod
+    def _post_form(client: Client, url: str, fields: list[tuple[str, str]]):
+        """POST as application/x-www-form-urlencoded so the data lands in
+        request.POST (the admin reads form data, not a JSON body).  Accepts a
+        list of pairs so repeated keys like _selected_action are preserved."""
+        return client.post(url, data=urlencode(fields), content_type="application/x-www-form-urlencoded")
+
+    @staticmethod
+    def _hidden_inputs(html: str) -> list[tuple[str, str]]:
+        """Extract (name, value) for every <input type="hidden"> inside the
+        confirmation page, so the confirmation POST mirrors exactly what a
+        browser would submit when the user clicks 'Yes, I'm sure'."""
+        fields: list[tuple[str, str]] = []
+        for tag in re.findall(r"<input[^>]*type=\"hidden\"[^>]*>", html):
+            name = re.search(r'name="([^"]+)"', tag)
+            value = re.search(r'value="([^"]*)"', tag)
+            if name:
+                fields.append((name.group(1), value.group(1) if value else ""))
+        return fields
+
+    def test_select_across_confirmation_post_deletes_all_matching_observations(self, superuser_client: Client) -> None:
+        # The bug only bites when the user picks "select all N" (select-across)
+        # rather than the visible page rows.
+        observations = ObservationFactory.create_batch(5)
+        ids = [o.id for o in observations]
+        assert Observation.objects.filter(id__in=ids).count() == 5
+
+        url = reverse(self.CHANGELIST_URL)
+
+        # Step 1: the initial action POST from the changelist (has "index" and the
+        # select_across marker, no "post=yes") renders the confirmation page.
+        step1 = [("action", "delete_selected_observations"), ("select_across", "1"), ("index", "0")]
+        step1 += [("_selected_action", str(o.id)) for o in observations]
+        confirm = self._post_form(superuser_client, url, step1)
+        assert confirm.status_code == 200
+        html = confirm.content.decode()
+        assert "Are you sure" in html, "expected the delete confirmation page to render"
+
+        # Step 2: submit the confirmation form using ONLY the hidden inputs the
+        # override template actually emits (plus post=yes) — i.e. exactly what a
+        # browser posts on "Yes, I'm sure".  This is what proves the bug: the
+        # current template omits any _selected_action field in the select-across
+        # branch, so changelist_view's confirmation gate (ACTION_CHECKBOX_NAME in
+        # request.POST) is False and nothing is deleted.
+        confirm_fields = self._hidden_inputs(html)
+        assert ("select_across", "1") in confirm_fields, "precondition: confirmation form is in select-across mode"
+
+        response = self._post_form(superuser_client, url, confirm_fields)
+
+        assert response.status_code in (200, 302), response.status_code
+        assert not Observation.objects.filter(id__in=ids).exists(), (
+            "select-across confirmation POST must delete ALL matching observations; "
+            "nothing deleted means changelist_view dropped the POST because the "
+            "confirmation template emitted no _selected_action sentinel"
+        )
+
+    def test_per_row_confirmation_post_deletes_only_selected_rows(self, superuser_client: Client) -> None:
+        observations = ObservationFactory.create_batch(3)
+        selected = observations[:2]
+        unselected = observations[2]
+        selected_ids = [o.id for o in selected]
+
+        url = reverse(self.CHANGELIST_URL)
+        # The per-row confirmation POST enumerates the selected pks (no "index",
+        # select_across=0, post=yes) — exactly what the template's {% else %}
+        # branch emits.
+        fields = [("action", "delete_selected_observations"), ("select_across", "0"), ("post", "yes")]
+        fields += [("_selected_action", str(o.id)) for o in selected]
+        response = self._post_form(superuser_client, url, fields)
+
+        assert response.status_code in (200, 302), response.status_code
+        assert not Observation.objects.filter(id__in=selected_ids).exists(), "selected rows must be deleted"
+        assert Observation.objects.filter(id=unselected.id).exists(), "unselected rows must remain"
 
 
 @pytest.mark.django_db

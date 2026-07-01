@@ -49,6 +49,12 @@ admin/ path so other admins keep Django's default bulk-delete UI.
     <div>
     {% if select_across %}
     <input type="hidden" name="select_across" value="1">
+    {# changelist_view only dispatches the confirmed POST to the action when an
+       ACTION_CHECKBOX_NAME ("_selected_action") field is present in request.POST;
+       in select-across mode we deliberately omit the per-row inputs, so emit one
+       sentinel to satisfy that gate. response_action ignores its value when
+       select_across=1 and runs the action on the full filtered queryset. #}
+    <input type="hidden" name="{{ action_checkbox_name }}" value="0">
     {% else %}
     {% for obj in queryset %}
     <input type="hidden" name="{{ action_checkbox_name }}" value="{{ obj.pk|unlocalize }}">
