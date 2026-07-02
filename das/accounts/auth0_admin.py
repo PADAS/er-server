@@ -22,6 +22,7 @@ from django.http import HttpRequest, HttpResponse
 from django.shortcuts import redirect
 from django.urls import reverse
 from django.utils.http import url_has_allowed_host_and_scheme
+from django.views.decorators.cache import never_cache
 from django.views.decorators.csrf import csrf_exempt
 
 from accounts.backends import Auth0BackendForStaffUsers
@@ -148,6 +149,7 @@ def _use_default_django_admin_login(request):
 INITIATE_AUTH0_ADMIN_LOGIN_URL_NAME = "auth0_admin_login"
 
 
+@never_cache
 def initiate_auth0_admin_login(request):
     """
     Initiates Auth0 login for Django Admin.
@@ -164,7 +166,9 @@ def initiate_auth0_admin_login(request):
 
     auth0_callback_url = request.build_absolute_uri(reverse("auth0_callback"))
 
-    extra_params = {}
+    # Force a fresh Auth0 prompt so a retry cannot silently reuse an existing SSO session and
+    # re-assert the same (possibly non-admin) identity, which would trap the user in a login loop.
+    extra_params = {"prompt": "login"}
     if org_id:
         extra_params["organization"] = org_id
         logger.debug("Initiating Auth0 admin login with organization %s", org_id)

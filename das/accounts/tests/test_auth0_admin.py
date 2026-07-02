@@ -311,6 +311,30 @@ class TestInitiateAuth0AdminLogin:
             # organization must not be passed at all when org_id is missing
             assert "organization" not in call_args[1]
 
+    @pytest.mark.parametrize("query_string", ["?org_id=org_test123", ""], ids=["org_scoped", "common_db"])
+    def test_forces_login_prompt_to_prevent_silent_sso_reuse(self, request_factory, query_string):
+        """The initiator must send prompt=login on every admin login — org-scoped and common-DB
+        alike — so a retry re-prompts at Auth0 instead of silently reusing an existing SSO
+        session. Without it, a rejected non-admin identity is re-asserted on every retry and the
+        user is stuck in a login loop."""
+        request = request_factory.get(f"/auth/admin-login/{query_string}")
+        request.session = {}
+        request.build_absolute_uri = lambda path: f"https://example.com{path}"
+
+        with patch("accounts.auth0_admin._admin_auth0_client.auth0.authorize_redirect") as mock_redirect:
+            mock_redirect.return_value = HttpResponse("auth0_redirect")
+
+            _ = initiate_auth0_admin_login(request)
+
+            call_kwargs = mock_redirect.call_args[1]
+            assert call_kwargs["prompt"] == "login"
+            # prompt=login must ride alongside the organization param, not displace it:
+            # a future rewrite of extra_params must not drop org while keeping the prompt.
+            if query_string:
+                assert call_kwargs["organization"] == "org_test123"
+            else:
+                assert "organization" not in call_kwargs
+
 
 @pytest.mark.django_db
 @pytest.mark.usefixtures("tenant_settings", "das_tenant_monkeypatch")
