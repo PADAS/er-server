@@ -22,7 +22,6 @@ class ErrorCategory(str, Enum):
     TRANSFORM = "transform"
     CHOICES_RESOLUTION = "choices_resolution"  # All hardcoded choice resolution errors
     PERSISTENCE = "persistence"
-    REPAIR = "repair"  # V2 schema collection repair (tiered classification + execution)
     GENERAL = "general"
 
 
@@ -56,24 +55,6 @@ class ErrorCode(tuple[ErrorCategory, str], Enum):
     CHOICE_CREATION_FAILED = (ErrorCategory.PERSISTENCE, "choice_creation_failed")
     PERSIST_FAILED = (ErrorCategory.PERSISTENCE, "persist_failed")
 
-    # Repair (V2 schema collection repair).
-    #
-    # The set is deliberately small: only emit signals that are actually actionable.
-    #
-    # INFO codes record *successful applies* - one per concrete repair strategy.
-    # These are the only routine events worth recording at info severity; everything
-    # else either lives in the report (skips, not-migrated) or warrants warning/error
-    # severity.
-    REPAIR_REBUILT_FROM_V1 = (ErrorCategory.REPAIR, "repair_rebuilt_from_v1")
-    REPAIR_RECONSTRUCTED_FROM_JSON = (ErrorCategory.REPAIR, "repair_reconstructed_from_json")
-    # WARNING - classification surfaced a diagnostic note (e.g. multiple
-    # candidate migration revisions, snapshot anomalies). Operators want
-    # to see these but they don't block the run.
-    REPAIR_AMBIGUOUS_HISTORY = (ErrorCategory.REPAIR, "repair_ambiguous_history")
-    # ERROR - apply layer reported an error_* action, or classification
-    # itself raised.
-    REPAIR_FAILED = (ErrorCategory.REPAIR, "repair_failed")
-
     # General
     EXCEPTION = (ErrorCategory.GENERAL, "exception")
 
@@ -102,22 +83,6 @@ class LogContext:
         tenant_component = cls._normalize_id_component(tenant_name)
         unique_component = uuid.uuid4().hex[:8]
         return f"MR-{tenant_component}-{unique_component}"
-
-    @classmethod
-    def build_repair_request_id(cls, tenant_name: str) -> str:
-        tenant_component = cls._normalize_id_component(tenant_name)
-        unique_component = uuid.uuid4().hex[:8]
-        return f"RP-{tenant_component}-{unique_component}"
-
-    @classmethod
-    def for_repair(cls, tenant_name: str, dry_run: bool, request_id: str = "") -> LogContext:
-        """Build a LogContext for a repair run (no HTTP request required).
-
-        Used by the management command that walks revisions and classifies/repairs
-        EventTypes outside of any user-initiated request.
-        """
-        request_id = (request_id or "").strip() or cls.build_repair_request_id(tenant_name=tenant_name)
-        return cls(migration_request_id=request_id, tenant_name=tenant_name, dry_run=dry_run)
 
     @classmethod
     def resolve_migration_request_id(cls, headers: dict, tenant_name: str) -> str:

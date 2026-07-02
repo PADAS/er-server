@@ -348,7 +348,11 @@ def fetch_in_migration(
     using the historical ``EventTypeRevision`` model passed by the
     caller, wrapped in :class:`UnsetDASTenantContextManager` so the
     tenant-scoped manager mixin doesn't reject the explicit
-    ``das_tenant_id`` filter.
+    ``das_tenant_id`` filter. It is the reference implementation of the
+    migration-safe ``values_list(..., named=True)`` revision read documented
+    in ``AGENTS.md``; kept and tested for future migrations even though the
+    only repair that used it now runs as the ``repair_v2_collection_schemas``
+    command.
 
     Parameters
     ----------

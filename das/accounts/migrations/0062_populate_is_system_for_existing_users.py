@@ -9,6 +9,9 @@ from utils.tenant.managers import UnsetDASTenantContextManager
 def forward_func(apps, schema_editor):
     with UnsetDASTenantContextManager():
         User = apps.get_model("accounts", "User")
+        # INTENTIONAL cross-tenant write: sets the is_system flag on system users by username across
+        # every tenant. User PKs are not shared across tenants and no tenant's data is overwritten with
+        # another's, so the missing das_tenant predicate is deliberate here — not the 0198/0203 clobber bug.
         User.objects.filter(username__in=SYSTEM_USERNAMES).update(is_system=True)
 
 

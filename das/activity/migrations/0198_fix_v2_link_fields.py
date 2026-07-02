@@ -53,6 +53,13 @@ def fix_v2_schemas(apps, schema_editor):
                 continue
 
             event_type.schema = json.dumps(normalized_schema, indent=2)
+            # WARNING — tenant-blind write. See CLAUDE.md "Writes under unset/absent tenant context".
+            # event_type.save() here keys on id alone; because EventType reuses the same UUID across
+            # tenants (seeded defaults share PKs), and this runs inside UnsetDASTenantContextManager,
+            # the emitted UPDATE ... WHERE id=<uuid> carries no das_tenant predicate and overwrote
+            # every tenant's row sharing that id (prod incident 2026-06-29, er-prod / er-prod-us).
+            # Do NOT copy this pattern — write with an explicit das_tenant_id in the WHERE clause
+            # (filter(id=…, das_tenant_id=…).update(...) or raw SQL).
             event_type.save(using=db_alias, update_fields=["schema", "updated_at"])
 
 

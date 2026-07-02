@@ -95,6 +95,21 @@ Patterns to use:
 
 **Testing**: drive the `RunPython` body with the **historical app-state** — `MigrationExecutor(connection).loader.project_state((app_label, parent_migration)).apps` — **not** the live `django.apps.apps`. The live registry hides this class of bug because live models keep their tenant attributes. (Reference example: `activity/tests/test_repair_upstream_integration.py`.)
 
+The above covers the **read** side. The **write** side has its own landmine — see "Writes under unset/absent tenant context" immediately below.
+
+### Writes under unset/absent tenant context
+
+Tenant scoping protects *reads*; it does **not** touch the implicit `WHERE` clause of a *write*. Seeded/global tenant-scoped rows — `EventType`, `EventCategory`, `EventClass`, `EventFactor`, `TileLayer`, and similar — **reuse the same `id` (UUID) across every tenant**. On the Citus production clusters the physical primary key is the composite `(das_tenant_id, id)`, even though Django models `id` as the sole PK, which is why duplicate `id`s coexist. So an ORM `instance.save(update_fields=[…])` or `QuerySet.update(…)` — which key the write on `id` alone — will, when the tenant context is **unset or absent** (data migrations, management commands, shells, anything inside `UnsetDASTenantContextManager`), emit `UPDATE … WHERE id=<uuid>` with no tenant predicate and **overwrite every tenant's row sharing that id**.
+
+Iterating per-tenant and scoping your *reads* (`.filter(das_tenant_id=…)`) does not help — the danger is entirely in the write. This is exactly how `activity/migrations/0198_fix_v2_link_fields` and `0203_repair_v2_collection_schemas` clobbered V2 `EventType` schemas fleet-wide (prod incident 2026-06-29): both scope the read correctly, then `event_type.save(update_fields=["schema","updated_at"])` inside `UnsetDASTenantContextManager`. Those two writes now carry a warning comment — do not copy the pattern.
+
+When writing with no tenant in context, do one of:
+
+- **Set the context around the write** (preferred): `with TenantContextManager(domain=tenant.domain): event_type.save(...)`. django-multitenant then injects `das_tenant_id` into the `UPDATE`. This is what the safe per-tenant migrations do (`0064`, `0175`, `0184`, `mapping/0072`). Note `UnsetDASTenantContextManager` is the *opposite* — it strips the scoping and must not wrap a write to a shared-PK model.
+- **Name the tenant in the write's `WHERE` yourself**: `Model.objects.filter(id=pk, das_tenant_id=tid).update(...)`, or raw SQL `UPDATE … WHERE id=%s AND das_tenant_id=%s`. Raw SQL is not ORM-tenant-scoped, so it is safe here **only** because you supply the predicate.
+
+An intentional fleet-wide write (e.g. `accounts/migrations/0062` setting an `is_system` flag by username across all tenants) is acceptable **only** when it sets a tenant-independent value and cannot overwrite one tenant's data with another's — say so in a comment so reviewers don't read it as this bug.
+
 ## Dynamic schemas (`das/schemas/`)
 
 `DynamicSchemaFromSourceView` emits choice fields in two interchangeable shapes — **`enum` + `x-enumExtra`** (default) and **`oneOf`** — picked per request via `?s_format`, per subclass via `default_format`, or per call site via `schemas.format_serializers.output_format_override(...)`.

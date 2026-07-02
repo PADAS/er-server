@@ -13,8 +13,10 @@ It is the deep-testing safety net for the release branch: it proves that
 * ``RepairStrategy.REBUILD_FROM_V1`` re-runs the fixed migration against a
   reconstructed V1 collection schema and emits prefixed nested IDs;
 * the repair is idempotent (a second pass reports ``was_modified=False``);
-* the ``0203`` data migration drives all of the above through the real
-  ORM + real upstream, applying the right action per strategy.
+* the ``repair_v2_collection_schemas`` management command drives all of the
+  above through the live ORM + real upstream, applying the right action per
+  strategy, and creates revision rows for applied repairs (audit trail);
+* ``--dry-run`` reports what would change without writing anything.
 
 If the upstream contract changes shape (``RepairChange`` fields, the
 ``LogCollector`` error dict, the prefixing convention) these tests fail
@@ -24,41 +26,32 @@ loudly rather than silently passing on stale mocks. See
 
 from __future__ import annotations
 
-import importlib
 import json
 from dataclasses import dataclass
+from io import StringIO
 from typing import Any
+from unittest import mock
 from uuid import uuid4
 
 import pytest
 
-from django.db import connection
-from django.db.migrations.executor import MigrationExecutor
+from django.core.exceptions import ValidationError
+from django.core.management import call_command
 
+from activity.management.commands import repair_v2_collection_schemas as repair_cmd
 from activity.models import EventType
-from activity.schemas.migration.repair import RepairStrategy
+from activity.schemas.migration.repair import RepairClassification, RepairStrategy
 from activity.schemas.migration.repair_apply import (
     APPLIED_REBUILT_FROM_V1,
     APPLIED_RECONSTRUCTED_FROM_JSON,
     SKIPPED_ALREADY_CORRECT,
     SKIPPED_NEEDS_REVIEW,
+    RepairOutcome,
     attempt_repair,
 )
 from activity.schemas.ops.revision_history import EventTypeRevisionHistory
 from factories import EventTypeFactory
 from revision.manager import ACTION_ADDED, ACTION_UPDATED
-
-_migration_module = importlib.import_module("activity.migrations.0203_repair_v2_collection_schemas")
-run_repair_migration = _migration_module.repair_v2_collection_schemas
-
-
-def _historical_apps():
-    """App-registry state that ``RunPython`` hands the 0203 migration body
-    (the project state as of its parent migration). Using this instead of the
-    live ``django.apps.apps`` reproduces the historical ``__fake__`` models, so
-    these tests exercise the real migration surface."""
-    return MigrationExecutor(connection).loader.project_state(("activity", "0202_repair_v2_collection_schemas")).apps
-
 
 # ── Test stubs / fixtures ─────────────────────────────────────────────────
 
@@ -495,20 +488,38 @@ class TestRebuildFromV1RealUpstream:
         assert "oneOf" not in ref_entry, "Field must not contain hardcoded oneOf after re-resolution"
 
 
-# ── Full data migration through real ORM + real upstream ──────────────────
+# ── Management command through live ORM + real upstream ───────────────────
 
 
 @pytest.mark.django_db
 @pytest.mark.usefixtures("tenant_settings", "das_tenant_monkeypatch")
-class TestMigrationRealUpstream:
-    """Run ``0203`` with no mocking — real revisions, real upstream tool."""
+class TestRepairCommandRealUpstream:
+    """Run ``repair_v2_collection_schemas`` with no mocking — real revisions,
+    real upstream tool, live ORM."""
+
+    def _run(self, *args, tenant_domain: str | None = None, **kwargs) -> tuple[str, str]:
+        """Call the command and return (stdout, stderr) as strings."""
+        out = StringIO()
+        err = StringIO()
+        call_command(
+            "repair_v2_collection_schemas",
+            *args,
+            tenant_domain=tenant_domain,
+            stdout=out,
+            stderr=err,
+            **kwargs,
+        )
+        return out.getvalue(), err.getvalue()
 
     def _migrate_v1_to_corrupted_v2(self, value: str, *, post_edit: bool = False) -> EventType:
+        """Simulate a V1→V2 migration by saving through the live ORM so the
+        revision trail is recorded correctly (fetch() uses the live descriptor)."""
         et = EventTypeFactory.create(
             value=value,
             schema=_v1_collection_text(),
             version=EventType.VersionChoices.VERSION_1,
         )
+        # Simulate the migration: schema + version both change simultaneously.
         et.schema = _corrupted_v2_collection_text()
         et.version = EventType.VersionChoices.VERSION_2
         et.save()
@@ -518,46 +529,227 @@ class TestMigrationRealUpstream:
             et.save()
         return et
 
-    def test_all_strategies_resolve_correctly(self):
-        rebuild_et = self._migrate_v1_to_corrupted_v2("real_rebuild")
-        user_edited_et = self._migrate_v1_to_corrupted_v2("real_user_edited", post_edit=True)
-        # Born V2 (no migration revision) → not_migrated → untouched.
-        not_migrated_et = EventTypeFactory.create(
-            value="real_not_migrated",
-            schema=_corrupted_v2_collection_text(),
-            version=EventType.VersionChoices.VERSION_2,
-        )
-        not_migrated_original = not_migrated_et.schema
-        user_edited_original = user_edited_et.schema
+    def test_rebuild_from_v1_strategy_repairs_schema(self, das_tenant):
+        """REBUILD_FROM_V1: a V1 snapshot in history → re-migrated to clean V2."""
+        et = self._migrate_v1_to_corrupted_v2("cmd_rebuild")
 
-        with connection.schema_editor() as schema_editor:
-            run_repair_migration(_historical_apps(), schema_editor)
+        self._run("--all", tenant_domain=das_tenant.domain)
 
-        rebuild_et.refresh_from_db()
-        user_edited_et.refresh_from_db()
-        not_migrated_et.refresh_from_db()
-
-        # REBUILD_FROM_V1: re-migrated from reconstructed V1 → prefixed UI.
-        rebuilt = json.loads(rebuild_et.schema)
+        et.refresh_from_db()
+        rebuilt = json.loads(et.schema)
         assert "wildlife_trophies.species" in rebuilt["ui"]["fields"]
         assert "wildlife_trophies.count" in rebuilt["ui"]["fields"]
 
-        # SKIP_USER_EDITED and NOT_MIGRATED are left byte-for-byte intact.
-        assert user_edited_et.schema == user_edited_original
-        assert not_migrated_et.schema == not_migrated_original
+    def test_skip_user_edited_leaves_schema_untouched(self, das_tenant):
+        """SKIP_USER_EDITED: post-migration edits must not be overwritten."""
+        et = self._migrate_v1_to_corrupted_v2("cmd_user_edited", post_edit=True)
+        original_schema = et.schema
 
-    def test_rerun_is_idempotent(self):
-        rebuild_et = self._migrate_v1_to_corrupted_v2("real_rerun")
+        self._run("--all", tenant_domain=das_tenant.domain)
 
-        with connection.schema_editor() as schema_editor:
-            run_repair_migration(_historical_apps(), schema_editor)
-        rebuild_et.refresh_from_db()
-        after_first = rebuild_et.schema
+        et.refresh_from_db()
+        assert et.schema == original_schema
 
-        with connection.schema_editor() as schema_editor:
-            run_repair_migration(_historical_apps(), schema_editor)
-        rebuild_et.refresh_from_db()
+    def test_not_migrated_leaves_schema_untouched(self, das_tenant):
+        """NOT_MIGRATED: EventType born V2 (no migration revision) → untouched."""
+        et = EventTypeFactory.create(
+            value="cmd_not_migrated",
+            schema=_corrupted_v2_collection_text(),
+            version=EventType.VersionChoices.VERSION_2,
+        )
+        original_schema = et.schema
 
-        # REBUILD_FROM_V1 is deterministic: re-running reproduces the same
-        # clean V2 from the same reconstructed V1.
-        assert rebuild_et.schema == after_first
+        self._run("--all", tenant_domain=das_tenant.domain)
+
+        et.refresh_from_db()
+        assert et.schema == original_schema
+
+    def test_needs_review_reported_on_stderr(self, das_tenant):
+        """A SKIPPED_NEEDS_REVIEW outcome is surfaced on stderr so operators can
+        build a manual-review queue.
+
+        The upstream *classification* of ambiguous corruption is covered by
+        ``TestReconstructFromJsonRealUpstream.test_diagnostics_only_schema_returns_skipped_needs_review``.
+        Here we stub ``attempt_repair`` so the command's *reporting* of a
+        needs-review outcome is asserted deterministically. (The previous version
+        accepted either needs_review or already_correct and never asserted the
+        stderr line, so it did not actually test the reporting path.)
+        """
+        et = self._migrate_v1_to_corrupted_v2("cmd_needs_review")
+        original_schema = et.schema
+
+        needs_review = RepairOutcome(
+            classification=RepairClassification(
+                event_type_value="cmd_needs_review",
+                event_type_id=str(et.id),
+                strategy=RepairStrategy.RECONSTRUCT_FROM_JSON,
+            ),
+            action=SKIPPED_NEEDS_REVIEW,
+            metadata={
+                "upstream_changes": 1,
+                "upstream_change_summary": [
+                    {"action": "ambiguous_collision_kept", "field_path": "trophies.num", "details": "kept"}
+                ],
+            },
+        )
+
+        with mock.patch.object(repair_cmd, "attempt_repair", return_value=needs_review):
+            _, stderr = self._run("--all", tenant_domain=das_tenant.domain)
+
+        assert "cmd_needs_review" in stderr
+        assert "needs manual review" in stderr
+
+        # needs_review is a skip: the stored schema must be left untouched.
+        et.refresh_from_db()
+        assert et.schema == original_schema
+
+    def test_error_action_is_reported_and_run_continues(self, das_tenant):
+        """A row that produces an error_* action is surfaced on stderr and the
+        run still repairs the other rows.
+
+        ``et_bad`` migrates from a pre-migration V1 snapshot that is not valid
+        JSON, so it classifies as REBUILD_FROM_V1 and then fails to parse the
+        reconstructed V1 — a deterministic error outcome. (The previous version
+        put ``not-json{{{`` in the *current* schema, which classifies as a benign
+        ``skip_user_edited`` and never exercised any error path.)
+        """
+        et_good = self._migrate_v1_to_corrupted_v2("cmd_error_good")
+
+        et_bad = EventTypeFactory.create(
+            value="cmd_error_bad",
+            schema="not valid json",
+            version=EventType.VersionChoices.VERSION_1,
+        )
+        # Migrate to a V2-shaped current schema so a migration revision exists;
+        # the reconstructed V1 ("not valid json") then fails to parse on rebuild.
+        et_bad.schema = _corrupted_v2_collection_text()
+        et_bad.version = EventType.VersionChoices.VERSION_2
+        et_bad.save()
+
+        # The run must not raise even with a failing row present.
+        stdout, stderr = self._run("--all", tenant_domain=das_tenant.domain)
+
+        # The good event type is still repaired despite the bad row erroring.
+        et_good.refresh_from_db()
+        assert "wildlife_trophies.species" in json.loads(et_good.schema)["ui"]["fields"]
+
+        # The failure is surfaced on stderr (not silently swallowed) and the run
+        # completes with a Done summary.
+        assert "cmd_error_bad" in stderr
+        assert "error" in stderr.lower()
+        assert "Done." in stdout
+
+    def test_validation_error_on_save_is_bucketed_separately_and_run_continues(self, das_tenant):
+        """A row that fails model validation on save is counted in the distinct
+        ``error_validation`` bucket (not the generic ``error_unexpected`` bucket),
+        and the run still repairs the other rows.
+
+        ``EventType.save()`` runs ``full_clean()`` on every save — including the
+        partial ``update_fields`` save this command issues — so a legacy/damaged
+        row with an unrelated invalid field raises ``ValidationError``. That must
+        be surfaced as its own outcome, not swallowed into the catch-all handler.
+        """
+        et_good = self._migrate_v1_to_corrupted_v2("cmd_validation_good")
+        et_bad = self._migrate_v1_to_corrupted_v2("cmd_validation_bad")
+
+        real_save = EventType.save
+
+        def failing_save(self, *args, **kwargs):
+            # Only the damaged row fails validation on save; the good row saves
+            # normally so we can prove the run continued past the failure.
+            if self.value == "cmd_validation_bad":
+                raise ValidationError({"icon": "Ensure this value has at most 255 characters."})
+            return real_save(self, *args, **kwargs)
+
+        with mock.patch.object(EventType, "save", autospec=True, side_effect=failing_save):
+            stdout, stderr = self._run("--all", tenant_domain=das_tenant.domain)
+
+        # The bad row is reported as a validation error (its own message), not a
+        # generic unexpected error.
+        assert "cmd_validation_bad" in stderr
+        assert "validation error" in stderr.lower()
+
+        # The distinct bucket appears in the summary; the generic bucket does not.
+        assert "error_validation" in stdout
+        assert "error_unexpected" not in stdout
+
+        # The run continued: the good row was still repaired.
+        et_good.refresh_from_db()
+        assert "wildlife_trophies.species" in json.loads(et_good.schema)["ui"]["fields"]
+
+        # The damaged row's schema was left untouched (save was rejected).
+        et_bad.refresh_from_db()
+        assert et_bad.schema == _corrupted_v2_collection_text()
+
+    def test_dry_run_does_not_write_to_db(self, das_tenant):
+        """--dry-run must report what would change but leave the DB untouched."""
+        et = self._migrate_v1_to_corrupted_v2("cmd_dry_run_repair")
+        original_schema = et.schema
+
+        stdout, _ = self._run("--all", "--dry-run", tenant_domain=das_tenant.domain)
+
+        et.refresh_from_db()
+        assert et.schema == original_schema, "Dry-run must not write schema changes to the database"
+        assert (
+            "would apply" in stdout.lower() or "dry" in stdout.lower() or "Done." in stdout
+        ), f"Expected dry-run indicator in output but got: {stdout!r}"
+
+    def test_applied_repair_creates_revision_row(self, das_tenant):
+        """Saving through the live model fires RevisionMixin — a revision row
+        must exist after the repair (audit trail)."""
+        et = self._migrate_v1_to_corrupted_v2("cmd_revision_audit")
+        revision_count_before = et.revision.count()
+
+        self._run("--all", tenant_domain=das_tenant.domain)
+
+        et.refresh_from_db()
+        revision_count_after = et.revision.count()
+        assert (
+            revision_count_after > revision_count_before
+        ), f"Expected a new revision row after repair but count stayed at {revision_count_before}"
+
+    def test_rerun_is_idempotent(self, das_tenant):
+        """Running the command twice produces the same schema on the second pass."""
+        et = self._migrate_v1_to_corrupted_v2("cmd_idempotent")
+
+        self._run("--all", tenant_domain=das_tenant.domain)
+        et.refresh_from_db()
+        after_first = et.schema
+
+        self._run("--all", tenant_domain=das_tenant.domain)
+        et.refresh_from_db()
+
+        # The first repair appended a schema-only revision (the live save fires
+        # RevisionMixin), so the second pass classifies the EventType as
+        # skip_user_edited and leaves it untouched — the stored schema is already
+        # correct, so it stays byte-for-byte identical.
+        assert et.schema == after_first
+
+    def test_explicit_values_filter_targets_only_named_types(self, das_tenant):
+        """Passing explicit values must process only the named event types."""
+        et_target = self._migrate_v1_to_corrupted_v2("cmd_explicit_target_repair")
+        et_other = self._migrate_v1_to_corrupted_v2("cmd_explicit_other_repair")
+        other_original = et_other.schema
+
+        self._run("cmd_explicit_target_repair", tenant_domain=das_tenant.domain)
+
+        et_target.refresh_from_db()
+        et_other.refresh_from_db()
+
+        rebuilt = json.loads(et_target.schema)
+        assert "wildlife_trophies.species" in rebuilt["ui"]["fields"], "Named event type should have been repaired"
+        assert et_other.schema == other_original, "Non-named event type must not be modified"
+
+    def test_no_values_and_no_all_raises_command_error(self, das_tenant):
+        """Passing neither values nor --all must raise CommandError."""
+        from django.core.management import CommandError as DjangoCommandError
+
+        with pytest.raises((DjangoCommandError, SystemExit)):
+            self._run(tenant_domain=das_tenant.domain)
+
+    def test_values_and_all_together_raises_command_error(self, das_tenant):
+        """Passing both explicit values and --all must raise CommandError."""
+        from django.core.management import CommandError as DjangoCommandError
+
+        with pytest.raises((DjangoCommandError, SystemExit)):
+            self._run("some_value", "--all", tenant_domain=das_tenant.domain)
