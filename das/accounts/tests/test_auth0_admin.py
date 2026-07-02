@@ -461,9 +461,10 @@ class TestAuth0Callback:
             assert result.status_code == 302
             assert result.url == reverse("link_accounts")
 
-    def test_non_staff_user_returns_403_without_redirect(self, request_factory):
-        """An active, linked, non-staff user is resolved but rejected with 403. It must NOT
-        redirect to the link page (which rejects already-linked users -> dead-end)."""
+    def test_non_staff_user_returns_403_page_with_sign_out_link(self, request_factory):
+        """An active, linked, non-staff user is resolved but rejected. The callback returns the
+        403 access-denied page (not a redirect to the link page, which rejects already-linked
+        users -> dead-end). The page surfaces the username and a sign-out link via admin_logout."""
         User.objects.create_user(
             username="regularlinked",
             email="regular@example.com",
@@ -482,12 +483,15 @@ class TestAuth0Callback:
 
             result = auth0_callback(request)
 
-            assert result.status_code == 403
-            assert b"Authentication failed - insufficient privileges" in result.content
+        assert result.status_code == 403
+        content = result.content.decode()
+        assert f'href="{reverse("admin_logout")}"' in content
+        assert "regularlinked" in content
 
-    def test_multiple_objects_returned_returns_403(self, request_factory):
-        """Defensive path: if the lookup raises MultipleObjectsReturned, the callback returns
-        403 rather than crashing into a 500 or leaking which users matched."""
+    def test_multiple_objects_returned_returns_403_page(self, request_factory):
+        """Defensive path: if the lookup raises MultipleObjectsReturned, the callback returns the
+        403 access-denied page (not a 500) with the sign-out link, and surfaces no username since
+        no single user was resolved."""
         request = request_factory.get("/auth/callback/")
         request.session = {"auth0_admin_next": "/admin/"}
 
@@ -500,8 +504,11 @@ class TestAuth0Callback:
 
                 result = auth0_callback(request)
 
-                assert result.status_code == 403
-                assert b"Authentication failed" in result.content
+        content = result.content.decode()
+        assert result.status_code == 403
+        assert f'href="{reverse("admin_logout")}"' in content
+        # No single user was resolved, so the page must not surface a "signed in as" identity.
+        assert "You are signed in as" not in content
 
     def test_missing_sub_claim_returns_400(self, request_factory):
         """A token whose userinfo lacks the sub claim returns 400 before any user lookup."""

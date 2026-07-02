@@ -192,6 +192,7 @@ def initiate_auth0_admin_login(request):
     return _admin_auth0_client.auth0.authorize_redirect(request, auth0_callback_url, **extra_params)
 
 
+@never_cache
 @csrf_exempt
 def auth0_callback(request: HttpRequest) -> HttpResponse:
     """
@@ -212,16 +213,17 @@ def auth0_callback(request: HttpRequest) -> HttpResponse:
 
         - DoesNotExist (no active user for the sub, incl. an inactive linked user) -> 302 to
           the account-linking on-ramp.
-        - MultipleObjectsReturned -> 403 (defensive; the per-tenant auth0_id constraint makes
-          this unreachable while the DB is healthy).
-        - active user found but is_staff=False -> 403 (already linked; must not be sent to the
-          link page, which rejects already-linked users).
+        - MultipleObjectsReturned -> 403 access-denied page (defensive; the per-tenant auth0_id
+          constraint makes this unreachable while the DB is healthy).
+        - active user found but is_staff=False -> 403 access-denied page (already linked; must not
+          be sent to the link page, which rejects already-linked users).
 
     Returns:
         - HttpResponse (redirect 302): On successful authentication, redirects to intended admin page
         - HttpResponse (redirect 302): On DoesNotExist, redirects to the account-linking page
         - HttpResponse (400): If the Auth0 userinfo is missing the sub claim
-        - HttpResponse (403): If the resolved user lacks admin privileges, or multiple users match
+        - HttpResponse (403): The rendered access-denied page, if the resolved user lacks admin
+          privileges or multiple users match
         - HttpResponse (500): If an error occurs during the OAuth token exchange
 
     Session variables:
@@ -249,11 +251,11 @@ def auth0_callback(request: HttpRequest) -> HttpResponse:
         return redirect(reverse("link_accounts"))
     except User.MultipleObjectsReturned:
         logger.error("Auth0 admin callback: multiple active users with auth0_id %s", auth0_id)
-        return HttpResponse("Authentication failed", status=403)
+        return admin_access_denied_response()
 
     if not admin_user.is_staff:
         logger.error("Non-staff user %s attempted Auth0 admin authentication", admin_user.username)
-        return HttpResponse("Authentication failed - insufficient privileges", status=403)
+        return admin_access_denied_response(username=admin_user.username)
 
     login(request, admin_user, backend=AUTH0_BACKEND_PATH)
     logger.info(
