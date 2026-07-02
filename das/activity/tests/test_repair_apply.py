@@ -1,9 +1,9 @@
 """Tests for the V2 schema repair apply layer.
 
-The migration smoke-test that exercised ``repair_v2_collection_schemas()``
-was moved out of this file together with the repair migration (it now lives
-on the develop branch). On this hotfix branch the ``0202`` migration is a
-no-op, so this file no longer imports it.
+These tests cover :func:`~activity.schemas.migration.repair_apply.attempt_repair`
+in isolation by mocking the upstream ``transform_schema`` / ``repair_v2_schema``
+calls. For end-to-end tests that exercise the real upstream library against the
+live ORM, see ``test_repair_upstream_integration.py``.
 """
 
 from __future__ import annotations

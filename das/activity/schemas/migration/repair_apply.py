@@ -2,9 +2,11 @@
 
 This module is the bridge between :mod:`activity.schemas.migration.repair`
 (pure classification) and the upstream ``schema_migration_tool`` library
-(transformation + repair). The sole consumer today is the Django data
-migration ``0203_repair_v2_collection_schemas``, which applies the repair
-automatically on every environment.
+(transformation + repair). The consumer today is the
+``repair_v2_collection_schemas`` management command, run explicitly per
+tenant. (The data migration ``0203_repair_v2_collection_schemas`` that
+previously ran this repair automatically on every deploy has been
+neutralised to a no-op; see ERA-13535.)
 
 The helper is **pure**: it accepts revision-shaped objects and a schema
 text, classifies the EventType, and returns a :class:`RepairOutcome`
