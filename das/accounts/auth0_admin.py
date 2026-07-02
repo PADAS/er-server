@@ -20,6 +20,7 @@ from django.contrib.auth import BACKEND_SESSION_KEY, login
 from django.contrib.auth import logout as django_logout
 from django.http import HttpRequest, HttpResponse
 from django.shortcuts import redirect
+from django.template.loader import render_to_string
 from django.urls import reverse
 from django.utils.http import url_has_allowed_host_and_scheme
 from django.views.decorators.cache import never_cache
@@ -142,6 +143,21 @@ def admin_logout(request):
 def _use_default_django_admin_login(request):
     logger.debug("Using Django default admin login")
     return admin.site.login(request)
+
+
+def admin_access_denied_response(username: str | None = None) -> HttpResponse:
+    """Render the admin access-denied page (HTTP 403).
+
+    Shown when an authenticated Auth0 user is rejected for admin access (non-staff, or an
+    ambiguous multi-user match). The page offers a sign-out link routed through admin_logout
+    (-> Auth0 /v2/logout) so the user can sign out and sign back in with a different account.
+    When a single user was resolved, their username is surfaced so they can see which account
+    they are signed in as.
+
+    Rendered without a request to skip context processors, mirroring already_linked_response.
+    """
+    html = render_to_string("registration/admin_access_denied.html", {"username": username})
+    return HttpResponse(html, status=403)
 
 
 # Exported so middleware and URL registration share the same string - keeping

@@ -21,6 +21,7 @@ from django.urls import reverse
 from accounts.auth0_admin import (
     AUTH0_BACKEND_PATH,
     INITIATE_AUTH0_ADMIN_LOGIN_URL_NAME,
+    admin_access_denied_response,
     admin_login_entrypoint,
     admin_logout,
     auth0_callback,
@@ -334,6 +335,31 @@ class TestInitiateAuth0AdminLogin:
                 assert call_kwargs["organization"] == "org_test123"
             else:
                 assert "organization" not in call_kwargs
+
+
+class TestAdminAccessDeniedResponse:
+    """The shared 403 escape page shown when an authenticated Auth0 user is rejected for admin
+    access (non-staff, or an ambiguous multi-user match).
+
+    No @pytest.mark.django_db: the helper renders a static template and touches no DB.
+    """
+
+    def test_renders_escape_page_routed_through_admin_logout(self):
+        """The page must always offer a sign-out link routed through admin_logout (which
+        redirects to Auth0 /v2/logout), so the user can sign out and sign back in with a
+        different account."""
+        response = admin_access_denied_response()
+
+        assert response.status_code == 403
+        # Assert the URL is the link target, not merely present somewhere in the body.
+        assert f'href="{reverse("admin_logout")}"' in response.content.decode()
+
+    def test_surfaces_signed_in_username_when_provided(self):
+        """When a single user was resolved, surface their username so they understand which
+        (non-admin) identity they are signed in as."""
+        response = admin_access_denied_response(username="regularlinked")
+
+        assert "regularlinked" in response.content.decode()
 
 
 @pytest.mark.django_db
