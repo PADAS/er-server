@@ -21,6 +21,7 @@ class SubCommand(typing.NamedTuple):
 
 SUB_COMMANDS = [
     SubCommand("sources", models.Source, "remove_source"),
+    SubCommand("source_observations", models.Source, "remove_source_observations"),
     SubCommand("subjects", models.Subject, "remove_subject"),
     SubCommand("subject_groups", models.SubjectGroup, "remove_subject_group"),
     SubCommand("source_groups", models.SourceGroup, "remove_source_group"),
@@ -158,7 +159,32 @@ class PurgeObservations(PurgeBase):
         for subject_id in subject_ids:
             maintain_subjectstatus_for_subject.apply_async(args=[str(subject_id)])
 
+    def remove_source_observations(self, source):
+        """Delete all observations (and segments / LatestObservationSource) for
+        a Source while keeping the Source row and its SubjectSource / SourcePlugin
+        / group memberships intact."""
+        if self.is_keep_source(source):
+            self.logger.info(f"Source {source.manufacturer_id} on keep list, do not remove observations")
+            return
+
+        if self.dry_run:
+            self.logger.info(f"Dry Run, would have removed observations for Source {source.manufacturer_id}")
+            return
+
+        from observations.services import delete_source_observations
+        from observations.tasks import maintain_subjectstatus_for_subject
+
+        _, subject_ids = delete_source_observations(
+            source.id,
+            log_label=source.manufacturer_id,
+        )
+
+        for subject_id in subject_ids:
+            maintain_subjectstatus_for_subject.apply_async(args=[str(subject_id)])
+
     def is_keep_source(self, source):
+        if source.manufacturer_id is None:
+            return False
         return source.manufacturer_id.lower() in self.keep_sources
 
     def remove_source_provider(self, provider):
