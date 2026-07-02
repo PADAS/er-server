@@ -22,6 +22,7 @@ from activity.models import (
     PatrolSegment,
 )
 from activity.tasks import evaluate_alert_rules, maintain_patrol_state
+from activity.tile_cache import bump_event_tile_data_version
 from activity.util import ensure_eventcategory_perms_exist
 from das_server import celery, pubsub
 from usercontent.tasks import imagefile_rendered
@@ -30,6 +31,16 @@ from utils.tenant import get_tenant_settings
 from utils.tenant.exceptions import TenantNotFoundInLocalThreadException
 
 logger = logging.getLogger(__name__)
+
+
+def _bump_event_tile_data(tenant_id) -> None:
+    """Best-effort per-tenant event-tile cache bust (event update/delete only)."""
+    if tenant_id is None:
+        return
+    try:
+        bump_event_tile_data_version(str(tenant_id))
+    except Exception:  # pragma: no cover - defensive; the short tile TTL is the backstop
+        logger.warning("Failed to bump event tile data version for tenant %s", tenant_id, exc_info=True)
 
 
 @receiver(post_save, sender=Event)
@@ -47,6 +58,12 @@ def event_post_save(sender, instance, created, **kwargs):
     # publishes patrol_update when segments are linked. For updates, fetch only patrol_ids
     # to avoid N+1 on segment.patrol.
     if not created:
+        # Bust the tenant's event tiles on update only — NEVER on create. Creates are the
+        # hot path and reach the map via the realtime socket + short tile TTL; a per-create
+        # bump would collapse the cache hit rate tenant-wide.
+        tenant_id = instance.das_tenant_id
+        transaction.on_commit(lambda tid=tenant_id: _bump_event_tile_data(tid))
+
         patrol_ids = instance.patrol_segments.values_list("patrol_id", flat=True).distinct()
         for patrol_id in patrol_ids:
             transaction.on_commit(lambda pid=patrol_id: pubsub.publish({"patrol_id": str(pid)}, "das.patrol.update"))
@@ -55,7 +72,9 @@ def event_post_save(sender, instance, created, **kwargs):
 @receiver(post_delete, sender=Event)
 def event_post_delete(sender, instance, **kwargs):
     logger.debug("delete event {}".format(instance.pk))
+    tenant_id = instance.das_tenant_id
     transaction.on_commit(lambda: pubsub.publish({"event_id": str(instance.pk)}, "das.event.delete"))
+    transaction.on_commit(lambda tid=tenant_id: _bump_event_tile_data(tid))
 
 
 @receiver(post_delete, sender=EventGeometry)

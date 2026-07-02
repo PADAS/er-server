@@ -5,6 +5,11 @@ import pytest
 from django.conf import settings
 from django.core.cache import caches
 
+from utils.cache import (
+    bump_scoped_tile_version,
+    get_scoped_tile_version,
+    get_vector_tile_cache,
+)
 from utils.persistent import MultitenantRedisStorage
 from utils.tenant.cache import MultitenantRedisClient, make_cache_key
 from utils.tenant.exceptions import TenantNotFoundInLocalThreadException
@@ -65,3 +70,35 @@ class TestMultitenantRedisClient:
             client.get("value-name")
 
         assert not client._redis.get.called
+
+
+class TestScopedTileVersion:
+    """The generic, app-agnostic scoped tile-version counter primitive."""
+
+    @pytest.fixture(autouse=True)
+    def _clear_vector_tile_cache(self):
+        get_vector_tile_cache().clear()
+        yield
+        get_vector_tile_cache().clear()
+
+    def test_unbumped_version_is_zero(self):
+        assert get_scoped_tile_version("prefix_a", "x", "y") == 0
+
+    def test_bump_increments_version(self):
+        bump_scoped_tile_version("prefix_b", "x")
+        assert get_scoped_tile_version("prefix_b", "x") == 1
+        bump_scoped_tile_version("prefix_b", "x")
+        assert get_scoped_tile_version("prefix_b", "x") == 2
+
+    def test_versions_isolated_by_prefix_and_key_parts(self):
+        bump_scoped_tile_version("prefix_c", "a")
+        assert get_scoped_tile_version("prefix_c", "a") == 1
+        # Different key parts under the same prefix are independent.
+        assert get_scoped_tile_version("prefix_c", "b") == 0
+        # Different prefix, same key parts, is independent.
+        assert get_scoped_tile_version("prefix_d", "a") == 0
+
+    def test_multiple_key_parts_compose_into_key(self):
+        bump_scoped_tile_version("prefix_e", "tenant1", "user1")
+        assert get_scoped_tile_version("prefix_e", "tenant1", "user1") == 1
+        assert get_scoped_tile_version("prefix_e", "tenant1", "user2") == 0

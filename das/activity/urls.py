@@ -13,6 +13,11 @@ urlpatterns = [
     re_path(r"^events/?$", views.EventsView.as_view(), name="events"),
     re_path(r"^events/bulk-delete/?$", views.EventBulkDeleteView.as_view(), name="events-bulk-delete"),
     re_path(r"^events/geojson/?$", views.EventsGeoJsonView.as_view()),
+    re_path(
+        r"^events/tiles/(?P<z>\d+)/(?P<x>\d+)/(?P<y>\d+)\.pbf$",
+        views.EventTileView.as_view(),
+        name="event-tiles",
+    ),
     re_path(r"^events/export/?$", views.EventsExportView.as_view(), name="events-export"),
     re_path(r"^events/schema/?$", views.EventSchemaView.as_view(), name="events-schema"),
     re_path(

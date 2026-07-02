@@ -192,6 +192,42 @@ def get_observation_segment_cache_version(tenant_id: str) -> str:
     return f"{base}-s{seg_ver}"
 
 
+# --- Generic scoped tile-version counters (app-agnostic) ---
+
+
+def _scoped_tile_version_key(prefix: str, *key_parts: str) -> str:
+    return f"{prefix}:" + ":".join(key_parts)
+
+
+def get_scoped_tile_version(prefix: str, *key_parts: str) -> int:
+    """Return a scoped tile-version counter (0 if never bumped).
+
+    Generic O(1) version counter for vector-tile cache-busting. Callers compose a
+    ``prefix`` plus arbitrary ``key_parts`` (e.g. tenant id, user id) to namespace
+    the counter; this module attaches no domain meaning to those parts. The
+    ``vector_tiles`` cache alias is namespaced by hand (it does not use
+    ``make_cache_key``), so callers include any tenant scoping in ``key_parts``.
+    """
+    key = _scoped_tile_version_key(prefix, *key_parts)
+    raw = get_vector_tile_cache().get(key, 0)
+    return _coerce_vector_tile_cache_int(raw, fallback=0)
+
+
+def bump_scoped_tile_version(prefix: str, *key_parts: str) -> None:
+    """Increment a scoped tile-version counter so matching cached tiles become stale.
+
+    One atomic Redis INCR; no TTL. Mirrors the defensive fallback used by the
+    observation-segment counter (``set(time())`` if INCR is unavailable).
+    """
+    vt_cache = get_vector_tile_cache()
+    key = _scoped_tile_version_key(prefix, *key_parts)
+    try:
+        vt_cache.add(key, 0, timeout=None)
+        vt_cache.incr(key)
+    except Exception:  # pragma: no cover - defensive path
+        vt_cache.set(key, int(time.time()), timeout=None)
+
+
 __all__ = [
     "build_tile_cache_key",
     "get_effective_cache_version",
@@ -206,6 +242,8 @@ __all__ = [
     "get_observation_segment_tile_version",
     "bump_observation_segment_tile_version",
     "get_observation_segment_cache_version",
+    "get_scoped_tile_version",
+    "bump_scoped_tile_version",
 ]
 
 # --- Prefix-based invalidation utilities (Redis) ---
