@@ -5,7 +5,14 @@ from oauth2_provider.models import get_access_token_model
 
 from django.contrib.auth.models import Permission
 from django.contrib.contenttypes.models import ContentType
-from django.db.models.signals import m2m_changed, post_delete, post_save, pre_save
+from django.db.models.signals import (
+    m2m_changed,
+    post_delete,
+    post_migrate,
+    post_save,
+    pre_migrate,
+    pre_save,
+)
 from django.dispatch import receiver
 
 from accounts.models import PermissionSet, PermissionSetPermission, User
@@ -19,6 +26,27 @@ logger = logging.getLogger(__name__)
 AccessToken = get_access_token_model()
 
 TENANT_CODENAME_OVERRIDES = [dict(app_label="activity", model="event")]
+
+# Tile busting is suspended for the duration of a `migrate` run. Data migrations
+# (e.g. reports/0001_reports_permissions_data -> create_report_permissionset ->
+# permission_set.permissions.add(perm)) fire these receivers with LIVE models
+# whose queries reference tables/columns that do not exist yet on a clean
+# database (accounts_userpermissionset is created in accounts/0049; auth0_id
+# and is_system are added in 0059/0061). The short tile TTL is the backstop, so
+# skipping the busting while migrations run loses nothing.
+_migrations_in_progress = False
+
+
+@receiver(pre_migrate, dispatch_uid="suspend_tile_busting_during_migrate")
+def suspend_tile_busting_before_migrate(sender, **kwargs):
+    global _migrations_in_progress
+    _migrations_in_progress = True
+
+
+@receiver(post_migrate, dispatch_uid="resume_tile_busting_after_migrate")
+def resume_tile_busting_after_migrate(sender, **kwargs):
+    global _migrations_in_progress
+    _migrations_in_progress = False
 
 
 def _bump_user_tiles(user: User) -> None:
@@ -45,6 +73,8 @@ def bust_user_tiles_on_token_delete(sender, instance, **kwargs):
     NOTE: queryset/bulk token revocations bypass ``post_delete``; the short tile
     TTL (a few minutes) is the backstop for those.
     """
+    if _migrations_in_progress:
+        return
     user = getattr(instance, "user", None)
     if user is not None:
         _bump_user_tiles(user)
@@ -65,6 +95,8 @@ def bust_user_tiles_on_membership_change(sender, instance, action, reverse, mode
     reverse direction ``post_add``/``post_remove`` carry user ids; in the forward
     direction the changed member is ``instance`` itself.
     """
+    if _migrations_in_progress:
+        return
     if action in ("post_add", "post_remove"):
         if not reverse:
             # ``instance`` is a User; the changed permission sets do not affect
@@ -108,6 +140,8 @@ def _bump_permission_set_members(permission_set: PermissionSet | None) -> None:
 @receiver(post_delete, sender=PermissionSetPermission, dispatch_uid="bust_user_tiles_on_psp_delete")
 def bust_user_tiles_on_permission_set_permission_write(sender, instance, **kwargs):
     """Direct ``PermissionSetPermission`` writes (admin / ``.objects.create``)."""
+    if _migrations_in_progress:
+        return
     _bump_permission_set_members(getattr(instance, "permissionset", None))
 
 
@@ -122,6 +156,8 @@ def bust_user_tiles_on_permission_set_contents_change(sender, instance, action, 
     The ``.add()`` path uses bulk_create on the through model, which does not fire
     ``PermissionSetPermission.post_save``; this handler covers that common path.
     """
+    if _migrations_in_progress:
+        return
     if action not in ("post_add", "post_remove", "post_clear"):
         return
     if not reverse:

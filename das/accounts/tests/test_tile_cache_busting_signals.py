@@ -9,11 +9,14 @@ or permissions change:
 
 from __future__ import annotations
 
+from unittest.mock import patch
+
 import pytest
 
 from django.contrib.auth.models import Permission
 from django.core.cache import caches
 
+from accounts import signals as accounts_signals
 from accounts.models.permissionset import PermissionSet
 from accounts.tile_cache import bump_user_tile_version, get_user_tile_version
 from factories import AccessTokenFactory
@@ -133,3 +136,52 @@ class TestPermissionSetContentsBusting:
         mid = _version(user)
         perm_set.permissions.remove(perm)
         assert _version(user) > mid
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("das_tenant_monkeypatch", "tenant_settings")
+class TestMigrationSuspendsBusting:
+    """The tile-busting receivers must stand down for the duration of a `migrate` run.
+
+    Data migrations (e.g. reports/0001_reports_permissions_data) call
+    ``permissions.add()`` on live models before every table/column the busting
+    receivers query necessarily exists on a clean database, which raises
+    ``ProgrammingError`` and poisons the migration's transaction. See
+    ``accounts/signals.py`` module docstring/comment for the full chain.
+    """
+
+    @pytest.fixture(autouse=True)
+    def _reset_migration_flag(self):
+        # Guard against a failing assertion leaking the flag into other tests.
+        accounts_signals._migrations_in_progress = False
+        yield
+        accounts_signals._migrations_in_progress = False
+
+    def test_pre_and_post_migrate_receivers_toggle_flag(self):
+        # Call the real receivers directly rather than via `pre_migrate.send()` /
+        # `post_migrate.send()`: those signals also carry Django's own
+        # unrelated receivers (e.g. `create_permissions`, `create_contenttypes`)
+        # which require a full `migrate`-command kwarg set (`app_config`, etc.)
+        # to run without error. Calling the receivers directly still exercises
+        # the real functions registered on the signals.
+        assert accounts_signals._migrations_in_progress is False
+        accounts_signals.suspend_tile_busting_before_migrate(sender=None)
+        assert accounts_signals._migrations_in_progress is True
+        accounts_signals.resume_tile_busting_after_migrate(sender=None)
+        assert accounts_signals._migrations_in_progress is False
+
+    def test_permission_set_contents_change_does_not_bust_tiles_while_migrating(self, user, das_tenant):
+        perm_set = PermissionSet.objects.create(name="migration_suspend_set", das_tenant=das_tenant)
+        user.permission_sets.add(perm_set)
+        perm = Permission.objects.filter(content_type__app_label="auth").first()
+
+        accounts_signals.suspend_tile_busting_before_migrate(sender=None)
+        with patch("accounts.signals.bump_user_tile_version") as mock_bump:
+            perm_set.permissions.add(perm)
+            mock_bump.assert_not_called()
+        accounts_signals.resume_tile_busting_after_migrate(sender=None)
+
+        # Busting resumes once the migration run completes.
+        before = _version(user)
+        perm_set.permissions.remove(perm)
+        assert _version(user) > before
