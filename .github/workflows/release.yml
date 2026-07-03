@@ -260,6 +260,10 @@ jobs:
   # reusable workflow. Deployment set lives in the LEGACY_DEPLOYMENTS repo var.
   deploy-dev-legacy:
     needs: [config, deploy-stage]
+    if: |
+      always() &&
+      needs.config.result == 'success' &&
+      needs.deploy-stage.result == 'success'
     uses: PADAS/serca-pipelines/.github/workflows/_deploy_legacy_kubectl.yml@main
     with:
       environment: "legacy"
@@ -274,6 +278,10 @@ jobs:
   # Split the single LEGACY_TENANTS_PROD list into parallel chunks.
   legacy-prod-split:
     needs: [config, deploy-dev-legacy]
+    if: |
+      always() &&
+      needs.config.result == 'success' &&
+      needs.deploy-dev-legacy.result == 'success'
     uses: PADAS/serca-pipelines/.github/workflows/_split-list.yml@main
     with:
       list: ${{ vars.LEGACY_TENANTS_PROD }}
@@ -281,6 +289,10 @@ jobs:
 
   deploy-prod-legacy:
     needs: [config, legacy-prod-split]
+    if: |
+      always() &&
+      needs.config.result == 'success' &&
+      needs.legacy-prod-split.result == 'success'
     strategy:
       max-parallel: 3
       fail-fast: false
