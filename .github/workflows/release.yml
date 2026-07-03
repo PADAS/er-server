@@ -55,23 +55,39 @@ jobs:
       workload_identity_provider: ${{ vars.WORKLOAD_IDENTITY_PROVIDER }}
 
   check-migrations:
+    needs: [config]
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
     outputs:
       changed: ${{ steps.check.outputs.changed }}
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
+      - name: GCP Auth
+        uses: google-github-actions/auth@v3
+        with:
+          workload_identity_provider: projects/563316706574/locations/global/workloadIdentityPools/github-actions/providers/github-oidc
       - id: check
         run: |
           BEFORE="${{ github.event.before }}"
           if [ "$BEFORE" = "0000000000000000000000000000000000000000" ] || [ -z "$BEFORE" ]; then
-            echo "changed=true" >> $GITHUB_OUTPUT
+            CHANGED=true
           elif git diff --name-only "$BEFORE" HEAD | grep -qE 'migrations/[^/]+\.py$'; then
-            echo "changed=true" >> $GITHUB_OUTPUT
+            CHANGED=true
           else
-            echo "changed=false" >> $GITHUB_OUTPUT
+            CHANGED=false
           fi
+          if [ "$CHANGED" = "false" ]; then
+            TESTDB_IMAGE="europe-west3-docker.pkg.dev/serca-artifact-registry/github-actions-cache/das-testdb:${{ needs.config.outputs.testdb-tag }}"
+            if ! gcloud artifacts docker images describe "$TESTDB_IMAGE" >/dev/null; then
+              echo "Testdb image $TESTDB_IMAGE not found in Artifact Registry, forcing rebuild"
+              CHANGED=true
+            fi
+          fi
+          echo "changed=$CHANGED" >> $GITHUB_OUTPUT
 
   build-testdb:
     needs: [config, build, check-migrations]
