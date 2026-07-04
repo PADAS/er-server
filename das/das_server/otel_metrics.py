@@ -4,7 +4,7 @@ import logging
 import os
 import urllib.error
 import urllib.request
-from typing import Any, Callable
+from typing import Any, Callable, Final
 
 import google.auth
 import google.auth.exceptions
@@ -21,6 +21,10 @@ import utils.stats as stats_module
 logger = logging.getLogger(__name__)
 
 GCP_TELEMETRY_ENDPOINT = "https://telemetry.googleapis.com/v1/metrics"
+# The GCP Telemetry API rejects any export request with more than 200 data
+# points ("A maximum of 200 points can be written in a single request"), so
+# exports must be split into batches of at most this size.
+GCP_MAX_POINTS_PER_REQUEST: Final[int] = 200
 _MONITORING_SCOPES = ["https://www.googleapis.com/auth/monitoring.write"]
 
 # Per-pod auto-detection sources. These let GKE deployments produce
@@ -102,6 +106,9 @@ class GCPOTLPMetricExporter(OTLPMetricExporter):
             type(credentials).__name__,
         )
         kwargs.setdefault("endpoint", GCP_TELEMETRY_ENDPOINT)
+        # Split exports into batches so we never exceed the GCP Telemetry
+        # API's 200-points-per-request limit (see GCP_MAX_POINTS_PER_REQUEST).
+        kwargs.setdefault("max_export_batch_size", GCP_MAX_POINTS_PER_REQUEST)
         super().__init__(session=auth_session, **kwargs)
 
     def _export(self, *args: Any, **kwargs: Any) -> Any:
@@ -118,10 +125,9 @@ class GCPOTLPMetricExporter(OTLPMetricExporter):
         if status is not None and status >= 400:
             body = getattr(response, "text", "")
             logger.warning(
-                "OTLP export rejected: status=%s project_header=%r auth_present=%s body=%s",
+                "OTLP export rejected: status=%s project_header=%r body=%s",
                 status,
                 self._auth_session.headers.get("x-goog-user-project"),
-                bool(self._auth_session.headers.get("authorization")),
                 body[:2000],
             )
         return response

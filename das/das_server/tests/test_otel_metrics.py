@@ -7,7 +7,7 @@ from das_server.otel_metrics import GCPOTLPMetricExporter
 
 class TestGCPOTLPMetricExporter:
     def _make_exporter(
-        self, credentials: object, project: str | None
+        self, credentials: object, project: str | None, **extra_kwargs: object
     ) -> tuple[GCPOTLPMetricExporter, MagicMock, MagicMock, MagicMock]:
         with (
             patch("das_server.otel_metrics.google.auth.transport.requests.AuthorizedSession") as mock_session_cls,
@@ -17,7 +17,7 @@ class TestGCPOTLPMetricExporter:
             session = MagicMock()
             session.headers = {}
             mock_session_cls.return_value = session
-            exporter = GCPOTLPMetricExporter(credentials=credentials, project=project)
+            exporter = GCPOTLPMetricExporter(credentials=credentials, project=project, **extra_kwargs)
             return exporter, mock_session_cls, mock_init, session
 
     def test_builds_authorized_session_from_credentials(self):
@@ -51,6 +51,18 @@ class TestGCPOTLPMetricExporter:
             _, _, _, session = self._make_exporter(creds, None)
         assert session.headers["x-goog-user-project"] == "settings-project"
 
+    def test_passes_max_export_batch_size_of_200_to_parent_init(self):
+        creds = MagicMock()
+        _, _, mock_init, _ = self._make_exporter(creds, "my-project")
+        _, kwargs = mock_init.call_args
+        assert kwargs["max_export_batch_size"] == 200
+
+    def test_does_not_override_explicit_max_export_batch_size(self):
+        creds = MagicMock()
+        _, _, mock_init, _ = self._make_exporter(creds, "my-project", max_export_batch_size=50)
+        _, kwargs = mock_init.call_args
+        assert kwargs["max_export_batch_size"] == 50
+
     def test_export_diagnostic_reads_from_auth_session(self):
         creds = MagicMock()
         exporter, _, _, session = self._make_exporter(creds, "my-project")
@@ -69,6 +81,8 @@ class TestGCPOTLPMetricExporter:
 
         assert result is response
         assert mock_logger.warning.called
+        message = mock_logger.warning.call_args[0][0]
+        assert "auth_present" not in message
 
     def test_no_export_override_present(self):
         # The old header-mutating export() override has been removed in favor
