@@ -68,6 +68,12 @@ class EnvironmentSettings:
     community_input_file_throttle_rate: Optional[str] = field(
         metadata=config(field_name="communityInputFileThrottleRate"), default="60/hour"
     )
+    events_create_throttle_rate: Optional[str] = field(
+        metadata=config(field_name="eventsCreateThrottleRate"), default="600/min"
+    )
+    events_create_max_concurrency: Optional[int] = field(
+        metadata=config(field_name="eventsCreateMaxConcurrency"), default=10
+    )
     community_input_max_upload_bytes: Optional[int] = field(
         metadata=config(field_name="communityInputMaxUploadBytes"), default=20 * 1024 * 1024
     )

@@ -767,6 +767,21 @@ ALERTS_RATE_LIMIT = 20
 ALERTS_RATE_LIMIT_DURATION_SECONDS = 86400  # 24 hours
 ALERTS_REMAINING_COUNTER_FOR_WARNING = 3
 
+# Per-tenant rate limit for POST /api/v1.0/activity/events/. Accepts any DRF
+# rate string ("600/min", "3600/hour", etc.). Set to an empty string or "none"
+# to disable throttling for single-tenant / dev deployments only (it does NOT
+# override per-tenant TMS values in multi-tenant deployments).
+EVENTS_CREATE_THROTTLE_RATE = env.str("EVENTS_CREATE_THROTTLE_RATE", "600/min")
+# Global kill-switch that enables BOTH the rate throttle and the concurrency
+# cap for ALL sites regardless of per-tenant TMS values. Guards are opt-in and
+# disabled by default; set EVENTS_CREATE_THROTTLE_ENABLED=true to turn them on
+# for a given cluster (staged, per-cluster rollout via ArgoCD-managed env vars).
+EVENTS_CREATE_THROTTLE_ENABLED = env.bool("EVENTS_CREATE_THROTTLE_ENABLED", False)
+# Maximum number of event-create POSTs a single tenant may have in-flight at
+# once (shared across all Gunicorn workers / pods via Redis sorted-set).  A
+# value of 0 or negative disables the concurrency cap for all deployments.
+EVENTS_CREATE_MAX_CONCURRENCY = env.int("EVENTS_CREATE_MAX_CONCURRENCY", 10)
+
 CARTO_URL = "https://wri-01.cartodb.com/api/v2/sql"  # For: VIIRS-Fire-Alerts
 
 GFW_API_ROOT = "https://production-api.globalforestwatch.org/v1"

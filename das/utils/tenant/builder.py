@@ -61,6 +61,8 @@ class DjangoSettingsTenantBuilder:
         return EnvironmentSettings(
             accept_eula=parse_bool(settings.ACCEPT_EULA),
             alert_rate_limit=int(settings.ALERTS_RATE_LIMIT),
+            events_create_throttle_rate=getattr(settings, "EVENTS_CREATE_THROTTLE_RATE", "600/min") or None,
+            events_create_max_concurrency=getattr(settings, "EVENTS_CREATE_MAX_CONCURRENCY", 10),
             default_event_filter_from_days=default_event_filter_from_days,
             default_patrol_filter_from_days=default_patrol_filter_from_days,
             eus_org=getattr(settings, "EUS_SETTINGS", {}).get("organization"),

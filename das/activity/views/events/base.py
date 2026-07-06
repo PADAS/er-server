@@ -70,6 +70,7 @@ from activity.serializers import (
     PatrolSegmentEventSerializer,
 )
 from activity.serializers.geometries import EventGeometryRevisionSerializer
+from activity.throttles import EventCreateConcurrencyMixin, EventCreateThrottle
 from activity.util import get_permitted_event_categories
 from activity.views.helpers import (
     calculate_event_etag,
@@ -661,7 +662,7 @@ class EventsExportView(APIView):
         return queryset.order_by("event_type_id")
 
 
-class EventsView(ListCreateAPIView):
+class EventsView(EventCreateConcurrencyMixin, ListCreateAPIView):
     __doc__ = """
     Returns all events.
     Optional query-params:
@@ -680,6 +681,7 @@ class EventsView(ListCreateAPIView):
     page_size
     """
     permission_classes = (EventsPermissions,)
+    throttle_classes = (EventCreateThrottle,)
     filter_backends = (
         EventPermissionsFilter,
         EventListFilter,
@@ -752,7 +754,7 @@ class EventsView(ListCreateAPIView):
 
             return Response(data=data, status=status.HTTP_200_OK)
 
-    def post(self, request: Request, *args, **kwargs) -> Response:
+    def create(self, request: Request, *args, **kwargs) -> Response:
         request.POST._mutable = True
         new_record = request.data
         if isinstance(new_record, dict):

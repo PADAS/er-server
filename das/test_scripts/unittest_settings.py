@@ -12,6 +12,12 @@ TIME_ZONE = "America/Los_Angeles"
 
 PATROL_ENABLED = True
 
+# EVENTS_CREATE_THROTTLE_ENABLED defaults to False in production (opt-in,
+# staged per-cluster rollout via ArgoCD). Force it on here since most tests in
+# activity/tests/test_events_create_throttle.py exercise throttle/concurrency
+# behavior without explicitly setting the kill-switch.
+EVENTS_CREATE_THROTTLE_ENABLED = True
+
 MEDIA_ROOT = "/tmp/"
 STORAGES = {
     "default": {
