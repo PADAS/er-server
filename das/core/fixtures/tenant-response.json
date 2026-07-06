@@ -52,6 +52,8 @@
     "defaultEventFilterFromDays": null,
     "defaultPatrolFilterFromDays": null,
     "eusOrg": null,
+    "eventsCreateMaxConcurrency": 10,
+    "eventsCreateThrottleRate": "600/min",
     "fqdn": "zoo.com",
     "geoPermissionSpeedKmH": 75,
     "geoPermissionRadiusMeters": 3704,
