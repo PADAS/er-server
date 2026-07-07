@@ -20,8 +20,10 @@ from django.contrib.auth import BACKEND_SESSION_KEY, login
 from django.contrib.auth import logout as django_logout
 from django.http import HttpRequest, HttpResponse
 from django.shortcuts import redirect
+from django.template.loader import render_to_string
 from django.urls import reverse
 from django.utils.http import url_has_allowed_host_and_scheme
+from django.views.decorators.cache import never_cache
 from django.views.decorators.csrf import csrf_exempt
 
 from accounts.backends import Auth0BackendForStaffUsers
@@ -143,11 +145,27 @@ def _use_default_django_admin_login(request):
     return admin.site.login(request)
 
 
+def admin_access_denied_response(username: str | None = None) -> HttpResponse:
+    """Render the admin access-denied page (HTTP 403).
+
+    Shown when an authenticated Auth0 user is rejected for admin access (non-staff, or an
+    ambiguous multi-user match). The page offers a sign-out link routed through admin_logout
+    (-> Auth0 /v2/logout) so the user can sign out and sign back in with a different account.
+    When a single user was resolved, their username is surfaced so they can see which account
+    they are signed in as.
+
+    Rendered without a request to skip context processors, mirroring already_linked_response.
+    """
+    html = render_to_string("registration/admin_access_denied.html", {"username": username})
+    return HttpResponse(html, status=403)
+
+
 # Exported so middleware and URL registration share the same string - keeping
 # them from drifting out of sync if this view's URL name ever changes.
 INITIATE_AUTH0_ADMIN_LOGIN_URL_NAME = "auth0_admin_login"
 
 
+@never_cache
 def initiate_auth0_admin_login(request):
     """
     Initiates Auth0 login for Django Admin.
@@ -164,7 +182,9 @@ def initiate_auth0_admin_login(request):
 
     auth0_callback_url = request.build_absolute_uri(reverse("auth0_callback"))
 
-    extra_params = {}
+    # Force a fresh Auth0 prompt so a retry cannot silently reuse an existing SSO session and
+    # re-assert the same (possibly non-admin) identity, which would trap the user in a login loop.
+    extra_params = {"prompt": "login"}
     if org_id:
         extra_params["organization"] = org_id
         logger.debug("Initiating Auth0 admin login with organization %s", org_id)
@@ -172,6 +192,7 @@ def initiate_auth0_admin_login(request):
     return _admin_auth0_client.auth0.authorize_redirect(request, auth0_callback_url, **extra_params)
 
 
+@never_cache
 @csrf_exempt
 def auth0_callback(request: HttpRequest) -> HttpResponse:
     """
@@ -192,16 +213,17 @@ def auth0_callback(request: HttpRequest) -> HttpResponse:
 
         - DoesNotExist (no active user for the sub, incl. an inactive linked user) -> 302 to
           the account-linking on-ramp.
-        - MultipleObjectsReturned -> 403 (defensive; the per-tenant auth0_id constraint makes
-          this unreachable while the DB is healthy).
-        - active user found but is_staff=False -> 403 (already linked; must not be sent to the
-          link page, which rejects already-linked users).
+        - MultipleObjectsReturned -> 403 access-denied page (defensive; the per-tenant auth0_id
+          constraint makes this unreachable while the DB is healthy).
+        - active user found but is_staff=False -> 403 access-denied page (already linked; must not
+          be sent to the link page, which rejects already-linked users).
 
     Returns:
         - HttpResponse (redirect 302): On successful authentication, redirects to intended admin page
         - HttpResponse (redirect 302): On DoesNotExist, redirects to the account-linking page
         - HttpResponse (400): If the Auth0 userinfo is missing the sub claim
-        - HttpResponse (403): If the resolved user lacks admin privileges, or multiple users match
+        - HttpResponse (403): The rendered access-denied page, if the resolved user lacks admin
+          privileges or multiple users match
         - HttpResponse (500): If an error occurs during the OAuth token exchange
 
     Session variables:
@@ -229,11 +251,11 @@ def auth0_callback(request: HttpRequest) -> HttpResponse:
         return redirect(reverse("link_accounts"))
     except User.MultipleObjectsReturned:
         logger.error("Auth0 admin callback: multiple active users with auth0_id %s", auth0_id)
-        return HttpResponse("Authentication failed", status=403)
+        return admin_access_denied_response()
 
     if not admin_user.is_staff:
         logger.error("Non-staff user %s attempted Auth0 admin authentication", admin_user.username)
-        return HttpResponse("Authentication failed - insufficient privileges", status=403)
+        return admin_access_denied_response(username=admin_user.username)
 
     login(request, admin_user, backend=AUTH0_BACKEND_PATH)
     logger.info(

@@ -1,0 +1,17 @@
+{% extends "registration/account_linking_base.html" %}
+{% load i18n %}
+
+{% block content %}
+  <div class="info-card">
+    <h2>{% translate "You don't have admin access" %}</h2>
+    {% if username %}
+      <p>{% blocktranslate %}You are signed in as {{ username }}, which is not an EarthRanger administrator account.{% endblocktranslate %}</p>
+    {% else %}
+      <p>{% translate "This account is not an EarthRanger administrator account." %}</p>
+    {% endif %}
+  </div>
+
+  <a class="button" href="{% url 'admin_logout' %}">{% translate "Sign out and try a different account" %}</a>
+
+  <p class="helper-text">{% translate "Questions? Reach out to your site admin." %}</p>
+{% endblock %}

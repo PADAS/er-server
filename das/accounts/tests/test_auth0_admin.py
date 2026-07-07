@@ -21,6 +21,7 @@ from django.urls import reverse
 from accounts.auth0_admin import (
     AUTH0_BACKEND_PATH,
     INITIATE_AUTH0_ADMIN_LOGIN_URL_NAME,
+    admin_access_denied_response,
     admin_login_entrypoint,
     admin_logout,
     auth0_callback,
@@ -311,6 +312,55 @@ class TestInitiateAuth0AdminLogin:
             # organization must not be passed at all when org_id is missing
             assert "organization" not in call_args[1]
 
+    @pytest.mark.parametrize("query_string", ["?org_id=org_test123", ""], ids=["org_scoped", "common_db"])
+    def test_forces_login_prompt_to_prevent_silent_sso_reuse(self, request_factory, query_string):
+        """The initiator must send prompt=login on every admin login — org-scoped and common-DB
+        alike — so a retry re-prompts at Auth0 instead of silently reusing an existing SSO
+        session. Without it, a rejected non-admin identity is re-asserted on every retry and the
+        user is stuck in a login loop."""
+        request = request_factory.get(f"/auth/admin-login/{query_string}")
+        request.session = {}
+        request.build_absolute_uri = lambda path: f"https://example.com{path}"
+
+        with patch("accounts.auth0_admin._admin_auth0_client.auth0.authorize_redirect") as mock_redirect:
+            mock_redirect.return_value = HttpResponse("auth0_redirect")
+
+            _ = initiate_auth0_admin_login(request)
+
+            call_kwargs = mock_redirect.call_args[1]
+            assert call_kwargs["prompt"] == "login"
+            # prompt=login must ride alongside the organization param, not displace it:
+            # a future rewrite of extra_params must not drop org while keeping the prompt.
+            if query_string:
+                assert call_kwargs["organization"] == "org_test123"
+            else:
+                assert "organization" not in call_kwargs
+
+
+class TestAdminAccessDeniedResponse:
+    """The shared 403 escape page shown when an authenticated Auth0 user is rejected for admin
+    access (non-staff, or an ambiguous multi-user match).
+
+    No @pytest.mark.django_db: the helper renders a static template and touches no DB.
+    """
+
+    def test_renders_escape_page_routed_through_admin_logout(self):
+        """The page must always offer a sign-out link routed through admin_logout (which
+        redirects to Auth0 /v2/logout), so the user can sign out and sign back in with a
+        different account."""
+        response = admin_access_denied_response()
+
+        assert response.status_code == 403
+        # Assert the URL is the link target, not merely present somewhere in the body.
+        assert f'href="{reverse("admin_logout")}"' in response.content.decode()
+
+    def test_surfaces_signed_in_username_when_provided(self):
+        """When a single user was resolved, surface their username so they understand which
+        (non-admin) identity they are signed in as."""
+        response = admin_access_denied_response(username="regularlinked")
+
+        assert "regularlinked" in response.content.decode()
+
 
 @pytest.mark.django_db
 @pytest.mark.usefixtures("tenant_settings", "das_tenant_monkeypatch")
@@ -411,9 +461,10 @@ class TestAuth0Callback:
             assert result.status_code == 302
             assert result.url == reverse("link_accounts")
 
-    def test_non_staff_user_returns_403_without_redirect(self, request_factory):
-        """An active, linked, non-staff user is resolved but rejected with 403. It must NOT
-        redirect to the link page (which rejects already-linked users -> dead-end)."""
+    def test_non_staff_user_returns_403_page_with_sign_out_link(self, request_factory):
+        """An active, linked, non-staff user is resolved but rejected. The callback returns the
+        403 access-denied page (not a redirect to the link page, which rejects already-linked
+        users -> dead-end). The page surfaces the username and a sign-out link via admin_logout."""
         User.objects.create_user(
             username="regularlinked",
             email="regular@example.com",
@@ -432,12 +483,15 @@ class TestAuth0Callback:
 
             result = auth0_callback(request)
 
-            assert result.status_code == 403
-            assert b"Authentication failed - insufficient privileges" in result.content
+        assert result.status_code == 403
+        content = result.content.decode()
+        assert f'href="{reverse("admin_logout")}"' in content
+        assert "regularlinked" in content
 
-    def test_multiple_objects_returned_returns_403(self, request_factory):
-        """Defensive path: if the lookup raises MultipleObjectsReturned, the callback returns
-        403 rather than crashing into a 500 or leaking which users matched."""
+    def test_multiple_objects_returned_returns_403_page(self, request_factory):
+        """Defensive path: if the lookup raises MultipleObjectsReturned, the callback returns the
+        403 access-denied page (not a 500) with the sign-out link, and surfaces no username since
+        no single user was resolved."""
         request = request_factory.get("/auth/callback/")
         request.session = {"auth0_admin_next": "/admin/"}
 
@@ -450,8 +504,11 @@ class TestAuth0Callback:
 
                 result = auth0_callback(request)
 
-                assert result.status_code == 403
-                assert b"Authentication failed" in result.content
+        content = result.content.decode()
+        assert result.status_code == 403
+        assert f'href="{reverse("admin_logout")}"' in content
+        # No single user was resolved, so the page must not surface a "signed in as" identity.
+        assert "You are signed in as" not in content
 
     def test_missing_sub_claim_returns_400(self, request_factory):
         """A token whose userinfo lacks the sub claim returns 400 before any user lookup."""
