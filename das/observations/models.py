@@ -107,8 +107,8 @@ HIGH_ASSIGNMENT_COUNT_THRESHOLD = 10
 # the entire observation table. The recent window is tried first; if empty, the
 # extended window is tried before giving up. Subjects silent past the extended
 # window are treated as inactive.
-RECENT_OBSERVATION_LOOKBACK_DAYS = 30
-EXTENDED_OBSERVATION_LOOKBACK_DAYS = 365
+RECENT_OBSERVATION_LOOKBACK_DAYS = 60
+EXTENDED_OBSERVATION_LOOKBACK_DAYS = 365 * 10
 
 SOURCE_TYPES = sorted(
     (
