@@ -45,7 +45,7 @@ When in doubt, ask: "Could I lift this file into a separate Python package and `
 - pytest for unit testing
 - Celery (for background tasks)
 - Redis (for caching and task queues)
-- PostgreSQL 16
+- PostgreSQL with PostGIS. In production the database is PostgreSQL 17 on Google AlloyDB with read replicas, fronted by pgcat for connection pooling and load balancing. We do **not** run Citus — `django-multitenant` was developed by Citus Data, but that is only the library's provenance, not our database.
 - Docker and Kubernetes for deployment
 
 ## Multi-Tenant Architecture
@@ -99,7 +99,7 @@ The above covers the **read** side. The **write** side has its own landmine — 
 
 ### Writes under unset/absent tenant context
 
-Tenant scoping protects *reads*; it does **not** touch the implicit `WHERE` clause of a *write*. Seeded/global tenant-scoped rows — `EventType`, `EventCategory`, `EventClass`, `EventFactor`, `TileLayer`, and similar — **reuse the same `id` (UUID) across every tenant**. On the Citus production clusters the physical primary key is the composite `(das_tenant_id, id)`, even though Django models `id` as the sole PK, which is why duplicate `id`s coexist. So an ORM `instance.save(update_fields=[…])` or `QuerySet.update(…)` — which key the write on `id` alone — will, when the tenant context is **unset or absent** (data migrations, management commands, shells, anything inside `UnsetDASTenantContextManager`), emit `UPDATE … WHERE id=<uuid>` with no tenant predicate and **overwrite every tenant's row sharing that id**.
+Tenant scoping protects *reads*; it does **not** touch the implicit `WHERE` clause of a *write*. Seeded/global tenant-scoped rows — `EventType`, `EventCategory`, `EventClass`, `EventFactor`, `TileLayer`, and similar — **reuse the same `id` (UUID) across every tenant**. In production (AlloyDB) the physical primary key is the composite `(das_tenant_id, id)`, even though Django models `id` as the sole PK, which is why duplicate `id`s coexist. So an ORM `instance.save(update_fields=[…])` or `QuerySet.update(…)` — which key the write on `id` alone — will, when the tenant context is **unset or absent** (data migrations, management commands, shells, anything inside `UnsetDASTenantContextManager`), emit `UPDATE … WHERE id=<uuid>` with no tenant predicate and **overwrite every tenant's row sharing that id**.
 
 Iterating per-tenant and scoping your *reads* (`.filter(das_tenant_id=…)`) does not help — the danger is entirely in the write. This is exactly how `activity/migrations/0198_fix_v2_link_fields` and `0203_repair_v2_collection_schemas` clobbered V2 `EventType` schemas fleet-wide (prod incident 2026-06-29): both scope the read correctly, then `event_type.save(update_fields=["schema","updated_at"])` inside `UnsetDASTenantContextManager`. Those two writes now carry a warning comment — do not copy the pattern.
 
