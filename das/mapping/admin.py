@@ -1,6 +1,7 @@
 import logging
 from functools import reduce
 
+from django.conf import settings
 from django.contrib import admin as django_admin
 from django.contrib import messages
 from django.contrib.admin import helpers
@@ -296,6 +297,87 @@ class SpatialFeatureAdmin(BaseFeatureAdmin):
 
     get_name.short_description = "Name"
     get_name.admin_order_field = "name"
+
+    def feature_geometry_summary(self, obj):
+        """Render a lightweight summary of the geometry for the change view.
+
+        The editable OpenLayers WKT widget round-trips the full geometry back in the
+        POST body. For bulk-imported road-network features with a huge vertex count
+        this easily exceeds DATA_UPLOAD_MAX_MEMORY_SIZE and raises RequestDataTooBig
+        before the form is even validated, so a name-only edit fails with a 400.
+        Showing a read-only summary keeps the geometry off the form entirely.
+        """
+        geom = obj.feature_geometry if obj else None
+        if geom is None:
+            return _("<no geometry>")
+        limit = settings.MAPPING_ADMIN_GEOMETRY_EDIT_MAX_VERTICES
+        note = _(
+            "Too large to view or edit here — exceeds the {limit}-vertex limit for the "
+            "admin map editor. To view or modify this geometry, open the source data in "
+            "a GIS editor such as QGIS or ArcGIS and re-import it."
+        ).format(limit=f"{limit:,}")
+        return format_html(
+            "{summary}<p class='help' style='margin-left:0; padding-left:0'>{note}</p>",
+            summary=f"{geom.geom_type} — {geom.num_coords:,} vertices",
+            note=note,
+        )
+
+    feature_geometry_summary.short_description = "Geometry"
+
+    def _geometry_exceeds_edit_limit(self, obj):
+        """Whether obj's geometry is too large for the editable widget.
+
+        The change view is used both to view/edit ordinary geometries and to look at
+        bulk-imported ones, so only geometries above
+        settings.MAPPING_ADMIN_GEOMETRY_EDIT_MAX_VERTICES are switched to the
+        read-only summary; everything else (including no geometry at all) keeps the
+        ordinary editable OpenLayers widget, same as the add view.
+        """
+        geom = obj.feature_geometry if obj else None
+        if geom is None:
+            return False
+        return geom.num_coords > settings.MAPPING_ADMIN_GEOMETRY_EDIT_MAX_VERTICES
+
+    def get_readonly_fields(self, request, obj=None):
+        # On the change view the geometry is read-only (rendered as a summary) only
+        # when it is too large for the OpenLayers widget to safely round-trip in a
+        # POST; otherwise, and on the add view, it stays editable.
+        if obj is not None and self._geometry_exceeds_edit_limit(obj):
+            return (*self.readonly_fields, "feature_geometry_summary")
+        return self.readonly_fields
+
+    def get_form(self, request, obj=None, change=False, **kwargs):
+        # OSMGeoExtendedAdmin.get_form drops obj when delegating to ModelAdmin.get_form,
+        # so the read-only "feature_geometry_summary" callable (which is not a model
+        # field) is not stripped from the form's field list and Django raises FieldError.
+        # Strip read-only field names here using the real obj; the admin still renders
+        # them read-only via get_readonly_fields at render time.
+        fields = kwargs.get("fields")
+        if obj is not None and fields:
+            readonly = set(self.get_readonly_fields(request, obj))
+            kwargs["fields"] = [field for field in fields if field not in readonly]
+        return super().get_form(request, obj=obj, change=change, **kwargs)
+
+    def get_fieldsets(self, request, obj=None):
+        if obj is not None and self._geometry_exceeds_edit_limit(obj):
+            return (
+                (None, {"fields": ("id", "name", "feature_type", "spatialfile", "feature_geometry_summary")}),
+                (
+                    "Advanced Attributes",
+                    {
+                        "classes": ("wide", "collapse"),
+                        "fields": (
+                            "short_name",
+                            "description",
+                            "attributes",
+                            "provenance",
+                            "external_id",
+                            "external_source",
+                        ),
+                    },
+                ),
+            )
+        return super().get_fieldsets(request, obj)
 
 
 def delete_selected_spatialfiles(modeladmin, request, queryset):

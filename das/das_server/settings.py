@@ -415,6 +415,13 @@ MAPPING = {
     }
 }
 
+# Caps the editable OpenLayers geometry widget on the SpatialFeature admin change
+# view. Above this vertex count the geometry is shown as a read-only summary
+# instead, because the widget POSTs the full WKT back on every save. WKT is
+# roughly 40 bytes/vertex, so 10k vertices is ~400 KB, well under the 2.5 MiB
+# DATA_UPLOAD_MAX_MEMORY_SIZE default.
+MAPPING_ADMIN_GEOMETRY_EDIT_MAX_VERTICES = env.int("MAPPING_ADMIN_GEOMETRY_EDIT_MAX_VERTICES", 10000)
+
 # In the ST environment variable are
 # REDIS_SERVICE_HOST, REDIS_SERVICE_PORT
 # In the MT environment variables are
