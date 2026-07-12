@@ -13,18 +13,6 @@ EarthRanger (DAS - Domain Awareness System) is a Django-based web application fo
 
 [Architecture Documentation](docs/architecture/architecture-overview.md)
 
-### Django Apps Structure
-
-- `accounts/` - User management, permissions, and authentication
-- `activity/` - Events, patrols, and alerting system
-- `observations/` - Animal tracking, GPS data, and subject management
-- `mapping/` - GIS integration, spatial data, and map services
-- `sensors/` - IoT device handlers and data ingestion
-- `analyzers/` - Real-time analysis (geofencing, proximity, immobility detection)
-- `tracking/` - Source plugins for various GPS/telemetry providers
-- `reports/` - Report generation and data distribution
-- `utils/` - Shared utilities and common functionality
-
 ## Module Boundaries
 
 ### `utils/` must stay app-agnostic
@@ -36,17 +24,6 @@ Code in `das/utils/` must not reference or assume any specific app or domain con
 - `utils/tenant` predates this rule and is a known violation. Do not treat it as precedent or extend the pattern; new domain-aware code goes in the owning app.
 
 When in doubt, ask: "Could I lift this file into a separate Python package and `pip install` it from another project?" If the answer is no, it does not belong in `utils/`.
-
-## Key Technologies
-
-- Django 4.2 (LTS)
-- Django REST Framework (for API development)
-- Python 3.10
-- pytest for unit testing
-- Celery (for background tasks)
-- Redis (for caching and task queues)
-- PostgreSQL with PostGIS. In production the database is PostgreSQL 17 on Google AlloyDB with read replicas, fronted by pgcat for connection pooling and load balancing. We do **not** run Citus — `django-multitenant` was developed by Citus Data, but that is only the library's provenance, not our database.
-- Docker and Kubernetes for deployment
 
 ## Multi-Tenant Architecture
 
@@ -139,34 +116,9 @@ Landmines (full guidance: [.cursor/rules/das-dynamic-schemas.mdc](.cursor/rules/
 
 Do not declare the same setting in both `settings.py` and `local_settings_docker.py` — that was the old pre-`django-environ` workaround and creates two sources of truth.
 
-### Key Environment Variables
-
-- `DJANGO_SETTINGS_MODULE` - Points to settings module
-- Database configuration via django-environ
-- `DEBUG` and `DEV` flags for development mode
-
-## Key File Locations
-
-- Main Django project: `das/`
-- Settings: `das/das_server/settings.py`
-- Entry point: `das/manage.py`
-- Dependencies: `pyproject.toml`
-- Test configuration: `pytest.ini`
-- Documentation: `docs/`
-
 ## Python Style & Conventions
 
 - Follow PEP 8 for formatting. pre-commit handles import sorting and pruning, so don't waste time managing whitespace and other code formatting.
-- Prefer readability over cleverness. Write for the next reader.
-- Use descriptive names: `user_count` not `n`, `parse_response` not `pr`.
-- Prefer `pathlib.Path` over `os.path` for filesystem operations.
-- Use f-strings for string formatting; avoid `%` and `.format()` unless there is a specific reason.
-- Use dataclasses or pydantic models for structured data — avoid raw dictionaries with implicit schemas.
-- Prefer `Enum` over string/int constants for categorical values.
-- Use context managers (`with`) for resource management (files, connections, locks).
-- Avoid mutable default arguments. Use `None` and initialize inside the function body.
-- Keep functions small and focused on a single responsibility.
-- Always use `logging` and not `print`.
 - Use Python typing `Protocol` and not ABC for defining abstract classes. Rely on the type checker to enforce all required methods are implemented.
 
 ### Dates and timezones
@@ -179,71 +131,20 @@ Do not declare the same setting in both `settings.py` and `local_settings_docker
 
 ## Django/Python Conventions
 
-- Use Django's class-based views (CBVs) with viewsets.
 - Define API query-parameter filtering using DRF `BaseFilterBackend` and the `django-filter` library.
-- Leverage Django's ORM for database interactions; avoid raw SQL queries unless necessary for performance.
-- Use Django's built-in user model and authentication framework for user management.
-- Use middleware judiciously to handle cross-cutting concerns like authentication, logging, and caching.
-- Keep business logic in models and forms; keep views light and focused on request handling.
-- Use Django's URL dispatcher (`urls.py`) to define clear and RESTful URL patterns.
-- Apply Django's security best practices (e.g., CSRF protection, SQL injection protection, XSS prevention).
 - Use test-driven design principles. When fixing bugs, write the assertion unit test that exposes the bug, then fix the code to pass the test.
 - Write API documentation in markdown for new or updated APIs; documentation is stored in `/docs`.
-- Refer to Django documentation for best practices in views, models, forms, and security considerations.
-
-## Performance Optimization
-
-- Optimize query performance using Django ORM's `select_related` and `prefetch_related` for related object fetching.
-- Use Django's cache framework with backend support (e.g., Redis or Memcached) to reduce database load.
-- Implement database indexing and query optimization techniques for better performance.
-- Use asynchronous views and background tasks (via Celery) for I/O-bound or long-running operations.
-- Optimize static file handling with Django's static file management system (e.g., WhiteNoise or CDN integration).
 
 ## Python Type Annotations
 
 All code must be fully type-annotated. Use mypy (strict mode) or pyright to validate.
 
-- Annotate all function parameters and return types — no bare `def f(x)`.
 - Use `from __future__ import annotations` at the top of every module to enable postponed evaluation.
-- Prefer built-in generic types (Python 3.10+): `list[str]`, `dict[str, int]`, `tuple[int, ...]` over `List`, `Dict`, `Tuple` from `typing`.
-- Use `X | None` instead of `Optional[X]` (Python 3.10+).
-- Use `X | Y` instead of `Union[X, Y]` (Python 3.10+).
-- Use `TypeAlias` for complex type aliases:
-
-  ```python
-  from typing import TypeAlias
-  UserId: TypeAlias = int
-  ```
-
-- Use `TypedDict` for typed dictionary schemas.
-- Use `Protocol` instead of ABCs when duck typing is sufficient.
-- Use `Final` for constants that should not be reassigned.
-- Use `@overload` for functions with multiple distinct signatures.
 - Never use `Any` unless absolutely unavoidable — document why with a comment.
-- Use `cast()` sparingly and only when the type system genuinely cannot infer correctly.
-- Use `assert isinstance(x, SomeType)` to narrow types in runtime-checked paths.
 
 ## Testing with pytest
 
-### General Rules
-
-- Every public function, method, and class must have tests.
-- Tests must be deterministic — no randomness, no reliance on wall-clock time without mocking.
-- Each test should assert one logical behaviour. Split large tests into focused ones.
-- Test names must be descriptive sentences: `test_returns_none_when_user_not_found`, not `test_user_2`.
-- Do not use `assert` on complex expressions without a failure message — use pytest's built-ins or plain comparisons that pytest can introspect.
-- Never test implementation details; test observable behaviour.
-- Organize a group of unit test functions in a class.
-
-### Fixtures
-
-- Define reusable setup in `conftest.py` using `@pytest.fixture`.
-- Prefer function-scoped fixtures (the default) unless a broader scope is explicitly justified.
-- Fixtures should return typed values — annotate with `-> Generator[X, None, None]` or `-> X`.
-
-### Parametrize
-
-- Use `@pytest.mark.parametrize` to cover multiple input/output cases without duplicating test bodies.
+Pytest conventions (test structure, fixtures, parametrize) live in the `er-developer:core-testing` skill, which auto-triggers when writing or modifying tests. Two rules worth keeping in view: organize a group of unit test functions in a class, and name tests as descriptive sentences (`test_returns_none_when_user_not_found`, not `test_user_2`).
 
 ## What Agents Should Never Do
 
