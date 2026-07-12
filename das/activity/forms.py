@@ -213,6 +213,8 @@ class AlertRuleForm(forms.ModelForm):
             "conditions",
             "schedule",
         ):
+            if value is None:
+                value = {}
             return json.dumps(value, indent=2)
         return value
 

@@ -1,15 +1,21 @@
 import itertools
+import json
 from unittest import skipIf
 
+import pytest
+
+from django import forms
 from django.contrib.staticfiles import finders
 from django.test import TestCase
 
 from activity.exceptions import SCHEMA_ERROR_MISSING_DOLLAR_SIGN_SCHEMA
 from activity.forms import (
     SCHEMA_ERROR_JSON_DECODE_ERROR,
+    AlertRuleForm,
     EventTypeForm,
     PrettyReadOnlyJSONWidget,
 )
+from activity.models import AlertRule
 
 EVENT_SCHEMA = """{\n    "schema": {\n        "$schema": "http://json-schema.org/draft-04/schema#",\n        "title": "Rhino Sighting (rhino_sighting_rep)",\n      \n        "type": "object",\n\n        "properties": \n        {\n            "rhinosightingrep_Rhino": {\n                "type": "string",\n                "title": "Individual Rhino ID",\n                "enum": {{query___blackRhinos___values}},\n                "enumNames": {{query___blackRhinos___names}}\n            },\n            "rhinosightingrep_earnotchcount": {\n                "type":"number",\n                "title": "Ear notch count"\n            },\n            "rhinosightingrep_condition":{\n                "type": "string",\n                "title": "Condition",\n               "enum": {{enum___rhinosightingrep_condition___values}},\n               "enumNames": {{enum___rhinosightingrep_condition___names}}                   \n            },\n            "rhinosightingrep_activity": {\n                "type": "string",\n                "title": "Activity",\n               "enum": {{enum___rhinosightingrep_activity___values}},\n               "enumNames": {{enum___rhinosightingrep_activity___names}}            \n            }\n        }\n    },\n    "definition": [\n    {\n        "key":         "rhinosightingrep_Rhino",\n        "htmlClass": "col-lg-6"\n    }, \n    {\n        "key":         "rhinosightingrep_earnotchcount",\n        "htmlClass": "col-lg-6"\n    }, \n    {\n        "key":         "rhinosightingrep_condition",\n        "htmlClass": "col-lg-6"\n    }, \n    {\n        "key":         "rhinosightingrep_activity",\n        "htmlClass": "col-lg-6"\n    }\n    ]\n}"""
 
@@ -104,6 +110,51 @@ class TestEventTypeForm(TestCase):
     def test_missing_properties_in_definition(self):
         form = EventTypeForm(data={"schema": EVENT_SCHEMA_WITH_MISSING_PROPERTY_IN_DEFINITION})
         self.assertFalse(form.is_valid())
+
+
+@pytest.mark.usefixtures("tenant_settings", "das_tenant_monkeypatch")
+class TestAlertRuleFormGetInitialForField(TestCase):
+    """A brand-new AlertRule admin "add" form must show an empty JSON object,
+    not the literal string "null", for the conditions/schedule fields.
+
+    AlertRuleForm has no Meta of its own (the admin binds it to AlertRule via
+    modelform_factory at request time), so tests build the same bound form
+    class explicitly.
+
+    Constructing an AlertRule (directly, or implicitly via the unbound form)
+    falls back to AlertRule.das_tenant's default (default_tenant_id), which
+    reads the current tenant from thread-local context. Without a tenant set,
+    that default hits DASTenantManagement.get_tenant_id() -- a cache/TMS
+    lookup this unit test must not depend on. `das_tenant_monkeypatch` pins a
+    tenant on the thread-local context so default_tenant_id() resolves from
+    there instead (see das/utils/migrations/columns.py:default_tenant_id).
+
+    See das/activity/forms.py:AlertRuleForm.get_initial_for_field.
+    """
+
+    @classmethod
+    def setUpClass(cls):
+        super().setUpClass()
+        cls.BoundAlertRuleForm = forms.modelform_factory(AlertRule, form=AlertRuleForm, fields="__all__")
+
+    def test_add_form_renders_empty_dict_for_conditions_and_schedule(self):
+        form = self.BoundAlertRuleForm()
+
+        conditions_initial = form.get_initial_for_field(form.fields["conditions"], "conditions")
+        schedule_initial = form.get_initial_for_field(form.fields["schedule"], "schedule")
+
+        self.assertEqual(conditions_initial, "{}")
+        self.assertEqual(schedule_initial, "{}")
+
+    def test_existing_instance_still_renders_its_stored_dict(self):
+        instance = AlertRule(conditions={"foo": "bar"}, schedule={"days": [1, 2, 3]})
+        form = self.BoundAlertRuleForm(instance=instance)
+
+        conditions_initial = form.get_initial_for_field(form.fields["conditions"], "conditions")
+        schedule_initial = form.get_initial_for_field(form.fields["schedule"], "schedule")
+
+        self.assertEqual(conditions_initial, json.dumps({"foo": "bar"}, indent=2))
+        self.assertEqual(schedule_initial, json.dumps({"days": [1, 2, 3]}, indent=2))
 
 
 class TestPrettyReadOnlyJSONWidgetMedia(TestCase):
