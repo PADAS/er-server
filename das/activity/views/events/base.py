@@ -10,6 +10,7 @@ from drf_spectacular.utils import OpenApiResponse, extend_schema, inline_seriali
 from psycopg2.errors import InvalidTextRepresentation
 from rest_framework_extensions.etag.decorators import etag
 
+from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.contrib.contenttypes.models import ContentType
 from django.contrib.postgres.aggregates import ArrayAgg, StringAgg
@@ -20,6 +21,7 @@ from django.db.models.query import QuerySet
 from django.db.utils import DataError
 from django.utils.timezone import get_current_timezone_name
 from rest_framework import status
+from rest_framework.exceptions import ValidationError
 from rest_framework.filters import OrderingFilter
 from rest_framework.generics import (
     ListAPIView,
@@ -83,7 +85,12 @@ from observations.models import Subject
 from utils.csv_streaming import StreamingCSVResponse
 from utils.date import convert_to_timezone, get_current_time_zone, get_timezone_offset
 from utils.db.expresions import ArraySubquery
-from utils.drf import StandardResultsSetGeoJsonPagination, StandardResultsSetPagination
+from utils.drf import (
+    StandardResultsSetCursorPagination,
+    StandardResultsSetGeoJsonPagination,
+    StandardResultsSetPagination,
+    apply_deprecation_headers,
+)
 from utils.json import ExtendedGEOJSONRenderer, parse_bool
 
 logger = logging.getLogger(__name__)
@@ -662,6 +669,11 @@ class EventsExportView(APIView):
         return queryset.order_by("event_type_id")
 
 
+class EventsCursorPagination(StandardResultsSetCursorPagination):
+    ordering = "-created_at"
+    max_page_size = settings.REST_FRAMEWORK["MAX_PAGE_SIZE"]
+
+
 class EventsView(EventCreateConcurrencyMixin, ListCreateAPIView):
     __doc__ = """
     Returns all events.
@@ -675,6 +687,11 @@ class EventsView(EventCreateConcurrencyMixin, ListCreateAPIView):
 
     sort_by, valid values are event_time, updated_at, created_at, serial_number (prefix with '-' for reverse order)
     * default is by '-sort_at' which is a special value representing reverse by updated_at.
+    * when use_cursor=true, this must be omitted or set to '-created_at'; any other value is
+      rejected with a 400, since cursor pagination enforces '-created_at' ordering.
+
+    use_cursor, true to use a cursor-based paginator ordered by -created_at instead of the
+    deprecated page-based paginator.
 
     page, page number
 
@@ -705,6 +722,47 @@ class EventsView(EventCreateConcurrencyMixin, ListCreateAPIView):
     )
 
     schema = EventsViewSchema()
+
+    def _use_cursor(self) -> bool:
+        return parse_bool(self.request.query_params.get("use_cursor"))
+
+    def _validate_cursor_sort_by(self) -> None:
+        """Cursor pagination enforces a fixed ordering; reject an incompatible sort_by rather than
+        silently ignoring it."""
+        sort_by = self.request.query_params.get("sort_by")
+        enforced_ordering = EventsCursorPagination.ordering
+        if sort_by and sort_by != enforced_ordering:
+            raise ValidationError(
+                f"Cursor pagination (use_cursor=true) only supports ordering by '{enforced_ordering}'. "
+                f"Omit sort_by or set sort_by={enforced_ordering} rather than sort_by={sort_by}."
+            )
+
+    @property
+    def paginator(self):
+        """The paginator instance associated with the view, or `None`.
+           API caller can request to use a cursor based paginator.
+
+        Returns:
+            paginator: the requested paginator
+        """
+        if not hasattr(self, "_paginator"):
+            if self.pagination_class is None:
+                self._paginator = None
+            elif self._use_cursor():
+                self._validate_cursor_sort_by()
+                self._paginator = EventsCursorPagination()
+            else:
+                self._paginator = self.pagination_class()
+        return self._paginator
+
+    def finalize_response(self, request: Request, response: Response, *args, **kwargs) -> Response:
+        response = super().finalize_response(request, response, *args, **kwargs)
+        # Page-based pagination is the deprecated default, but only for the GET
+        # list. POST (event creation) and other methods are not deprecated, so
+        # don't flag them. Skip when the caller opted into the cursor paginator.
+        if request.method == "GET" and not self._use_cursor():
+            apply_deprecation_headers(response)
+        return response
 
     def _build_revisions_cache(self, events: list) -> dict:
         """Bulk-fetch all EventRevision rows for a page of events in one query."""

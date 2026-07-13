@@ -370,6 +370,37 @@ _DEPRECATION_POLICY_URL: Final[str] = "/api/v1.0/docs/api/deprecations.html"
 _DEPRECATION_LINK_VALUE: Final[str] = f'<{_DEPRECATION_POLICY_URL}>; rel="deprecation"; type="text/html"'
 
 
+def apply_deprecation_headers(response: Response, use_instead: str = "") -> Response:
+    """Set the standard deprecation headers on ``response`` and return it.
+
+    Sets the following headers:
+      * ``Deprecation`` (RFC 9745): a structured-field Date item
+        (``@<unix-seconds>``) indicating when the resource became deprecated.
+      * ``Sunset`` (RFC 8594): an HTTP-date (IMF-fixdate) indicating when the
+        resource will be removed. ``Deprecation`` is always less than or equal
+        to ``Sunset``.
+      * ``Link`` (RFC 8288): a single header carrying one or two
+        comma-separated link values:
+
+        - ``<successor-path>; rel="successor-version"`` when ``use_instead`` is
+          provided, pointing clients at the replacement.
+        - ``<deprecation-policy-url>; rel="deprecation"; type="text/html"``
+          (RFC 9745 §3), always emitted, pointing clients at the
+          human-readable deprecation policy doc.
+    """
+    response["Deprecation"] = _DEPRECATION_HEADER_VALUE
+    response["Sunset"] = _SUNSET_HEADER_VALUE
+    link_values: List[str] = []
+    if use_instead:
+        link_values.append(f'<{use_instead}>; rel="successor-version"')
+    link_values.append(_DEPRECATION_LINK_VALUE)
+    # RFC 8288 §3: multiple link-values may be sent in a single header by
+    # comma-separating them. Use one Link header so intermediaries that
+    # don't merge repeated headers still see both relations.
+    response["Link"] = ", ".join(link_values)
+    return response
+
+
 class DeprecatedEndpointMixin:
     """Mixin that marks responses as deprecated and advertises the successor URL.
 
@@ -394,17 +425,7 @@ class DeprecatedEndpointMixin:
 
     def finalize_response(self, request: Request, response: Response, *args: Any, **kwargs: Any) -> Response:
         response = super().finalize_response(request, response, *args, **kwargs)  # type: ignore[misc]
-        response["Deprecation"] = _DEPRECATION_HEADER_VALUE
-        response["Sunset"] = _SUNSET_HEADER_VALUE
-        link_values: list[str] = []
-        if self.deprecated_use_instead:
-            link_values.append(f'<{self.deprecated_use_instead}>; rel="successor-version"')
-        link_values.append(_DEPRECATION_LINK_VALUE)
-        # RFC 8288 §3: multiple link-values may be sent in a single header by
-        # comma-separating them. Use one Link header so intermediaries that
-        # don't merge repeated headers still see both relations.
-        response["Link"] = ", ".join(link_values)
-        return response
+        return apply_deprecation_headers(response, self.deprecated_use_instead)
 
 
 class StandardObjectPermissions(DjangoObjectPermissions):

@@ -115,7 +115,8 @@ class EventsViewSchema(CustomSchema):
                     "name": "sort_by",
                     "required": False,
                     "description": "Sort by (use 'event_time', 'updated_at', 'created_at', 'serial_number')"
-                    " with optional minus ('-') prefix to reverse order.",
+                    " with optional minus ('-') prefix to reverse order. When use_cursor=true, this must be "
+                    "omitted or set to '-created_at' (see use_cursor); any other value is rejected with a 400.",
                 },
                 {
                     "name": "is_collection",
@@ -149,6 +150,15 @@ class EventsViewSchema(CustomSchema):
                     "in": "query",
                     "description": "bounding box of the form (west-longitude, south-latitude, east-longitude, north-latitude)."
                     " Ex. bbox=-122.4,48.4,-122.95,49.0 (west, south, east, north).",
+                },
+                {
+                    "name": "use_cursor",
+                    "in": "query",
+                    "description": "Defaults to a page-based paginator, which does not scale to large datasets and is deprecated. "
+                    "Set use_cursor=true to employ a cursor paginator ordered by -created_at that can handle "
+                    "millions of rows using next/previous URLs. When enabled, ordering is fixed to -created_at; "
+                    "sort_by must be omitted or set to '-created_at', otherwise the request is rejected with a 400.",
+                    "schema": {"type": "boolean", "default": False},
                 },
                 {"name": "include_updates", "in": "query", "description": "Include the event history. Boolean value"},
                 {"name": "include_files", "in": "query", "description": "Include the event files list. Boolean value"},
