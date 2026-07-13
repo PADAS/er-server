@@ -33,17 +33,71 @@ class Transform(str, Enum):
 
 
 class CoerceToType(str, Enum):
-    STR = "str"
-    INT = "int"
-    FLOAT = "float"
-    BOOL = "bool"
+    STRING = "string"
+    INTEGER = "integer"
+    NUMBER = "number"
+    BOOLEAN = "boolean"
+
+
+def _coerce_string(value: object) -> str:
+    return str(value)
+
+
+def _coerce_integer(value: object) -> int:
+    if isinstance(value, bool) or not isinstance(value, (str, int, float)):
+        raise TypeError(f"cannot coerce {type(value).__name__} to integer")
+    if isinstance(value, float) and not value.is_integer():
+        raise ValueError(f"cannot coerce non-integral float {value!r} to integer")
+    return int(value)
+
+
+def _coerce_number(value: object) -> int | float:
+    """Coerce to an int when the value is integral, else a float.
+
+    JSON Schema's ``number`` type accepts integers as well as floats, so a
+    plain ``float()`` coercion would needlessly turn ``"3"`` into ``3.0`` —
+    and, conversely, fractional values must be preserved rather than
+    truncated via ``int()``.
+    """
+    if isinstance(value, bool) or not isinstance(value, (str, int, float)):
+        raise TypeError(f"cannot coerce {type(value).__name__} to number")
+    if isinstance(value, int):
+        return value
+    if isinstance(value, float):
+        return int(value) if value.is_integer() else value
+    # value is a str at this point.
+    try:
+        return int(value)
+    except ValueError:
+        return float(value)
+
+
+_TRUE_STRINGS = frozenset({"true", "1", "yes"})
+_FALSE_STRINGS = frozenset({"false", "0", "no"})
+
+
+def _coerce_boolean(value: object) -> bool:
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, int):
+        if value in (0, 1):
+            return bool(value)
+        raise ValueError(f"cannot coerce {value!r} to boolean")
+    if isinstance(value, str):
+        lowered = value.strip().lower()
+        if lowered in _TRUE_STRINGS:
+            return True
+        if lowered in _FALSE_STRINGS:
+            return False
+        raise ValueError(f"cannot coerce {value!r} to boolean")
+    raise TypeError(f"cannot coerce {type(value).__name__} to boolean")
 
 
 _COERCE_CALLABLES: dict[CoerceToType, Callable[[object], object]] = {
-    CoerceToType.STR: str,
-    CoerceToType.INT: int,
-    CoerceToType.FLOAT: float,
-    CoerceToType.BOOL: bool,
+    CoerceToType.STRING: _coerce_string,
+    CoerceToType.INTEGER: _coerce_integer,
+    CoerceToType.NUMBER: _coerce_number,
+    CoerceToType.BOOLEAN: _coerce_boolean,
 }
 
 

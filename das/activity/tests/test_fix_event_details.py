@@ -110,29 +110,95 @@ class TestUnwrapSingleArrayTransform:
 @pytest.mark.usefixtures("tenant_settings", "das_tenant_monkeypatch")
 class TestCoerceTypeTransform:
     def test_int_string_to_int(self) -> None:
-        fn = _build_coerce_type("key", CoerceToType.INT)
+        fn = _build_coerce_type("key", CoerceToType.INTEGER)
         result = fn({"key": "42"})
         assert result == {"key": 42}
 
     def test_already_correct_type_returns_none(self) -> None:
-        fn = _build_coerce_type("key", CoerceToType.INT)
+        fn = _build_coerce_type("key", CoerceToType.INTEGER)
         assert fn({"key": 42}) is None
 
     def test_number_to_string(self) -> None:
-        fn = _build_coerce_type("key", CoerceToType.STR)
+        fn = _build_coerce_type("key", CoerceToType.STRING)
         result = fn({"key": 3})
         assert result == {"key": "3"}
 
     def test_unconvertable_value_returns_none(self) -> None:
-        fn = _build_coerce_type("key", CoerceToType.INT)
+        fn = _build_coerce_type("key", CoerceToType.INTEGER)
         # "not_a_number" cannot be cast to int
         assert fn({"key": "not_a_number"}) is None
 
-    def test_float_coercion(self) -> None:
-        fn = _build_coerce_type("key", CoerceToType.FLOAT)
+    def test_integer_coercion_rejects_bool(self) -> None:
+        fn = _build_coerce_type("key", CoerceToType.INTEGER)
+        # bool is a subclass of int, but a boolean value is not a meaningful
+        # integer to coerce to — it must be skipped, not silently cast to 0/1.
+        assert fn({"key": True}) is None
+
+    def test_number_coercion_with_fractional_string_yields_float(self) -> None:
+        fn = _build_coerce_type("key", CoerceToType.NUMBER)
         result = fn({"key": "3.14"})
         assert result is not None
+        assert isinstance(result["key"], float)
         assert abs(result["key"] - 3.14) < 1e-9
+
+    def test_number_coercion_with_integral_string_yields_int(self) -> None:
+        fn = _build_coerce_type("key", CoerceToType.NUMBER)
+        result = fn({"key": "3"})
+        assert result == {"key": 3}
+        assert isinstance(result["key"], int)
+
+    def test_number_coercion_rejects_bool(self) -> None:
+        fn = _build_coerce_type("key", CoerceToType.NUMBER)
+        # bool is a subclass of int, but a boolean value is not a meaningful
+        # number to coerce to — it must be skipped, not silently cast to 0/1.
+        assert fn({"key": True}) is None
+
+    def test_integer_coercion_rejects_fractional_float(self) -> None:
+        fn = _build_coerce_type("key", CoerceToType.INTEGER)
+        # 3.14 has no meaningful integer representation — truncating to 3
+        # would silently discard data, so this must be skipped instead.
+        assert fn({"key": 3.14}) is None
+
+    def test_integer_coercion_rejects_fractional_string(self) -> None:
+        fn = _build_coerce_type("key", CoerceToType.INTEGER)
+        assert fn({"key": "3.14"}) is None
+
+    def test_integer_coercion_accepts_integral_float(self) -> None:
+        fn = _build_coerce_type("key", CoerceToType.INTEGER)
+        result = fn({"key": 3.0})
+        assert result == {"key": 3}
+        assert isinstance(result["key"], int)
+
+    def test_number_coercion_preserves_fractional_float(self) -> None:
+        fn = _build_coerce_type("key", CoerceToType.NUMBER)
+        # A fractional float is already a valid JSON Schema "number" — it
+        # must be preserved, not truncated to an int.
+        result = fn({"key": 3.14})
+        assert result is None
+
+    def test_number_coercion_of_integral_float_yields_int(self) -> None:
+        fn = _build_coerce_type("key", CoerceToType.NUMBER)
+        result = fn({"key": 3.0})
+        assert result == {"key": 3}
+        assert isinstance(result["key"], int)
+
+    def test_boolean_coercion_of_false_string_yields_false(self) -> None:
+        fn = _build_coerce_type("key", CoerceToType.BOOLEAN)
+        result = fn({"key": "false"})
+        assert result == {"key": False}
+        assert isinstance(result["key"], bool)
+
+    def test_boolean_coercion_of_true_string_yields_true(self) -> None:
+        fn = _build_coerce_type("key", CoerceToType.BOOLEAN)
+        result = fn({"key": "true"})
+        assert result == {"key": True}
+        assert isinstance(result["key"], bool)
+
+    def test_boolean_coercion_of_unparseable_string_returns_none(self) -> None:
+        fn = _build_coerce_type("key", CoerceToType.BOOLEAN)
+        # "maybe" is not a recognized boolean literal — must be skipped
+        # rather than coerced to True via bool("maybe").
+        assert fn({"key": "maybe"}) is None
 
 
 @pytest.mark.django_db
@@ -280,7 +346,7 @@ class TestFixEventDetailsCommand:
             "--transform",
             "coerce-type",
             "--to-type",
-            "int",
+            "integer",
             "--apply",
         )
 
