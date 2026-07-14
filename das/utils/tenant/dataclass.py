@@ -135,6 +135,9 @@ class FeatureFlags:
     analyzers_enabled: Optional[bool] = field(metadata=config(field_name="analyzersEnabled"), default=True)
     require_idp: Optional[bool] = field(metadata=config(field_name="requireIdp"), default=False)
     idp_org_id: Optional[str] = field(metadata=config(field_name="idpOrgId"), default=None)
+    require_mfa: Optional[bool] = field(metadata=config(field_name="requireMfa"), default=False)
+    # 365 days: default which doesn't break mobile users in the field since it aligns with mobile token ttl
+    mfa_max_age_seconds: Optional[int] = field(metadata=config(field_name="mfaMaxAgeSeconds"), default=31_536_000)
 
 
 @dataclass_json
