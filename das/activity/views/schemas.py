@@ -100,6 +100,15 @@ class PatrolSchema(CustomSchema):
                         },
                     },
                 },
+                {
+                    "name": "use_cursor",
+                    "in": "query",
+                    "required": False,
+                    "description": "Defaults to a page-based paginator, which does not scale to large datasets and is "
+                    "deprecated. Set use_cursor=true to employ a cursor paginator ordered by -serial_number that can "
+                    "handle millions of rows using next/previous URLs.",
+                    "schema": {"type": "boolean", "default": False},
+                },
             ]
             operation["parameters"] = operation.get("parameters", [])
             operation["parameters"].extend(query_params)

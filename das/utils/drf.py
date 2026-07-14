@@ -262,13 +262,32 @@ class StandardResultsSetGeoJsonPagination(GeoJsonPagination):
 class StandardResultsSetCursorPagination(CursorPagination):
     page_size_query_param = "page_size"
     page_size = settings.REST_FRAMEWORK["OPTIONAL_PAGE_SIZE"]
+    max_page_size = settings.REST_FRAMEWORK["MAX_PAGE_SIZE"]
 
     def get_custom_page_size(self, request, view):
-        try:
-            self.page_size = int(request.GET.get("page_size"))
-        except (ValueError, TypeError):
-            pass
-        return super().get_page_size(request)
+        """Resolve the effective page size, validating and clamping the request param.
+
+        A ``page_size`` query param is honoured only when it parses to a positive
+        integer; anything else (non-int, zero, negative, garbage) is ignored and we
+        fall back to the configured default ``page_size``. The resolved value is then
+        clamped to ``max_page_size``. We deliberately do not assign the raw param to
+        ``self.page_size`` before falling back, so an invalid value can never poison
+        the instance default for the rest of the request.
+        """
+        raw_page_size = request.GET.get(self.page_size_query_param)
+        requested_page_size = None
+        if raw_page_size is not None:
+            try:
+                parsed = int(raw_page_size)
+            except (ValueError, TypeError):
+                parsed = None
+            if parsed is not None and parsed > 0:
+                requested_page_size = parsed
+
+        effective_page_size = requested_page_size if requested_page_size is not None else self.page_size
+        if self.max_page_size is not None:
+            effective_page_size = min(effective_page_size, self.max_page_size)
+        return effective_page_size
 
     def paginate_queryset(self, queryset, request, view=None):
         self.page_size = self.get_custom_page_size(request, view)

@@ -1,3 +1,4 @@
+import base64
 import json
 import os
 import shutil
@@ -15,6 +16,7 @@ import django.contrib.auth
 from django.core.management import call_command
 from django.db import connection
 from django.http import HttpResponseNotModified
+from django.test.utils import CaptureQueriesContext
 from django.urls import reverse
 from django.utils import lorem_ipsum
 from rest_framework import status
@@ -38,9 +40,11 @@ from activity.models import (
 )
 from activity.serializers import PatrolSerializer
 from activity.tasks import execute_maintain_patrol_state
+from activity.views.patrols import PatrolsCursorPagination
 from client_http import HTTPClient
 from core.tests import BaseAPITest
 from das_server.celery import app
+from factories import PatrolFactory, PatrolSegmentFactory, TenantFactory
 from observations.materialized_views import patrols_view
 from observations.models import Source, Subject, SubjectGroup, SubjectSource
 
@@ -2625,3 +2629,306 @@ class TestPatrolFilteringQuerySet:
 
         assert Patrol.objects.count() == len(five_patrols) + 1
         assert query.count() == 1
+
+
+def _encode_cursor(*, offset: int = 0, reverse: int = 0, position: str | None = None) -> str:
+    """Build a DRF cursor querystring token (base64 of o/r/p params) for tests."""
+    parts = [f"o={offset}", f"r={reverse}"]
+    if position is not None:
+        parts.append(f"p={position}")
+    querystring = "&".join(parts)
+    return base64.b64encode(querystring.encode("ascii")).decode("ascii")
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("tenant_settings")
+class TestPatrolsCursorPagination:
+    """Test the opt-in cursor pagination mode on the patrols list API."""
+
+    base_url = reverse("patrols")
+
+    def _make_patrols(self, das_tenant, serial_numbers: list[int | None]) -> list[Patrol]:
+        """Create patrols in the request tenant and force their serial numbers.
+
+        ``serial_number`` is auto-assigned by SerialNumberModelMixin, so we
+        overwrite it directly in the DB (via update) to get deterministic,
+        controllable values — including an explicit NULL.
+        """
+        patrols = []
+        for index, serial_number in enumerate(serial_numbers):
+            patrol = PatrolFactory.create(das_tenant=das_tenant, title=f"Patrol {index}")
+            Patrol.objects.filter(pk=patrol.pk).update(serial_number=serial_number)
+            patrol.refresh_from_db()
+            patrols.append(patrol)
+        return patrols
+
+    def test_default_envelope_unchanged(self, superuser_client, das_tenant) -> None:
+        self._make_patrols(das_tenant, [1, 2, 3])
+
+        response = superuser_client.get(self.base_url, {"page_size": 2})
+
+        assert response.status_code == 200
+        assert "count" in response.data
+        assert "results" in response.data
+        assert response.data["count"] == Patrol.objects.count()
+
+    def test_cursor_envelope_has_next_previous_no_count_and_respects_page_size(
+        self, superuser_client, das_tenant
+    ) -> None:
+        self._make_patrols(das_tenant, [1, 2, 3, 4, 5])
+
+        response = superuser_client.get(self.base_url, {"use_cursor": "true", "page_size": 2})
+
+        assert response.status_code == 200
+        assert "next" in response.data
+        assert "previous" in response.data
+        assert "count" not in response.data
+        assert len(response.data["results"]) == 2
+
+    def test_cursor_ordering_is_serial_number_descending(self, superuser_client, das_tenant) -> None:
+        self._make_patrols(das_tenant, [1, 2, 3])
+
+        response = superuser_client.get(self.base_url, {"use_cursor": "true", "page_size": 3})
+
+        serials = [row["serial_number"] for row in response.data["results"]]
+        assert serials == [3, 2, 1]
+
+    def test_full_cursor_walk_returns_every_patrol_once(self, superuser_client, das_tenant) -> None:
+        self._make_patrols(das_tenant, [1, 2, 3, 4, 5])
+
+        seen: list[int] = []
+        url = self.base_url
+        params: dict = {"use_cursor": "true", "page_size": 2}
+        while url is not None:
+            response = superuser_client.get(url, params)
+            params = {}
+            seen.extend(row["serial_number"] for row in response.data["results"])
+            url = response.data["next"]
+
+        assert seen == [5, 4, 3, 2, 1]
+        assert len(seen) == len(set(seen))
+
+    def test_cursor_walk_stable_across_inserted_patrol(self, superuser_client, das_tenant) -> None:
+        self._make_patrols(das_tenant, [1, 2, 3, 4])
+
+        first_page = superuser_client.get(self.base_url, {"use_cursor": "true", "page_size": 2})
+        first_serials = [row["serial_number"] for row in first_page.data["results"]]
+        assert first_serials == [4, 3]
+
+        # Insert a patrol that sorts ahead of everything already fetched.
+        self._make_patrols(das_tenant, [99])
+
+        next_url = first_page.data["next"]
+        assert next_url is not None
+        second_page = superuser_client.get(next_url)
+        second_serials = [row["serial_number"] for row in second_page.data["results"]]
+
+        # The cursor anchors on the first page's boundary, so already-paged items
+        # neither shift nor duplicate; the newly inserted patrol does not appear.
+        assert second_serials == [2, 1]
+        assert 99 not in first_serials
+        assert 99 not in second_serials
+
+    def test_page_size_over_cap_is_clamped(self) -> None:
+        from django.conf import settings
+        from rest_framework.test import APIRequestFactory
+
+        max_page_size = settings.REST_FRAMEWORK["MAX_PAGE_SIZE"]
+        paginator = PatrolsCursorPagination()
+
+        # Asserting the clamp via the paginator avoids creating thousands of rows.
+        request = APIRequestFactory().get("/api/v1.0/activity/patrols/", {"page_size": str(max_page_size + 5000)})
+        assert paginator.get_custom_page_size(request, None) == max_page_size
+
+    @pytest.mark.parametrize("bad_page_size", ["-1", "0", "abc", "1.5", ""])
+    def test_bad_page_size_does_not_500_and_falls_back(self, superuser_client, das_tenant, bad_page_size) -> None:
+        self._make_patrols(das_tenant, [1, 2, 3])
+
+        response = superuser_client.get(self.base_url, {"use_cursor": "true", "page_size": bad_page_size})
+
+        assert response.status_code == 200
+        # Falls back to the default page size, returning all three rows.
+        assert len(response.data["results"]) == 3
+
+    def test_tampered_cursor_position_returns_404(self, superuser_client, das_tenant) -> None:
+        self._make_patrols(das_tenant, [1, 2, 3])
+
+        tampered = _encode_cursor(offset=0, position="not-an-int")
+        response = superuser_client.get(self.base_url, {"use_cursor": "true", "cursor": tampered})
+
+        assert response.status_code == 404
+
+    def test_offset_only_cursor_does_not_404(self, superuser_client, das_tenant) -> None:
+        self._make_patrols(das_tenant, [1, 2, 3])
+
+        offset_only = _encode_cursor(offset=1, position=None)
+        response = superuser_client.get(self.base_url, {"use_cursor": "true", "cursor": offset_only})
+
+        assert response.status_code == 200
+
+    def test_cursor_walk_stable_with_status_filter(self, superuser_client, das_tenant) -> None:
+        patrols = self._make_patrols(das_tenant, [1, 2, 3])
+        # An "active" patrol has state=open (the default) and a segment whose time
+        # range has already started. Give serials 2 and 3 active segments; leave
+        # serial 1 segment-less so the status filter excludes it.
+        started = DateTimeTZRange(datetime.now(tz=timezone.utc) - timedelta(hours=1), None)
+        for patrol in (patrols[1], patrols[2]):
+            PatrolSegmentFactory.create(das_tenant=das_tenant, patrol=patrol, time_range=started)
+
+        seen: list[int] = []
+        url = self.base_url
+        params: dict = {"use_cursor": "true", "page_size": 1, "status": "active"}
+        while url is not None:
+            response = superuser_client.get(url, params)
+            params = {}
+            assert response.status_code == 200
+            seen.extend(row["serial_number"] for row in response.data["results"])
+            url = response.data["next"]
+
+        assert seen == [3, 2]
+
+    def test_cursor_walk_stable_with_exclude_empty_patrols(self, superuser_client, das_tenant) -> None:
+        patrols = self._make_patrols(das_tenant, [1, 2, 3])
+        # Only patrol with serial 2 gets a segment; the others are "empty".
+        PatrolSegmentFactory.create(das_tenant=das_tenant, patrol=patrols[1])
+
+        seen: list[int] = []
+        url = self.base_url
+        params: dict = {"use_cursor": "true", "page_size": 1, "exclude_empty_patrols": "true"}
+        while url is not None:
+            response = superuser_client.get(url, params)
+            params = {}
+            assert response.status_code == 200
+            seen.extend(row["serial_number"] for row in response.data["results"])
+            url = response.data["next"]
+
+        assert seen == [2]
+
+    def test_cursor_walk_stable_with_filter(self, superuser_client, das_tenant) -> None:
+        self._make_patrols(das_tenant, [1, 2, 3])
+        Patrol.objects.filter(serial_number=2).update(title="findme")
+
+        patrol_filter = json.dumps({"text": "findme"})
+        response = superuser_client.get(self.base_url, {"use_cursor": "true", "page_size": 10, "filter": patrol_filter})
+
+        assert response.status_code == 200
+        serials = [row["serial_number"] for row in response.data["results"]]
+        assert serials == [2]
+
+    def test_null_serial_number_excluded_on_cursor_path(self, superuser_client, das_tenant) -> None:
+        self._make_patrols(das_tenant, [1, 2, None])
+
+        cursor_response = superuser_client.get(self.base_url, {"use_cursor": "true", "page_size": 10})
+        cursor_serials = [row["serial_number"] for row in cursor_response.data["results"]]
+
+        assert cursor_response.status_code == 200
+        assert cursor_serials == [2, 1]
+        assert None not in cursor_serials
+
+    def test_null_serial_number_visible_on_default_path(self, superuser_client, das_tenant) -> None:
+        self._make_patrols(das_tenant, [1, 2, None])
+
+        default_response = superuser_client.get(self.base_url, {"page_size": 10})
+
+        assert default_response.status_code == 200
+        # The default (page-number) path does not exclude NULL serial numbers, so
+        # all three created patrols are present (alongside any seeded baseline rows).
+        assert default_response.data["count"] == Patrol.objects.count()
+        assert default_response.data["count"] >= 3
+
+    def test_cursor_query_has_no_count_or_sort_patrols_artifacts(self, superuser_client, das_tenant) -> None:
+        self._make_patrols(das_tenant, [1, 2, 3])
+
+        with CaptureQueriesContext(connection) as ctx:
+            response = superuser_client.get(self.base_url, {"use_cursor": "true", "page_size": 2})
+            assert response.status_code == 200
+
+        sql_blob = " ".join(query["sql"] for query in ctx.captured_queries).lower()
+        assert "count(" not in sql_blob
+        assert "start_overdue" not in sql_blob
+        assert "readyto_start" not in sql_blob
+        assert "_seg_" not in sql_blob
+
+    def test_default_get_carries_deprecation_headers(self, superuser_client, das_tenant) -> None:
+        self._make_patrols(das_tenant, [1, 2])
+
+        response = superuser_client.get(self.base_url, {"page_size": 2})
+
+        assert response.has_header("Deprecation")
+        assert response.has_header("Sunset")
+
+    def test_cursor_get_omits_deprecation_headers(self, superuser_client, das_tenant) -> None:
+        self._make_patrols(das_tenant, [1, 2])
+
+        response = superuser_client.get(self.base_url, {"use_cursor": "true", "page_size": 2})
+
+        assert not response.has_header("Deprecation")
+        assert not response.has_header("Sunset")
+
+    def test_post_does_not_carry_deprecation_headers(self, superuser_client) -> None:
+        data = {"title": "New Patrol", "objective": "Objective", "priority": 0}
+
+        response = superuser_client.post(self.base_url, data)
+
+        assert response.status_code == 201
+        assert not response.has_header("Deprecation")
+        assert not response.has_header("Sunset")
+
+    def test_cursor_results_are_tenant_scoped(self, superuser_client, das_tenant) -> None:
+        own_patrols = self._make_patrols(das_tenant, [1, 2])
+
+        # A patrol belonging to a different tenant must not leak into cursor results.
+        other_tenant = TenantFactory.create(id=uuid.uuid4(), domain="other-patrol-tenant.example.com")
+        foreign_patrol = PatrolFactory.create(das_tenant=other_tenant)
+        Patrol.objects.filter(pk=foreign_patrol.pk).update(serial_number=1)
+
+        response = superuser_client.get(self.base_url, {"use_cursor": "true", "page_size": 50})
+
+        result_serials = {row["serial_number"] for row in response.data["results"]}
+        result_count = len(response.data["results"])
+
+        assert result_serials == {1, 2}
+        # Only this tenant's two patrols are returned (foreign patrol shares serial 1
+        # but is scoped out), so the result set has exactly two rows.
+        assert result_count == len(own_patrols)
+
+
+@pytest.mark.django_db
+class TestPatrolsCursorViewableSubjects(BaseAPITest):
+    """A non-viewable patrol must still be excluded on the cursor path."""
+
+    def setUp(self):
+        super().setUp()
+        call_command("loaddata_with_tenant", "test_patroltype")
+        user_const = dict(last_name="last", first_name="first")
+        self.radio_room_user = User.objects.create_user(
+            "radio_room_user", "das_radio_room@vulcan.com", "radio_room_user", **user_const
+        )
+
+    def test_non_viewable_patrol_excluded_on_cursor_path(self):
+        PatrolSegment.objects.all().delete()
+        Patrol.objects.all().delete()
+
+        # A patrol with no segments is viewable; a patrol whose only segment is led
+        # by a subject the user can't see is not.
+        viewable_patrol = Patrol.objects.create(title="Viewable")
+        non_viewable_patrol = Patrol.objects.create(title="Hidden")
+        hidden_subject = Subject.objects.create(name="Hidden Leader", subject_subtype_id="elephant")
+        PatrolSegment.objects.create(
+            patrol=non_viewable_patrol,
+            patrol_type=PatrolType.objects.first(),
+            leader=hidden_subject,
+        )
+
+        view_patrol_permissionset = PermissionSet.objects.get(name="View Patrols Permissions")
+        self.radio_room_user.permission_sets.add(view_patrol_permissionset)
+
+        url = f'{reverse("patrols")}?use_cursor=true'
+        request = self.factory.get(url)
+        self.force_authenticate(request, self.radio_room_user)
+        response = views.PatrolsView.as_view()(request)
+
+        assert response.status_code == 200
+        returned_ids = {row["id"] for row in response.data["results"]}
+        assert str(viewable_patrol.id) in returned_ids
+        assert str(non_viewable_patrol.id) not in returned_ids

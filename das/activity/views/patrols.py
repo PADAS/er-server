@@ -15,7 +15,7 @@ from django.db.models.functions import Cast
 from django.db.utils import IntegrityError
 from django.http import HttpResponse
 from rest_framework import status
-from rest_framework.exceptions import ValidationError
+from rest_framework.exceptions import NotFound, ValidationError
 from rest_framework.generics import (
     ListCreateAPIView,
     RetrieveUpdateAPIView,
@@ -46,7 +46,12 @@ from activity.serializers import (
 from activity.views.helpers import get_segments
 from observations.models import Subject
 from usercontent.serializers import get_stored_filename
-from utils.drf import StandardResultsSetPagination, return_409_response
+from utils.drf import (
+    StandardResultsSetCursorPagination,
+    StandardResultsSetPagination,
+    apply_deprecation_headers,
+    return_409_response,
+)
 from utils.json import parse_bool
 
 from .response_headers import (
@@ -233,11 +238,61 @@ class PatrolView(RetrieveUpdateDestroyAPIView):
         return Patrol.objects.all()
 
 
+class PatrolsCursorPagination(StandardResultsSetCursorPagination):
+    ordering = "-serial_number"
+
+    def decode_cursor(self, request):
+        """Decode the cursor, turning a tampered/garbage position into a 404.
+
+        DRF's ``CursorPagination.decode_cursor`` already raises ``NotFound`` for a
+        malformed encoding or an out-of-range offset, but it does not validate the
+        ordering ``position`` component. Because this paginator orders by the integer
+        ``serial_number`` field, a tampered non-integer position would flow into the
+        SQL comparison and surface as a 500. Int-validate the position here — but only
+        when it is non-None, since DRF 3.16 legitimately emits offset-only cursors
+        with ``position=None``.
+        """
+        cursor = super().decode_cursor(request)
+        if cursor is not None and cursor.position is not None:
+            try:
+                int(cursor.position)
+            except (TypeError, ValueError):
+                raise NotFound(self.invalid_cursor_message)
+        return cursor
+
+
 class PatrolsView(ListCreateAPIView):
     pagination_class = StandardResultsSetPagination
     serializer_class = PatrolSerializer
     permission_classes = (PatrolObjectPermissions,)
     schema = PatrolSchema()
+
+    def _use_cursor(self) -> bool:
+        return parse_bool(self.request.query_params.get("use_cursor"))
+
+    @property
+    def paginator(self):
+        """The paginator instance associated with the view, or ``None``.
+
+        API callers can opt into a cursor-based paginator (ordered by
+        ``-serial_number``) by passing ``use_cursor=true``; otherwise the
+        default page-number paginator is used.
+        """
+        if not hasattr(self, "_paginator"):
+            if self.pagination_class is None:
+                self._paginator = None
+            else:
+                self._paginator = PatrolsCursorPagination() if self._use_cursor() else self.pagination_class()
+        return self._paginator
+
+    def finalize_response(self, request: Request, response: Response, *args, **kwargs) -> Response:
+        response = super().finalize_response(request, response, *args, **kwargs)
+        # Page-based pagination is the deprecated default, but only for the GET
+        # list. POST (patrol creation) and other methods are not deprecated, so
+        # don't flag them. Skip when the caller opted into the cursor paginator.
+        if request.method == "GET" and not self._use_cursor():
+            apply_deprecation_headers(response)
+        return response
 
     def post(self, request, *args, **kwargs):
         try:
@@ -285,6 +340,14 @@ class PatrolsView(ListCreateAPIView):
         queryset = queryset.prefetch_related(
             "notes", "files", "patrol_segments__patrol_type", "patrol_segments__events"
         )
+
+        if self._use_cursor():
+            # The cursor paginator orders by -serial_number and cannot page over
+            # NULL serial numbers, so exclude them. We also skip the expensive
+            # sort_patrols() annotate/order_by — the paginator supplies its own
+            # ordering, and dropping it lets us avoid the COUNT and the segment
+            # subqueries that page-number pagination needs for display ordering.
+            return queryset.exclude(serial_number__isnull=True)
 
         return queryset.sort_patrols()
 
