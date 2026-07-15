@@ -8,7 +8,7 @@ from drf_spectacular.utils import (
 )
 from rest_framework_condition import etag
 
-from django.db.models import F, QuerySet, Window
+from django.db.models import Exists, F, OuterRef, Q, QuerySet, Window
 from django.db.models.functions import FirstValue
 from django.db.utils import IntegrityError
 from django.forms import ValidationError
@@ -361,13 +361,15 @@ class SubjectsView(ListCreateAPIView, TwoWaySubjectSourceMixin, DynamicSchemaDat
 
         should_include_user_linked_subject = not subject_ids and not subject_group_id and self.queryset_linked_user
 
-        filtered_queryset = filtered_queryset.by_user_subjects_not_distinct(
-            user, include_linked=should_include_user_linked_subject
-        )
-
         if subject_ids:
+            filtered_queryset = filtered_queryset.by_user_subjects_not_distinct(
+                user, include_linked=should_include_user_linked_subject
+            )
             filtered_queryset = filtered_queryset.by_id(subject_ids)
         elif subject_group_id and len(subject_group_param_splited) == 1:
+            filtered_queryset = filtered_queryset.by_user_subjects_not_distinct(
+                user, include_linked=should_include_user_linked_subject
+            )
             if not is_uuid(subject_group_id):
                 raise ValidationError("Invalid subject_group id at 'subject_group'")
 
@@ -375,21 +377,52 @@ class SubjectsView(ListCreateAPIView, TwoWaySubjectSourceMixin, DynamicSchemaDat
             filtered_queryset = filtered_queryset.by_groups(subject_groups=subject_groups)
 
         elif subject_group_id and len(subject_group_param_splited) > 1:
+            filtered_queryset = filtered_queryset.by_user_subjects_not_distinct(
+                user, include_linked=should_include_user_linked_subject
+            )
             if not all(is_uuid(item.strip()) for item in subject_group_param_splited):
                 raise ValidationError("Invalid subject_group id at 'subject_group'")
 
             filtered_queryset = filtered_queryset.filter(groups__id__in=subject_group_id.split(","))
         else:
             should_include_user_linked_subject = True
-            # Fetch all the Subjects whose access is gained through Source Group
-            # permissions.
-            source_groups = SourceGroup.objects.filter(permission_sets__in=user.get_all_permission_sets())
+            # A subject is accessible either through Subject Group permissions or
+            # through Source Group permissions. The two paths are ORed together.
+            #
+            # Source Group access used to be a separate ``Subject.objects.filter(
+            # subjectsource__source__groups__in=...)`` queryset unioned in with ``|=``.
+            # That fanned out into ``LEFT OUTER JOIN subjectsource -> source ->
+            # sourcegroupsource`` on the outer query and forced a ``DISTINCT`` to
+            # dedupe. We now express it as a single correlated, tenant-scoped
+            # ``Exists()`` subquery so the table is referenced only inside a bounded
+            # ``EXISTS (...)`` and never as an outer join.
+            if user.is_superuser:
+                filtered_queryset = filtered_queryset.by_user_subjects_not_distinct(
+                    user, include_linked=should_include_user_linked_subject
+                )
+            else:
+                permission_sets = user.get_all_permission_sets()
 
-            subjects_via_source_groups = Subject.objects.filter(subjectsource__source__groups__in=source_groups)
-            subjects_via_source_groups = check_to_include_inactive_subjects(self.request, subjects_via_source_groups)
-            filtered_queryset |= subjects_via_source_groups
+                source_group_access = Exists(
+                    SubjectSource.objects.filter(
+                        das_tenant_id=OuterRef("das_tenant_id"),
+                        subject_id=OuterRef("pk"),
+                        source__sourcegroupsource__sourcegroup__sourcegrouppermissionset__permissionset__in=(
+                            permission_sets
+                        ),
+                    )
+                )
+
+                effective_subject_group_set = SubjectGroup.objects.effective_groups_for_permission_sets(permission_sets)
+
+                access_q = Q(groups__in=effective_subject_group_set) | Q(source_group_access)
+                if should_include_user_linked_subject:
+                    access_q |= Q(linked_user=user)
+
+                filtered_queryset = filtered_queryset.filter(access_q)
 
             if not user.is_superuser:
+                source_groups = SourceGroup.objects.filter(permission_sets__in=permission_sets)
                 # TODO: rather than this, can we get the latest & oldest observation for each subject? (needed in
                 #  serializer.to_representation)
                 subject_linked_sources = (

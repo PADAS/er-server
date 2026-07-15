@@ -1899,6 +1899,23 @@ class SubjectGroupManager(HierarchyManager, models.Manager.from_queryset(Subject
         groups.add(parent)
         return groups
 
+    def effective_groups_for_permission_sets(self, permission_sets: QuerySet[PermissionSet]) -> set[SubjectGroup]:
+        """
+        Expand the subject groups permitted by ``permission_sets`` to include all their descendants.
+
+        Args:
+            permission_sets: The permission sets granting access to subject groups.
+
+        Returns:
+            set[SubjectGroup]: The permitted subject groups plus all of their descendants.
+        """
+        allowed_subject_groups = self.filter(permission_sets__in=permission_sets)
+        effective_subject_group_set: set[SubjectGroup] = set()
+        for subject_group in allowed_subject_groups:
+            effective_subject_group_set.add(subject_group)
+            effective_subject_group_set.update(subject_group.get_descendants())
+        return effective_subject_group_set
+
     def get_non_cyclic_subjectgroups(self, single_sg=False):
         queryset = self.all() if single_sg else self.filter(_parents=None)
         cyclic_sg = get_cyclic_subjectgroup()
@@ -2021,13 +2038,9 @@ class SubjectQuerySet(models.QuerySet, FilterMixin):
 
         if user.is_superuser:
             return self.all()
-        allowed_subject_groups = SubjectGroup.objects.filter(permission_sets__in=user.get_all_permission_sets())
-
-        # Check if cached descendants are available
-        effective_subject_group_set = set()
-        for subject_group in allowed_subject_groups:
-            effective_subject_group_set.add(subject_group)
-            effective_subject_group_set.update(subject_group.get_descendants())
+        effective_subject_group_set = SubjectGroup.objects.effective_groups_for_permission_sets(
+            user.get_all_permission_sets()
+        )
 
         if include_linked:
             return self.filter(Q(groups__in=effective_subject_group_set) | Q(linked_user=user))
@@ -2225,7 +2238,12 @@ class SubjectQuerySet(models.QuerySet, FilterMixin):
                 subjectsource__location__within=geom,
                 subject_subtype__subject_type__value=STATIONARY_SUBJECT_VALUE,
             )
-            return self.filter(Q(pk__in=subjects) | Q(pk__in=stationary_subjects))
+            # A top-level ``Q(pk__in=subjects) | Q(pk__in=stationary_subjects)`` forces
+            # Postgres to evaluate the disjunction as a single predicate that it cannot
+            # index-drive per leg. Combining the two id sets with ``.union()`` lets each
+            # leg run as its own indexed subquery before the outer ``pk__in``.
+            subject_ids = subjects.union(stationary_subjects.values("id"))
+            return self.filter(pk__in=subject_ids)
         else:
             return self.filter(pk__in=subjects)
 
