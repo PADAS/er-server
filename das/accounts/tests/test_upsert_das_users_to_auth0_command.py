@@ -9,7 +9,7 @@ from django.core.management import CommandError
 
 from accounts.management.commands.upsert_das_users_to_auth0 import Command
 from accounts.models import User
-from utils.auth0.client import AuthZeroUserProvisioningResult
+from utils.auth0.user_provisioner import AuthZeroUserProvisioningResult
 
 
 @pytest.mark.django_db()

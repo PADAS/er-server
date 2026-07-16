@@ -11,7 +11,10 @@ from django.db import transaction
 
 from accounts.models import User
 from accounts.system_users import SYSTEM_USERNAMES
-from utils.auth0.client import AuthZeroUserProvisioner, AuthZeroUserProvisioningResult
+from utils.auth0.user_provisioner import (
+    AuthZeroUserProvisioner,
+    AuthZeroUserProvisioningResult,
+)
 from utils.tenant import get_tenant_settings
 from utils.tenant.commands import TenantCommandMixin
 
