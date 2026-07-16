@@ -6,8 +6,55 @@ import pytest
 
 from activity.models import Event, EventDetails, EventType
 from activity.serializers.event_details import EventDetailsSerializer
-from activity.tests.helpers.schema_test_utils import V2SchemaBuilder
+from activity.tests.helpers.schema_test_utils import V1_DRAFT, V2SchemaBuilder
 from factories import EventTypeFactory
+
+CHECKBOX_FIELD = "unknownpicklist"
+
+
+@pytest.fixture
+def v1_checkbox_event_type(cat1_cat2_categories):
+    cat1, _ = cat1_cat2_categories
+    schema = {
+        "schema": {
+            "$schema": V1_DRAFT,
+            "title": "Test Schema",
+            "type": "object",
+            "properties": {CHECKBOX_FIELD: {"key": CHECKBOX_FIELD}},
+        },
+        "definition": [
+            {
+                "key": CHECKBOX_FIELD,
+                "type": "checkboxes",
+                "title": "Unknown",
+                "titleMap": [
+                    {"value": "unknown_rhino_1", "name": "Unknown Rhino 1"},
+                    {"value": "unknown_rhino_2", "name": "Unknown Rhino 2"},
+                ],
+            }
+        ],
+    }
+    return EventTypeFactory.create(
+        category=cat1,
+        value="rhino_sighting_v1",
+        schema=json.dumps(schema),
+        version=EventType.VersionChoices.VERSION_1,
+    )
+
+
+@pytest.fixture
+def v1_event_with_checkbox_details(v1_checkbox_event_type, admin_user):
+    event = Event.objects.create(
+        title="Test rhino sighting",
+        event_type=v1_checkbox_event_type,
+        created_by_user=admin_user,
+        state="new",
+    )
+    details = EventDetails.objects.create(
+        event=event,
+        data={"event_details": {CHECKBOX_FIELD: ["unknown_rhino_1"]}},
+    )
+    return event, details
 
 
 @pytest.fixture
@@ -88,3 +135,24 @@ class TestV2EventDetailsUpdates:
         assert "time" in entry
         assert "user" in entry
         assert "type" in entry
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("tenant_settings")
+class TestRenderUpdatesWithNullCheckboxValue:
+    """Regression test for ERA-13744: a v1 checkbox field revisioned to a null value
+
+    used to raise TypeError: 'NoneType' object is not iterable from
+    handle_checkboxes_in_fieldsets when rendering event_details update history.
+    """
+
+    def test_render_updates_does_not_raise_when_checkbox_value_is_null(self, v1_event_with_checkbox_details):
+        _, details = v1_event_with_checkbox_details
+        details.data = {"event_details": {CHECKBOX_FIELD: None}}
+        details.save()
+
+        serializer = EventDetailsSerializer(details, context={"include_updates": True})
+        updates = serializer.data["updates"]
+
+        assert isinstance(updates, list)
+        assert len(updates) >= 2
