@@ -11,7 +11,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
   && apt-get autoremove --yes \
   && rm -rf /var/lib/{apt,dpkg,cache,log}
 
-COPY --from=europe-west3-docker.pkg.dev/serca-artifact-registry/virtual-docker/astral-sh/uv:0.10.3 /uv /uvx /bin/
+# Tag must satisfy required-version in pyproject.toml ([tool.uv])
+COPY --from=europe-west3-docker.pkg.dev/serca-artifact-registry/virtual-docker/astral-sh/uv:0.11.29 /uv /uvx /bin/
 
 WORKDIR /das
 ADD ./dependencies /das/dependencies

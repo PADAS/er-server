@@ -13,7 +13,8 @@ RUN apt-get update; apt-get install -y --no-install-recommends \
   && apt-get autoremove --yes \
   && rm -rf /var/lib/{apt,dpkg,cache,log}
 
-COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
+# Tag must satisfy required-version in pyproject.toml ([tool.uv])
+COPY --from=ghcr.io/astral-sh/uv:0.11.29 /uv /uvx /bin/
 
 WORKDIR /das
 ADD ./dependencies /das/dependencies

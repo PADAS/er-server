@@ -230,4 +230,7 @@ reportAttributeAccessIssue = false
 search_path = ["das"]
 
 [tool.uv]
+# Picked up by astral-sh/setup-uv in CI and enforced by uv locally; the uv image tag in
+# Dockerfile.mt must stay within this range.
+required-version = "==0.11.*"
 no-build-isolation-package = ["rasterio", "gdal"]
