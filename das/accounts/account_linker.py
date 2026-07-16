@@ -28,6 +28,7 @@ from django.views.decorators.csrf import csrf_exempt
 
 from accounts.email_branding import attach_brand_logo
 from accounts.models import User
+from utils.auth0.guardian import send_guardian_otp_enrollment_ticket
 from utils.auth0.helpers import get_auth0_custom_domain
 from utils.tenant import get_tenant_settings
 from utils.tenant.decorators import require_enabled_idp_configs
@@ -287,6 +288,7 @@ def account_linker_callback(request):
     should_notify = (
         bool(current_email and current_email.strip()) and current_email.strip().lower() != auth0_email.strip().lower()
     )
+    require_mfa = get_tenant_settings().feature_flags.require_mfa
 
     # The unique constraint on auth0_id rejects duplicates at save time,
     # preventing a stolen sub from being persisted.
@@ -302,6 +304,10 @@ def account_linker_callback(request):
 
             if should_notify:
                 transaction.on_commit(lambda: _send_email_changed_notification(current_email))
+
+            if require_mfa:
+                auth0_id = user.auth0_id
+                transaction.on_commit(lambda: _send_mfa_enrollment_ticket(auth0_id))
     except (IntegrityError, ValidationError):
         logger.warning(
             "Auth0 sub %s is already linked to another user; cannot link to user %s",
@@ -427,3 +433,16 @@ def _send_email_changed_notification(prior_email: str) -> None:
         message.send()
     except Exception:
         logger.exception("Failed to send email-changed notification to %s", prior_email)
+
+
+def _send_mfa_enrollment_ticket(auth0_id: str) -> None:
+    """Mint an OTP MFA enrollment ticket post-commit; best-effort.
+
+    Failures are logged but swallowed — the account link is already committed
+    and a mint error must not turn a successful link into a 500.
+    """
+    try:
+        send_guardian_otp_enrollment_ticket(auth0_id)
+        logger.info("Sent MFA enrollment ticket for user with auth0_id %s", auth0_id)
+    except Exception:
+        logger.exception("Failed to send MFA enrollment ticket for user with auth0_id %s", auth0_id)
