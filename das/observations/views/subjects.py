@@ -361,15 +361,14 @@ class SubjectsView(ListCreateAPIView, TwoWaySubjectSourceMixin, DynamicSchemaDat
 
         should_include_user_linked_subject = not subject_ids and not subject_group_id and self.queryset_linked_user
 
-        if subject_ids:
+        if subject_ids or subject_group_id or user.is_superuser:
             filtered_queryset = filtered_queryset.by_user_subjects_not_distinct(
                 user, include_linked=should_include_user_linked_subject
             )
+
+        if subject_ids:
             filtered_queryset = filtered_queryset.by_id(subject_ids)
         elif subject_group_id and len(subject_group_param_splited) == 1:
-            filtered_queryset = filtered_queryset.by_user_subjects_not_distinct(
-                user, include_linked=should_include_user_linked_subject
-            )
             if not is_uuid(subject_group_id):
                 raise ValidationError("Invalid subject_group id at 'subject_group'")
 
@@ -377,9 +376,6 @@ class SubjectsView(ListCreateAPIView, TwoWaySubjectSourceMixin, DynamicSchemaDat
             filtered_queryset = filtered_queryset.by_groups(subject_groups=subject_groups)
 
         elif subject_group_id and len(subject_group_param_splited) > 1:
-            filtered_queryset = filtered_queryset.by_user_subjects_not_distinct(
-                user, include_linked=should_include_user_linked_subject
-            )
             if not all(is_uuid(item.strip()) for item in subject_group_param_splited):
                 raise ValidationError("Invalid subject_group id at 'subject_group'")
 
@@ -396,11 +392,7 @@ class SubjectsView(ListCreateAPIView, TwoWaySubjectSourceMixin, DynamicSchemaDat
             # dedupe. We now express it as a single correlated, tenant-scoped
             # ``Exists()`` subquery so the table is referenced only inside a bounded
             # ``EXISTS (...)`` and never as an outer join.
-            if user.is_superuser:
-                filtered_queryset = filtered_queryset.by_user_subjects_not_distinct(
-                    user, include_linked=should_include_user_linked_subject
-                )
-            else:
+            if not user.is_superuser:
                 permission_sets = user.get_all_permission_sets()
 
                 source_group_access = Exists(
@@ -421,7 +413,6 @@ class SubjectsView(ListCreateAPIView, TwoWaySubjectSourceMixin, DynamicSchemaDat
 
                 filtered_queryset = filtered_queryset.filter(access_q)
 
-            if not user.is_superuser:
                 source_groups = SourceGroup.objects.filter(permission_sets__in=permission_sets)
                 # TODO: rather than this, can we get the latest & oldest observation for each subject? (needed in
                 #  serializer.to_representation)
