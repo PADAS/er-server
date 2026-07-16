@@ -1,0 +1,218 @@
+{
+    "sample_1": {
+        "json": {
+            "$schema": "https://json-schema.org/draft/2020-12/schema",
+            "additionalProperties": false,
+            "properties": {
+                "cameratraprep_camera-name": {
+                    "title": "Deployment Name",
+                    "type": "string",
+                    "description": "",
+                    "deprecated": false
+                },
+                "cameratraprep_camera-make": {
+                    "title": "Camera ID",
+                    "type": "string",
+                    "description": "",
+                    "deprecated": false
+                },
+                "cameratraprep_camera-version": {
+                    "title": "Camera Version",
+                    "type": "string",
+                    "description": "",
+                    "deprecated": false
+                },
+                "cameratraprep_battery-level": {
+                    "title": "Battery Level (%)",
+                    "type": "number",
+                    "description": "",
+                    "deprecated": false,
+                    "maximum": 100,
+                    "minimum": 0
+                },
+                "tag_count_array": {
+                    "title": "Detections",
+                    "type": "array",
+                    "description": "",
+                    "items": {
+                        "additionalProperties": false,
+                        "properties": {
+                            "tag": {
+                                "title": "Tag",
+                                "type": "string",
+                                "description": "",
+                                "deprecated": false
+                            },
+                            "count": {
+                                "title": "Count",
+                                "type": "number",
+                                "description": "",
+                                "deprecated": false
+                            }
+                        },
+                        "required": [],
+                        "type": "object"
+                    },
+                    "unevaluatedItems": false,
+                    "deprecated": false
+                },
+                "tags": {
+                    "title": "Tags",
+                    "type": "string",
+                    "description": "",
+                    "deprecated": true
+                }
+            },
+            "required": [],
+            "type": "object"
+        },
+        "ui": {
+            "fields": {
+                "cameratraprep_camera-name": {
+                    "inputType": "SHORT_TEXT",
+                    "parent": "section-1",
+                    "placeholder": "",
+                    "type": "TEXT"
+                },
+                "cameratraprep_camera-make": {
+                    "inputType": "SHORT_TEXT",
+                    "parent": "section-1",
+                    "placeholder": "",
+                    "type": "TEXT"
+                },
+                "cameratraprep_camera-version": {
+                    "inputType": "SHORT_TEXT",
+                    "parent": "section-1",
+                    "placeholder": "",
+                    "type": "TEXT"
+                },
+                "cameratraprep_battery-level": {
+                    "parent": "section-1",
+                    "placeholder": "",
+                    "type": "NUMERIC"
+                },
+                "tag": {
+                    "inputType": "SHORT_TEXT",
+                    "parent": "tag_count_array",
+                    "placeholder": "",
+                    "type": "TEXT"
+                },
+                "count": {
+                    "parent": "tag_count_array",
+                    "placeholder": "",
+                    "type": "NUMERIC"
+                },
+                "tag_count_array": {
+                    "buttonText": "Add",
+                    "columns": 1,
+                    "itemIdentifier": "",
+                    "itemName": "Detection",
+                    "leftColumn": [
+                        "tag",
+                        "count"
+                    ],
+                    "parent": "section-2",
+                    "rightColumn": [],
+                    "type": "COLLECTION"
+                },
+                "tags": {
+                    "inputType": "SHORT_TEXT",
+                    "parent": "section-3",
+                    "placeholder": "",
+                    "type": "TEXT"
+                }
+            },
+            "headers": {},
+            "order": [
+                "section-1",
+                "section-2",
+                "section-3"
+            ],
+            "sections": {
+                "section-1": {
+                    "columns": 2,
+                    "isActive": true,
+                    "label": "",
+                    "leftColumn": [
+                        {
+                            "type": "field",
+                            "name": "cameratraprep_camera-name"
+                        },
+                        {
+                            "type": "field",
+                            "name": "cameratraprep_camera-version"
+                        }
+                    ],
+                    "rightColumn": [
+                        {
+                            "type": "field",
+                            "name": "cameratraprep_camera-make"
+                        },
+                        {
+                            "type": "field",
+                            "name": "cameratraprep_battery-level"
+                        }
+                    ]
+                },
+                "section-2": {
+                    "columns": 1,
+                    "isActive": true,
+                    "label": "",
+                    "leftColumn": [
+                        {
+                            "type": "field",
+                            "name": "tag_count_array"
+                        }
+                    ],
+                    "rightColumn": []
+                },
+                "section-3": {
+                    "columns": 1,
+                    "isActive": false,
+                    "label": "",
+                    "leftColumn": [
+                        {
+                            "type": "field",
+                            "name": "tags"
+                        }
+                    ],
+                    "rightColumn": [],
+                    "conditions": []
+                }
+            }
+        }
+    },
+    "v1_sample_1": {
+        "schema": {
+            "$schema": "http://json-schema.org/draft-04/schema#",
+            "title": "Auto-generated schema, from incoming data.",
+            "type": "object",
+            "properties": {
+                "cameratraprep_camera-name": {"type": "string", "title": "Deployment Name"},
+                "cameratraprep_camera-make": {"type": "string", "title": "Camera ID"},
+                "cameratraprep_camera-version": {"type": "string", "title": "Camera Version"},
+                "cameratraprep_battery-level": {"type": "number", "title": "Battery Level (%)", "minimum": 0, "maximum": 100},
+                "tags": {"type": "string", "title": "Tags"},
+                "tag_count_array": {
+                    "type": "array",
+                    "title": "Detections",
+                    "items": {
+                        "type": "object",
+                        "title": "Detection",
+                        "properties": {
+                            "tag": {"type": "string", "title": "Tag"},
+                            "count": {"type": "number", "title": "Count"}
+                        }
+                    }
+                }
+            }
+        },
+        "definition": [
+            {"key": "cameratraprep_camera-name", "htmlClass": "col-lg-6"},
+            {"key": "cameratraprep_camera-make", "htmlClass": "col-lg-6"},
+            {"key": "cameratraprep_camera-version", "htmlClass": "col-lg-6"},
+            {"key": "cameratraprep_battery-level", "htmlClass": "col-lg-6"},
+            {"key": "tag_count_array"}
+        ]
+    }
+}

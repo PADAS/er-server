@@ -1,0 +1,205 @@
+{
+    "json": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "unevaluatedProperties": false,
+        "properties": {
+            "cameratraprep_camera-name": {
+                "title": "Deployment Name",
+                "type": "string",
+                "description": "",
+                "deprecated": false
+            },
+            "cameratraprep_camera-make": {
+                "title": "Camera ID",
+                "type": "string",
+                "description": "",
+                "deprecated": false
+            },
+            "cameratraprep_camera-version": {
+                "title": "Camera Version",
+                "type": "string",
+                "description": "",
+                "deprecated": false
+            },
+            "cameratraprep_battery-level": {
+                "title": "Battery Level (%)",
+                "type": "number",
+                "description": "",
+                "deprecated": false,
+                "maximum": 100,
+                "minimum": 0
+            },
+            "tags": {
+                "title": "Tags",
+                "type": "array",
+                "description": "",
+                "items": {
+                "type": "string",
+                "anyOf": [
+                    {
+                    "$ref": "/api/v2.0/schemas/choices.json?field=cameratrap_tags"
+                    }
+                ]
+                },
+                "deprecated": false,
+                "uniqueItems": true
+            },
+            "tag_count_array": {
+                "title": "Detections",
+                "type": "array",
+                "description": "",
+                "items": {
+                    "unevaluatedProperties": false,
+                    "properties": {
+                        "tag": {
+                            "title": "Tag",
+                            "type": "string",
+                            "description": "",
+                            "deprecated": false
+                        },
+                        "count": {
+                            "title": "Count",
+                            "type": "number",
+                            "description": "",
+                            "deprecated": false
+                        }
+                    },
+                    "required": [],
+                    "type": "object"
+                },
+                "unevaluatedItems": false,
+                "deprecated": false
+            }
+        },
+        "required": [],
+        "type": "object"
+    },
+    "ui": {
+        "fields": {
+            "cameratraprep_camera-name": {
+                "inputType": "SHORT_TEXT",
+                "parent": "section-1",
+                "placeholder": "",
+                "type": "TEXT"
+            },
+            "cameratraprep_camera-make": {
+                "inputType": "SHORT_TEXT",
+                "parent": "section-1",
+                "placeholder": "",
+                "type": "TEXT"
+            },
+            "cameratraprep_camera-version": {
+                "inputType": "SHORT_TEXT",
+                "parent": "section-1",
+                "placeholder": "",
+                "type": "TEXT"
+            },
+            "cameratraprep_battery-level": {
+                "parent": "section-1",
+                "placeholder": "",
+                "type": "NUMERIC"
+            },
+            "tag": {
+                "inputType": "SHORT_TEXT",
+                "parent": "tag_count_array",
+                "placeholder": "",
+                "type": "TEXT"
+            },
+            "count": {
+                "parent": "tag_count_array",
+                "placeholder": "",
+                "type": "NUMERIC"
+            },
+            "tag_count_array": {
+                "buttonText": "Add",
+                "columns": 1,
+                "itemIdentifier": "",
+                "itemName": "Detection",
+                "leftColumn": [
+                    "tag",
+                    "count"
+                ],
+                "parent": "section-2",
+                "rightColumn": [],
+                "type": "COLLECTION"
+            },
+            "tags": {
+                "choices": {
+                "eventTypeCategories": [],
+                "existingChoiceList": [
+                    "cameratrap_tags"
+                ],
+                "featureCategories": [],
+                "myDataType": "EVENT_TYPES_FROM_EVENT_CATEGORY",
+                "subjectGroups": [],
+                "subjectSubtypes": [],
+                "type": "EXISTING_CHOICE_LIST"
+                },
+                "inputType": "LIST",
+                "parent": "section-2",
+                "placeholder": "",
+                "type": "CHOICE_LIST"
+            }
+        },
+        "headers": {
+            "header-note001": {
+                "label": "If Threat suspected - change priority to Red",
+                "size": "SMALL",
+                "section": "section-1"
+            }
+        },
+        "order": [
+            "section-1",
+            "section-2"
+        ],
+        "sections": {
+            "section-1": {
+                "columns": 2,
+                "isActive": true,
+                "label": "",
+                "leftColumn": [
+                    {
+                        "type": "header",
+                        "name": "header-note001"
+                    },
+                    {
+                        "type": "field",
+                        "name": "cameratraprep_camera-make"
+                    },
+                    {
+                        "type": "field",
+                        "name": "cameratraprep_battery-level"
+                    }
+                ],
+                "rightColumn": [
+                    {
+                        "type": "field",
+                        "name": "cameratraprep_camera-name"
+                    },
+                    {
+                        "type": "field",
+                        "name": "cameratraprep_camera-version"
+                    }
+                ]
+            },
+            "section-2": {
+                "columns": 2,
+                "isActive": true,
+                "label": "",
+                "leftColumn": [
+                    {
+                        "type": "field",
+                        "name": "tag_count_array"
+                    }
+                ],
+                "rightColumn": [
+                                        {
+                        "type": "field",
+                        "name": "tags"
+                    }
+
+                ]
+            }
+        }
+    }
+}

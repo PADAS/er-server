@@ -1,0 +1,70 @@
+{
+    "schema": {
+        "$schema": "http://json-schema.org/draft-04/schema#",
+        "title": "Auto-generated schema, from incoming data.",
+        "type": "object",
+        "properties": {
+            "cameratraprep_camera-name": {
+                "type": "string",
+                "title": "Deployment Name"
+            },
+            "cameratraprep_camera-make": {
+                "type": "string",
+                "title": "Camera ID"
+            },
+            "cameratraprep_camera-version": {
+                "type": "string",
+                "title": "Camera Version"
+            },
+            "cameratraprep_battery-level": {
+                "type": "number",
+                "title": "Battery Level (%)",
+                "minimum": 0,
+                "maximum": 100
+            },
+            "tags": {
+                "key": "tags"
+            },
+            "tag_count_array": {
+                "type": "array",
+                "title": "Detections",
+                "items": {
+                    "type": "object",
+                    "title": "Detection",
+                    "properties": {
+                        "tag": {
+                            "type": "string",
+                            "title": "Tag"
+                        },
+                        "count": {
+                            "type": "number",
+                            "title": "Count"
+                        }
+                    }
+                }
+            }
+        }
+    },
+    "definition": [
+        {
+            "key": "cameratraprep_camera-name",
+            "htmlClass": "col-lg-6"
+        },
+        {
+            "key": "cameratraprep_camera-make",
+            "htmlClass": "col-lg-6"
+        },
+        {
+            "key": "cameratraprep_camera-version",
+            "htmlClass": "col-lg-6"
+        },
+        {
+            "key": "cameratraprep_battery-level",
+            "htmlClass": "col-lg-6"
+        },
+        {
+            "key": "tag_count_array"
+        },
+        { "key": "tags", "type": "checkboxes", "htmlClass": "d-none", "title": "Tags", "titleMap": "{{enum___cameratrap_tags___map}}" }
+    ]
+}

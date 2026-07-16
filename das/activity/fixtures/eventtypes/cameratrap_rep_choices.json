@@ -1,0 +1,1046 @@
+[
+  {
+    "model": "choices.choice",
+    "pk": "ca864490-37c6-4e8c-822a-acab7d029829",
+    "fields": {
+      "model": "activity.event",
+      "field": "cameratrap_tags",
+      "value": "african_wild_dog",
+      "display": "African wild dog",
+      "is_active": true,
+      "ordernum": 1
+    }
+  },
+  {
+    "model": "choices.choice",
+    "pk": "6d4de87e-9931-4cff-b2bf-1527721f68de",
+    "fields": {
+      "model": "activity.event",
+      "field": "cameratrap_tags",
+      "value": "antelope",
+      "display": "Antelope",
+      "is_active": true,
+      "ordernum": 2
+    }
+  },
+  {
+    "model": "choices.choice",
+    "pk": "8e8f0108-500d-42a7-99c6-be6fd24ad189",
+    "fields": {
+      "model": "activity.event",
+      "field": "cameratrap_tags",
+      "value": "baboon",
+      "display": "Baboon",
+      "is_active": true,
+      "ordernum": 3
+    }
+  },
+  {
+    "model": "choices.choice",
+    "pk": "60ca72f5-14f0-4816-bee3-3888883719e9",
+    "fields": {
+      "model": "activity.event",
+      "field": "cameratrap_tags",
+      "value": "brownhyena",
+      "display": "BrownHyena",
+      "is_active": true,
+      "ordernum": 4
+    }
+  },
+  {
+    "model": "choices.choice",
+    "pk": "760c42a6-1893-495c-866f-c6fafb02ff6b",
+    "fields": {
+      "model": "activity.event",
+      "field": "cameratrap_tags",
+      "value": "buffalo",
+      "display": "Buffalo",
+      "is_active": true,
+      "ordernum": 5
+    }
+  },
+  {
+    "model": "choices.choice",
+    "pk": "66122615-352b-4c1c-a288-bc9a5ec39e93",
+    "fields": {
+      "model": "activity.event",
+      "field": "cameratrap_tags",
+      "value": "cattle",
+      "display": "Cattle",
+      "is_active": true,
+      "ordernum": 6
+    }
+  },
+  {
+    "model": "choices.choice",
+    "pk": "8bfa5b30-6202-45bb-b8dc-24da6d74529d",
+    "fields": {
+      "model": "activity.event",
+      "field": "cameratrap_tags",
+      "value": "cerdocyon",
+      "display": "Cerdocyon",
+      "is_active": true,
+      "ordernum": 7
+    }
+  },
+  {
+    "model": "choices.choice",
+    "pk": "a2023d16-472f-4196-92d2-659c5a60ec8f",
+    "fields": {
+      "model": "activity.event",
+      "field": "cameratrap_tags",
+      "value": "cheetah",
+      "display": "Cheetah",
+      "is_active": true,
+      "ordernum": 8
+    }
+  },
+  {
+    "model": "choices.choice",
+    "pk": "32f1c3ea-bddc-4f04-bb8f-ba9995817dd1",
+    "fields": {
+      "model": "activity.event",
+      "field": "cameratrap_tags",
+      "value": "closed",
+      "display": "Closed.",
+      "is_active": true,
+      "ordernum": 9
+    }
+  },
+  {
+    "model": "choices.choice",
+    "pk": "ba097231-4760-4b96-b947-dde457d2dda7",
+    "fields": {
+      "model": "activity.event",
+      "field": "cameratrap_tags",
+      "value": "crax",
+      "display": "Crax",
+      "is_active": true,
+      "ordernum": 10
+    }
+  },
+  {
+    "model": "choices.choice",
+    "pk": "5b0a169e-3d27-4078-9ade-770df0160865",
+    "fields": {
+      "model": "activity.event",
+      "field": "cameratrap_tags",
+      "value": "dog",
+      "display": "Dog",
+      "is_active": true,
+      "ordernum": 11
+    }
+  },
+  {
+    "model": "choices.choice",
+    "pk": "1246c87e-2ad1-4225-b9d2-6afb54fc5631",
+    "fields": {
+      "model": "activity.event",
+      "field": "cameratrap_tags",
+      "value": "eira",
+      "display": "Eira",
+      "is_active": true,
+      "ordernum": 12
+    }
+  },
+  {
+    "model": "choices.choice",
+    "pk": "c03e83b0-df60-4136-8b9e-57be812ed1de",
+    "fields": {
+      "model": "activity.event",
+      "field": "cameratrap_tags",
+      "value": "elephant",
+      "display": "Elephant",
+      "is_active": true,
+      "ordernum": 13
+    }
+  },
+  {
+    "model": "choices.choice",
+    "pk": "6460f739-b5b0-4781-bb5c-dfe4d39c0513",
+    "fields": {
+      "model": "activity.event",
+      "field": "cameratrap_tags",
+      "value": "giraffe",
+      "display": "Giraffe",
+      "is_active": true,
+      "ordernum": 14
+    }
+  },
+  {
+    "model": "choices.choice",
+    "pk": "608e13de-7b04-4907-a545-31c762595a21",
+    "fields": {
+      "model": "activity.event",
+      "field": "cameratrap_tags",
+      "value": "himalayan_black_bear",
+      "display": "Himalayan Black Bear",
+      "is_active": true,
+      "ordernum": 15
+    }
+  },
+  {
+    "model": "choices.choice",
+    "pk": "b7fca273-eff6-4140-b757-008834c093eb",
+    "fields": {
+      "model": "activity.event",
+      "field": "cameratrap_tags",
+      "value": "hippo",
+      "display": "Hippo",
+      "is_active": true,
+      "ordernum": 16
+    }
+  },
+  {
+    "model": "choices.choice",
+    "pk": "29536e38-7764-4e1f-82b9-dd097d4b3887",
+    "fields": {
+      "model": "activity.event",
+      "field": "cameratrap_tags",
+      "value": "hyena",
+      "display": "Hyena",
+      "is_active": true,
+      "ordernum": 17
+    }
+  },
+  {
+    "model": "choices.choice",
+    "pk": "95abf340-367c-4919-b020-1b46efddaca5",
+    "fields": {
+      "model": "activity.event",
+      "field": "cameratrap_tags",
+      "value": "jackal",
+      "display": "Jackal",
+      "is_active": true,
+      "ordernum": 18
+    }
+  },
+  {
+    "model": "choices.choice",
+    "pk": "d1d79858-9c67-4fbc-9569-106dbc48f696",
+    "fields": {
+      "model": "activity.event",
+      "field": "cameratrap_tags",
+      "value": "leopard",
+      "display": "Leopard",
+      "is_active": true,
+      "ordernum": 19
+    }
+  },
+  {
+    "model": "choices.choice",
+    "pk": "e0996e0d-304a-45bc-a6b7-dc0d10e2a1ae",
+    "fields": {
+      "model": "activity.event",
+      "field": "cameratrap_tags",
+      "value": "lion",
+      "display": "Lion",
+      "is_active": true,
+      "ordernum": 20
+    }
+  },
+  {
+    "model": "choices.choice",
+    "pk": "1158d985-dc7e-48f4-9735-173cd49a60c6",
+    "fields": {
+      "model": "activity.event",
+      "field": "cameratrap_tags",
+      "value": "open",
+      "display": "Open.",
+      "is_active": true,
+      "ordernum": 21
+    }
+  },
+  {
+    "model": "choices.choice",
+    "pk": "3f3ff7a4-ab09-4c27-9e1e-4bfcec796402",
+    "fields": {
+      "model": "activity.event",
+      "field": "cameratrap_tags",
+      "value": "procyon",
+      "display": "Procyon",
+      "is_active": true,
+      "ordernum": 22
+    }
+  },
+  {
+    "model": "choices.choice",
+    "pk": "6f6acf39-c76f-491c-8e42-5ab3b3748022",
+    "fields": {
+      "model": "activity.event",
+      "field": "cameratrap_tags",
+      "value": "rhino",
+      "display": "Rhino",
+      "is_active": true,
+      "ordernum": 23
+    }
+  },
+  {
+    "model": "choices.choice",
+    "pk": "4c878b11-4043-439a-9fa0-e72e55f72b63",
+    "fields": {
+      "model": "activity.event",
+      "field": "cameratrap_tags",
+      "value": "warthog",
+      "display": "Warthog",
+      "is_active": true,
+      "ordernum": 24
+    }
+  },
+  {
+    "model": "choices.choice",
+    "pk": "69573d07-66de-4220-ab74-fe5fc6b302cf",
+    "fields": {
+      "model": "activity.event",
+      "field": "cameratrap_tags",
+      "value": "zebra",
+      "display": "Zebra",
+      "is_active": true,
+      "ordernum": 25
+    }
+  },
+  {
+    "model": "choices.choice",
+    "pk": "28800535-d423-410c-a042-dc9e2be6e18d",
+    "fields": {
+      "model": "activity.event",
+      "field": "cameratrap_tags",
+      "value": "aardvark",
+      "display": "aardvark",
+      "is_active": true,
+      "ordernum": 26
+    }
+  },
+  {
+    "model": "choices.choice",
+    "pk": "e485ec69-7445-4e28-ae0c-77dccbeecd6e",
+    "fields": {
+      "model": "activity.event",
+      "field": "cameratrap_tags",
+      "value": "accipitridae_family",
+      "display": "accipitridae family",
+      "is_active": true,
+      "ordernum": 27
+    }
+  },
+  {
+    "model": "choices.choice",
+    "pk": "aba29ac7-548c-4c87-945b-50e98732399c",
+    "fields": {
+      "model": "activity.event",
+      "field": "cameratrap_tags",
+      "value": "african_wild_cat",
+      "display": "african wild cat",
+      "is_active": true,
+      "ordernum": 28
+    }
+  },
+  {
+    "model": "choices.choice",
+    "pk": "08ad9473-5f7f-41d6-a91d-fdfebcec0022",
+    "fields": {
+      "model": "activity.event",
+      "field": "cameratrap_tags",
+      "value": "animal",
+      "display": "animal",
+      "is_active": true,
+      "ordernum": 29
+    }
+  },
+  {
+    "model": "choices.choice",
+    "pk": "fedfafef-af67-4a2d-bcf3-c3cb027a105b",
+    "fields": {
+      "model": "activity.event",
+      "field": "cameratrap_tags",
+      "value": "arvicolinae_subfamily",
+      "display": "arvicolinae subfamily",
+      "is_active": true,
+      "ordernum": 30
+    }
+  },
+  {
+    "model": "choices.choice",
+    "pk": "fe92bccd-b5c2-4bda-9503-3d96490c88e3",
+    "fields": {
+      "model": "activity.event",
+      "field": "cameratrap_tags",
+      "value": "bird",
+      "display": "bird",
+      "is_active": true,
+      "ordernum": 31
+    }
+  },
+  {
+    "model": "choices.choice",
+    "pk": "cd75eb38-17ce-4608-8a74-7a9b299bbe37",
+    "fields": {
+      "model": "activity.event",
+      "field": "cameratrap_tags",
+      "value": "black_rhino",
+      "display": "black rhino",
+      "is_active": true,
+      "ordernum": 32
+    }
+  },
+  {
+    "model": "choices.choice",
+    "pk": "aa110a1c-8fde-4b2c-baa8-02ae09dd4eb3",
+    "fields": {
+      "model": "activity.event",
+      "field": "cameratrap_tags",
+      "value": "blank",
+      "display": "blank",
+      "is_active": true,
+      "ordernum": 33
+    }
+  },
+  {
+    "model": "choices.choice",
+    "pk": "b47b1a1f-8b52-4202-aa3f-a87e0d5fecbc",
+    "fields": {
+      "model": "activity.event",
+      "field": "cameratrap_tags",
+      "value": "blue_duiker",
+      "display": "blue duiker",
+      "is_active": true,
+      "ordernum": 34
+    }
+  },
+  {
+    "model": "choices.choice",
+    "pk": "3869ec4e-c033-44fe-9f9d-1a127baa4bce",
+    "fields": {
+      "model": "activity.event",
+      "field": "cameratrap_tags",
+      "value": "blue_wildebeest",
+      "display": "blue wildebeest",
+      "is_active": true,
+      "ordernum": 35
+    }
+  },
+  {
+    "model": "choices.choice",
+    "pk": "269dc281-aad7-4d4b-885a-e53725b1118e",
+    "fields": {
+      "model": "activity.event",
+      "field": "cameratrap_tags",
+      "value": "bovidae_family",
+      "display": "bovidae family",
+      "is_active": true,
+      "ordernum": 36
+    }
+  },
+  {
+    "model": "choices.choice",
+    "pk": "a67d2cc1-4f1d-4662-ad0b-990fe6ae62a8",
+    "fields": {
+      "model": "activity.event",
+      "field": "cameratrap_tags",
+      "value": "bushbuck",
+      "display": "bushbuck",
+      "is_active": true,
+      "ordernum": 37
+    }
+  },
+  {
+    "model": "choices.choice",
+    "pk": "29ada3c1-1b26-428b-a1f3-7f634d55d212",
+    "fields": {
+      "model": "activity.event",
+      "field": "cameratrap_tags",
+      "value": "bushpig",
+      "display": "bushpig",
+      "is_active": true,
+      "ordernum": 38
+    }
+  },
+  {
+    "model": "choices.choice",
+    "pk": "1cc959c8-aee7-4026-b05a-cce680416353",
+    "fields": {
+      "model": "activity.event",
+      "field": "cameratrap_tags",
+      "value": "caracal",
+      "display": "caracal",
+      "is_active": true,
+      "ordernum": 39
+    }
+  },
+  {
+    "model": "choices.choice",
+    "pk": "30fb7e46-92fb-487b-8d65-ca075babcb07",
+    "fields": {
+      "model": "activity.event",
+      "field": "cameratrap_tags",
+      "value": "cat",
+      "display": "cat",
+      "is_active": true,
+      "ordernum": 40
+    }
+  },
+  {
+    "model": "choices.choice",
+    "pk": "c4556722-7052-4d7f-a6df-50204df373f5",
+    "fields": {
+      "model": "activity.event",
+      "field": "cameratrap_tags",
+      "value": "cat_family",
+      "display": "cat family",
+      "is_active": true,
+      "ordernum": 41
+    }
+  },
+  {
+    "model": "choices.choice",
+    "pk": "4cea165e-ea33-42ae-8666-7cf3144fad13",
+    "fields": {
+      "model": "activity.event",
+      "field": "cameratrap_tags",
+      "value": "cervidae_family",
+      "display": "cervidae family",
+      "is_active": true,
+      "ordernum": 42
+    }
+  },
+  {
+    "model": "choices.choice",
+    "pk": "ca033492-68e0-4b4c-8c17-31c7ab3ca2d5",
+    "fields": {
+      "model": "activity.event",
+      "field": "cameratrap_tags",
+      "value": "cherold",
+      "display": "cherold",
+      "is_active": true,
+      "ordernum": 43
+    }
+  },
+  {
+    "model": "choices.choice",
+    "pk": "2f69ceec-79a6-4311-ba14-46dc7e42d0cc",
+    "fields": {
+      "model": "activity.event",
+      "field": "cameratrap_tags",
+      "value": "chicken",
+      "display": "chicken",
+      "is_active": true,
+      "ordernum": 44
+    }
+  },
+  {
+    "model": "choices.choice",
+    "pk": "013528bb-4e0b-4033-ac60-b6b6e2a58a1e",
+    "fields": {
+      "model": "activity.event",
+      "field": "cameratrap_tags",
+      "value": "cloud",
+      "display": "cloud",
+      "is_active": true,
+      "ordernum": 45
+    }
+  },
+  {
+    "model": "choices.choice",
+    "pk": "f33e63f5-1cff-447a-a4ff-b83600e07c96",
+    "fields": {
+      "model": "activity.event",
+      "field": "cameratrap_tags",
+      "value": "coyote",
+      "display": "coyote",
+      "is_active": true,
+      "ordernum": 46
+    }
+  },
+  {
+    "model": "choices.choice",
+    "pk": "f1e2715d-0e7b-45c0-a681-9782a440c041",
+    "fields": {
+      "model": "activity.event",
+      "field": "cameratrap_tags",
+      "value": "domestic_cat",
+      "display": "domestic cat",
+      "is_active": true,
+      "ordernum": 47
+    }
+  },
+  {
+    "model": "choices.choice",
+    "pk": "ba72449b-17f3-4865-a993-dbc25dc4fe36",
+    "fields": {
+      "model": "activity.event",
+      "field": "cameratrap_tags",
+      "value": "domestic_cattle",
+      "display": "domestic cattle",
+      "is_active": true,
+      "ordernum": 48
+    }
+  },
+  {
+    "model": "choices.choice",
+    "pk": "6923a474-1e81-422e-80ff-2e500ff45d34",
+    "fields": {
+      "model": "activity.event",
+      "field": "cameratrap_tags",
+      "value": "duiker",
+      "display": "duiker",
+      "is_active": true,
+      "ordernum": 49
+    }
+  },
+  {
+    "model": "choices.choice",
+    "pk": "1087858d-8a3d-4227-9f1e-5c6302dc27a9",
+    "fields": {
+      "model": "activity.event",
+      "field": "cameratrap_tags",
+      "value": "felidae",
+      "display": "felidae",
+      "is_active": true,
+      "ordernum": 50
+    }
+  },
+  {
+    "model": "choices.choice",
+    "pk": "1128b442-a4c2-4fe6-8f8e-f496861b06d1",
+    "fields": {
+      "model": "activity.event",
+      "field": "cameratrap_tags",
+      "value": "genet",
+      "display": "genet",
+      "is_active": true,
+      "ordernum": 51
+    }
+  },
+  {
+    "model": "choices.choice",
+    "pk": "d5219c67-326f-4ab6-b939-8f5343319519",
+    "fields": {
+      "model": "activity.event",
+      "field": "cameratrap_tags",
+      "value": "hippopotamus",
+      "display": "hippopotamus",
+      "is_active": true,
+      "ordernum": 52
+    }
+  },
+  {
+    "model": "choices.choice",
+    "pk": "b8de5741-2c18-470b-8ccf-a274b1f34645",
+    "fields": {
+      "model": "activity.event",
+      "field": "cameratrap_tags",
+      "value": "honey_badger",
+      "display": "honey badger",
+      "is_active": true,
+      "ordernum": 53
+    }
+  },
+  {
+    "model": "choices.choice",
+    "pk": "647988c4-2846-4e0e-9752-44d95f802dec",
+    "fields": {
+      "model": "activity.event",
+      "field": "cameratrap_tags",
+      "value": "house_rat",
+      "display": "house rat",
+      "is_active": true,
+      "ordernum": 54
+    }
+  },
+  {
+    "model": "choices.choice",
+    "pk": "8d2f8263-77df-47ba-99b3-f45379d1e5ec",
+    "fields": {
+      "model": "activity.event",
+      "field": "cameratrap_tags",
+      "value": "human",
+      "display": "human",
+      "is_active": true,
+      "ordernum": 55
+    }
+  },
+  {
+    "model": "choices.choice",
+    "pk": "94cd4366-fe9a-44d0-9095-a55f783f277c",
+    "fields": {
+      "model": "activity.event",
+      "field": "cameratrap_tags",
+      "value": "iguana",
+      "display": "iguana",
+      "is_active": true,
+      "ordernum": 56
+    }
+  },
+  {
+    "model": "choices.choice",
+    "pk": "c68578c7-5059-4717-a81c-d68748660812",
+    "fields": {
+      "model": "activity.event",
+      "field": "cameratrap_tags",
+      "value": "impala",
+      "display": "impala",
+      "is_active": true,
+      "ordernum": 57
+    }
+  },
+  {
+    "model": "choices.choice",
+    "pk": "b02a0df5-e8fb-4df4-b498-15f7e9cba7b5",
+    "fields": {
+      "model": "activity.event",
+      "field": "cameratrap_tags",
+      "value": "malformed_image",
+      "display": "malformed image",
+      "is_active": true,
+      "ordernum": 58
+    }
+  },
+  {
+    "model": "choices.choice",
+    "pk": "6b1aba4b-db83-4eee-b574-93d7246e9160",
+    "fields": {
+      "model": "activity.event",
+      "field": "cameratrap_tags",
+      "value": "mammal",
+      "display": "mammal",
+      "is_active": true,
+      "ordernum": 59
+    }
+  },
+  {
+    "model": "choices.choice",
+    "pk": "95550a46-1c08-4bf4-a220-e160d5d9d813",
+    "fields": {
+      "model": "activity.event",
+      "field": "cameratrap_tags",
+      "value": "motorbike",
+      "display": "motorbike",
+      "is_active": true,
+      "ordernum": 60
+    }
+  },
+  {
+    "model": "choices.choice",
+    "pk": "aa9410de-6849-430c-a7a0-c16bf8a9b538",
+    "fields": {
+      "model": "activity.event",
+      "field": "cameratrap_tags",
+      "value": "mule_deer",
+      "display": "mule deer",
+      "is_active": true,
+      "ordernum": 61
+    }
+  },
+  {
+    "model": "choices.choice",
+    "pk": "307dec2c-73aa-46b1-b406-bd23c25ec3bd",
+    "fields": {
+      "model": "activity.event",
+      "field": "cameratrap_tags",
+      "value": "mustelidae",
+      "display": "mustelidae",
+      "is_active": true,
+      "ordernum": 62
+    }
+  },
+  {
+    "model": "choices.choice",
+    "pk": "e057bf40-a210-4235-9155-f5c54838ddfa",
+    "fields": {
+      "model": "activity.event",
+      "field": "cameratrap_tags",
+      "value": "no_tag",
+      "display": "no tag",
+      "is_active": true,
+      "ordernum": 63
+    }
+  },
+  {
+    "model": "choices.choice",
+    "pk": "a49146ae-2c95-4e23-8856-5d47790af090",
+    "fields": {
+      "model": "activity.event",
+      "field": "cameratrap_tags",
+      "value": "opossum",
+      "display": "opossum",
+      "is_active": true,
+      "ordernum": 64
+    }
+  },
+  {
+    "model": "choices.choice",
+    "pk": "e9bbb6a0-0352-48fd-ab86-6b98e62fa285",
+    "fields": {
+      "model": "activity.event",
+      "field": "cameratrap_tags",
+      "value": "other_animal",
+      "display": "other_animal",
+      "is_active": true,
+      "ordernum": 65
+    }
+  },
+  {
+    "model": "choices.choice",
+    "pk": "6d25fb36-d087-4c71-b6c5-95c45c6521e5",
+    "fields": {
+      "model": "activity.event",
+      "field": "cameratrap_tags",
+      "value": "person",
+      "display": "person",
+      "is_active": true,
+      "ordernum": 66
+    }
+  },
+  {
+    "model": "choices.choice",
+    "pk": "a1d690af-d334-419e-9381-8248c19cef60",
+    "fields": {
+      "model": "activity.event",
+      "field": "cameratrap_tags",
+      "value": "poacher",
+      "display": "poacher",
+      "is_active": true,
+      "ordernum": 67
+    }
+  },
+  {
+    "model": "choices.choice",
+    "pk": "8a9bd313-231d-4566-ba37-ffc235dae1d8",
+    "fields": {
+      "model": "activity.event",
+      "field": "cameratrap_tags",
+      "value": "porcupine",
+      "display": "porcupine",
+      "is_active": true,
+      "ordernum": 68
+    }
+  },
+  {
+    "model": "choices.choice",
+    "pk": "2a3b193b-2ce1-477b-b622-73db34bff494",
+    "fields": {
+      "model": "activity.event",
+      "field": "cameratrap_tags",
+      "value": "possum_family",
+      "display": "possum family",
+      "is_active": true,
+      "ordernum": 69
+    }
+  },
+  {
+    "model": "choices.choice",
+    "pk": "52286707-3025-44a0-ace9-abcbe16982df",
+    "fields": {
+      "model": "activity.event",
+      "field": "cameratrap_tags",
+      "value": "ranger",
+      "display": "ranger",
+      "is_active": true,
+      "ordernum": 70
+    }
+  },
+  {
+    "model": "choices.choice",
+    "pk": "f8bd39a0-e41a-4918-abc9-0e4b7945bc31",
+    "fields": {
+      "model": "activity.event",
+      "field": "cameratrap_tags",
+      "value": "reedbuck",
+      "display": "reedbuck",
+      "is_active": true,
+      "ordernum": 71
+    }
+  },
+  {
+    "model": "choices.choice",
+    "pk": "9ab67178-f52c-456b-86f3-7514f1efcfe0",
+    "fields": {
+      "model": "activity.event",
+      "field": "cameratrap_tags",
+      "value": "retraining",
+      "display": "retraining",
+      "is_active": true,
+      "ordernum": 72
+    }
+  },
+  {
+    "model": "choices.choice",
+    "pk": "040bebe6-aed3-43d8-a116-463fd7fc8875",
+    "fields": {
+      "model": "activity.event",
+      "field": "cameratrap_tags",
+      "value": "rodent",
+      "display": "rodent",
+      "is_active": true,
+      "ordernum": 73
+    }
+  },
+  {
+    "model": "choices.choice",
+    "pk": "300468b9-ecfe-43a6-be60-b36408089074",
+    "fields": {
+      "model": "activity.event",
+      "field": "cameratrap_tags",
+      "value": "rodentia",
+      "display": "rodentia",
+      "is_active": true,
+      "ordernum": 74
+    }
+  },
+  {
+    "model": "choices.choice",
+    "pk": "30e5e1e5-e79b-41a8-9071-5ed948edb626",
+    "fields": {
+      "model": "activity.event",
+      "field": "cameratrap_tags",
+      "value": "skittles",
+      "display": "skittles",
+      "is_active": true,
+      "ordernum": 75
+    }
+  },
+  {
+    "model": "choices.choice",
+    "pk": "3ca46dc0-2814-485c-8b89-eefb1acd976d",
+    "fields": {
+      "model": "activity.event",
+      "field": "cameratrap_tags",
+      "value": "spotted_hyaena",
+      "display": "spotted hyaena",
+      "is_active": true,
+      "ordernum": 76
+    }
+  },
+  {
+    "model": "choices.choice",
+    "pk": "497dd4cc-60ea-4bf0-b4c7-c6589ba2b4ac",
+    "fields": {
+      "model": "activity.event",
+      "field": "cameratrap_tags",
+      "value": "spotted_hyena",
+      "display": "spotted hyena",
+      "is_active": true,
+      "ordernum": 77
+    }
+  },
+  {
+    "model": "choices.choice",
+    "pk": "31cb301d-d5e7-414a-9756-454edf033d0e",
+    "fields": {
+      "model": "activity.event",
+      "field": "cameratrap_tags",
+      "value": "springbok",
+      "display": "springbok",
+      "is_active": true,
+      "ordernum": 78
+    }
+  },
+  {
+    "model": "choices.choice",
+    "pk": "e1ac1127-9985-4f6b-9a42-33bd6a270913",
+    "fields": {
+      "model": "activity.event",
+      "field": "cameratrap_tags",
+      "value": "staff",
+      "display": "staff",
+      "is_active": true,
+      "ordernum": 79
+    }
+  },
+  {
+    "model": "choices.choice",
+    "pk": "4efdd093-34a2-4b62-9754-75df9e087cf4",
+    "fields": {
+      "model": "activity.event",
+      "field": "cameratrap_tags",
+      "value": "steenbok",
+      "display": "steenbok",
+      "is_active": true,
+      "ordernum": 80
+    }
+  },
+  {
+    "model": "choices.choice",
+    "pk": "dbce7337-2539-42f1-ac0e-1109ea6b8775",
+    "fields": {
+      "model": "activity.event",
+      "field": "cameratrap_tags",
+      "value": "suidae_family",
+      "display": "suidae family",
+      "is_active": true,
+      "ordernum": 81
+    }
+  },
+  {
+    "model": "choices.choice",
+    "pk": "e32f67ce-50cf-41dd-aa1e-6374c43dc8dd",
+    "fields": {
+      "model": "activity.event",
+      "field": "cameratrap_tags",
+      "value": "unknown",
+      "display": "unknown",
+      "is_active": true,
+      "ordernum": 82
+    }
+  },
+  {
+    "model": "choices.choice",
+    "pk": "e84ba0ce-a578-4b5b-94bf-f11b6c9941ff",
+    "fields": {
+      "model": "activity.event",
+      "field": "cameratrap_tags",
+      "value": "vehicle",
+      "display": "vehicle",
+      "is_active": true,
+      "ordernum": 83
+    }
+  },
+  {
+    "model": "choices.choice",
+    "pk": "e0a768c2-b6c5-4ab0-a0c6-b4c8dc05ff79",
+    "fields": {
+      "model": "activity.event",
+      "field": "cameratrap_tags",
+      "value": "white_rhino",
+      "display": "white rhino",
+      "is_active": true,
+      "ordernum": 84
+    }
+  },
+  {
+    "model": "choices.choice",
+    "pk": "3119078b-eb29-4986-ac48-37f58d0eb9ae",
+    "fields": {
+      "model": "activity.event",
+      "field": "cameratrap_tags",
+      "value": "white_tailed_deer",
+      "display": "white-tailed deer",
+      "is_active": true,
+      "ordernum": 85
+    }
+  },
+  {
+    "model": "choices.choice",
+    "pk": "9be167b4-42f4-4f75-b26f-8f77c1c5cc6c",
+    "fields": {
+      "model": "activity.event",
+      "field": "cameratrap_tags",
+      "value": "wolf",
+      "display": "wolf",
+      "is_active": true,
+      "ordernum": 86
+    }
+  },
+  {
+    "model": "choices.choice",
+    "pk": "809e980f-860d-4197-a8b3-e8a2ed315029",
+    "fields": {
+      "model": "activity.event",
+      "field": "cameratrap_tags",
+      "value": "woodrat_or_rat_or_mouse_species",
+      "display": "woodrat or rat or mouse species",
+      "is_active": true,
+      "ordernum": 87
+    }
+  }
+]
