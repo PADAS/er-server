@@ -62,8 +62,10 @@ if ts.feature_flags.alerts_enabled:
 | `analyzers_enabled` | `analyzersEnabled` | `True` | Real-time analyzers |
 | `require_idp` | `requireIdp` | `False` | Force IdP login for the tenant |
 | `idp_org_id` | `idpOrgId` | `None` | Auth0 / IdP org identifier (string, not boolean) |
+| `require_mfa` | `requireMfa` | `False` | Require step-up MFA on Auth0 tokens. Only takes effect when `require_idp` is also `True` — MFA claims exist only on Auth0 tokens |
+| `mfa_max_age_seconds` | `mfaMaxAgeSeconds` | `31536000` (365 days) | Max age of the token's `mfa_time` claim before a step-up 401 is required (60s clock-skew tolerance) |
 
-Adding one costs **two coordinated changes per flag** — a field on the ER dataclass and a matching field in the TMS schema. That cost is worth paying for a durable, strongly-typed capability flag; for a short-lived rollout gate, reach for a [preview feature](#preview-features) instead. (`idp_org_id` is the only non-boolean entry in the table — a configuration value rather than an on/off flag.)
+Adding one costs **two coordinated changes per flag** — a field on the ER dataclass and a matching field in the TMS schema. That cost is worth paying for a durable, strongly-typed capability flag; for a short-lived rollout gate, reach for a [preview feature](#preview-features) instead. (`idp_org_id` and `mfa_max_age_seconds` are the non-boolean entries in the table — configuration values rather than on/off flags.)
 
 ### Preview features
 

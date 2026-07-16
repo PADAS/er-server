@@ -5,6 +5,8 @@ Tests for Auth0JWTAuthentication backend.
 from __future__ import annotations
 
 import logging
+import time
+from typing import Final
 from unittest.mock import MagicMock, Mock, patch
 
 import pytest
@@ -23,6 +25,10 @@ from accounts.models import User
 from factories import AccessTokenFactory
 
 AccessToken = get_access_token_model()
+
+OIDC_PAPE_MFA_URI: Final = "http://schemas.openid.net/pape/policies/2007/06/multi-factor"
+ACR_CLAIM: Final = "https://pamdas.org/acr"
+MFA_TIME_CLAIM: Final = "https://pamdas.org/mfa_time"
 
 
 @pytest.fixture
@@ -64,6 +70,7 @@ def mock_tenant_settings():
     with patch("accounts.backends.get_tenant_settings") as mock_settings:
         mock = Mock()
         mock.feature_flags.require_idp = True
+        mock.feature_flags.require_mfa = False
         mock_settings.return_value = mock
         yield mock
 
@@ -483,3 +490,177 @@ class TestAuth0JWTAuthenticationActAs:
         request = self._make_request(profile_header=str(profile_user.pk))
         with pytest.raises(PermissionDenied):
             Auth0JWTAuthentication().authenticate(request)
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("tenant_settings", "das_tenant_monkeypatch")
+class TestAuth0MfaStepUp:
+    """MFA gating (acr / mfa_time) and RFC 9470 step-up emission on require_mfa sites."""
+
+    MFA_MAX_AGE_SECONDS = 3600
+
+    @pytest.fixture(autouse=True)
+    def require_mfa_enabled(self, mock_tenant_settings):
+        """Turn on per-site MFA for this class; individual tests may override."""
+        mock_tenant_settings.feature_flags.require_mfa = True
+        mock_tenant_settings.feature_flags.mfa_max_age_seconds = self.MFA_MAX_AGE_SECONDS
+        return mock_tenant_settings
+
+    @pytest.fixture
+    def set_claims(self, mock_auth0_validator, mock_relevant_token_claims):
+        """Set the claims the validated JWT will carry (adds to the default sub)."""
+
+        def _set(**claim_overrides):
+            mock_auth0_validator.authenticate_token.return_value = mock_relevant_token_claims(**claim_overrides)
+
+        return _set
+
+    @staticmethod
+    def _expected_challenge(max_age_seconds):
+        return (
+            'Bearer error="insufficient_user_authentication", '
+            f'acr_values="{OIDC_PAPE_MFA_URI}", max_age="{max_age_seconds}"'
+        )
+
+    @staticmethod
+    def _authenticate_expecting_step_up(request):
+        authenticator = Auth0JWTAuthentication()
+        with pytest.raises(AuthenticationFailed):
+            authenticator.authenticate(request)
+        return authenticator.authenticate_header(request)
+
+    def test_missing_acr_claim_emits_step_up_challenge(self, api_request_for_test, mock_auth0_validator):
+        """A token with no acr claim on a require_mfa site gets the step-up 401."""
+        header = self._authenticate_expecting_step_up(api_request_for_test)
+
+        assert header == self._expected_challenge(self.MFA_MAX_AGE_SECONDS)
+
+    def test_acr_not_multi_factor_emits_step_up_challenge(self, api_request_for_test, set_claims):
+        """An acr that is not the OIDC PAPE multi-factor URI gets the step-up 401."""
+        set_claims(**{ACR_CLAIM: "urn:example:weak", MFA_TIME_CLAIM: int(time.time())})
+
+        header = self._authenticate_expecting_step_up(api_request_for_test)
+
+        assert header == self._expected_challenge(self.MFA_MAX_AGE_SECONDS)
+
+    def test_missing_mfa_time_emits_step_up_challenge(self, api_request_for_test, set_claims):
+        """A valid acr but no mfa_time claim gets the step-up 401."""
+        set_claims(**{ACR_CLAIM: OIDC_PAPE_MFA_URI})
+
+        header = self._authenticate_expecting_step_up(api_request_for_test)
+
+        assert header == self._expected_challenge(self.MFA_MAX_AGE_SECONDS)
+
+    def test_stale_mfa_time_emits_step_up_challenge(self, api_request_for_test, set_claims):
+        """An mfa_time older than the configured window gets the step-up 401."""
+        stale = int(time.time()) - (self.MFA_MAX_AGE_SECONDS + 3600)
+        set_claims(**{ACR_CLAIM: OIDC_PAPE_MFA_URI, MFA_TIME_CLAIM: stale})
+
+        header = self._authenticate_expecting_step_up(api_request_for_test)
+
+        assert header == self._expected_challenge(self.MFA_MAX_AGE_SECONDS)
+
+    def test_non_numeric_mfa_time_emits_step_up_challenge(self, api_request_for_test, set_claims):
+        """A non-numeric mfa_time is treated as invalid and gets the step-up 401."""
+        set_claims(**{ACR_CLAIM: OIDC_PAPE_MFA_URI, MFA_TIME_CLAIM: "not-a-timestamp"})
+
+        header = self._authenticate_expecting_step_up(api_request_for_test)
+
+        assert header == self._expected_challenge(self.MFA_MAX_AGE_SECONDS)
+
+    def test_mfa_time_just_past_clock_skew_emits_step_up_challenge(self, api_request_for_test, set_claims):
+        """120s beyond the window exceeds the 60s clock-skew tolerance and gets the step-up 401."""
+        too_old = int(time.time()) - (self.MFA_MAX_AGE_SECONDS + 120)
+        set_claims(**{ACR_CLAIM: OIDC_PAPE_MFA_URI, MFA_TIME_CLAIM: too_old})
+
+        header = self._authenticate_expecting_step_up(api_request_for_test)
+
+        assert header == self._expected_challenge(self.MFA_MAX_AGE_SECONDS)
+
+    def test_step_up_max_age_reflects_configured_window(
+        self, api_request_for_test, mock_auth0_validator, mock_tenant_settings
+    ):
+        """The challenge's max_age echoes the site's configured mfa_max_age_seconds."""
+        mock_tenant_settings.feature_flags.mfa_max_age_seconds = 1800
+
+        header = self._authenticate_expecting_step_up(api_request_for_test)
+
+        assert header == self._expected_challenge(1800)
+
+    def test_missing_mfa_max_age_falls_back_to_one_year(
+        self, api_request_for_test, mock_auth0_validator, mock_tenant_settings
+    ):
+        """When the site has no mfa_max_age_seconds configured, the challenge uses the 1-year default."""
+        mock_tenant_settings.feature_flags.mfa_max_age_seconds = None
+
+        header = self._authenticate_expecting_step_up(api_request_for_test)
+
+        assert header == self._expected_challenge(31_536_000)
+
+    def test_zero_mfa_max_age_is_honored_not_treated_as_unset(
+        self, api_request_for_test, set_claims, mock_tenant_settings
+    ):
+        """A configured mfa_max_age_seconds of 0 is honored (strict), not defaulted to the 1-year window.
+
+        Only an unset (None) value falls back to the default; 0 means "MFA must be within the
+        clock-skew window", so a token whose MFA is 120s old must get the step-up 401.
+        """
+        mock_tenant_settings.feature_flags.mfa_max_age_seconds = 0
+        set_claims(**{ACR_CLAIM: OIDC_PAPE_MFA_URI, MFA_TIME_CLAIM: int(time.time()) - 120})
+
+        header = self._authenticate_expecting_step_up(api_request_for_test)
+
+        assert header == self._expected_challenge(0)
+
+    def test_fresh_mfa_authenticates_successfully(
+        self, api_request_for_test, das_user_with_auth0_id_for_test, set_claims
+    ):
+        """A valid acr with a recent mfa_time passes the gate and returns the user."""
+        set_claims(**{ACR_CLAIM: OIDC_PAPE_MFA_URI, MFA_TIME_CLAIM: int(time.time()) - 60})
+
+        result = Auth0JWTAuthentication().authenticate(api_request_for_test)
+
+        assert result == (das_user_with_auth0_id_for_test, None)
+
+    def test_mfa_time_within_clock_skew_authenticates(
+        self, api_request_for_test, das_user_with_auth0_id_for_test, set_claims
+    ):
+        """An mfa_time within the 60s clock-skew tolerance past the window still passes."""
+        within_skew = int(time.time()) - (self.MFA_MAX_AGE_SECONDS + 30)
+        set_claims(**{ACR_CLAIM: OIDC_PAPE_MFA_URI, MFA_TIME_CLAIM: within_skew})
+
+        result = Auth0JWTAuthentication().authenticate(api_request_for_test)
+
+        assert result == (das_user_with_auth0_id_for_test, None)
+
+    def test_require_mfa_false_skips_mfa_gate(
+        self, api_request_for_test, das_user_with_auth0_id_for_test, mock_auth0_validator, mock_tenant_settings
+    ):
+        """With require_mfa False, a token lacking acr/mfa_time still authenticates."""
+        mock_tenant_settings.feature_flags.require_mfa = False
+
+        result = Auth0JWTAuthentication().authenticate(api_request_for_test)
+
+        assert result == (das_user_with_auth0_id_for_test, None)
+
+    def test_non_mfa_failure_keeps_plain_bearer_header(self, api_request_for_test):
+        """A non-MFA auth failure (invalid token) keeps the plain Bearer challenge, not the step-up."""
+        authenticator = Auth0JWTAuthentication()
+        with patch("accounts.backends.ResourceProtector.validate_request", side_effect=Exception("bad token")):
+            with pytest.raises(AuthenticationFailed):
+                authenticator.authenticate(api_request_for_test)
+
+        assert authenticator.authenticate_header(api_request_for_test) == "Bearer"
+
+    def test_bypass_auth0_dot_token_skips_mfa_gate(self, user, application):
+        """A legacy bypass_auth0 DOT token returns None before the MFA gate is reached."""
+        access_token = AccessTokenFactory(user=user, application=application)
+        request = RequestFactory().get("/api/test/", HTTP_AUTHORIZATION=f"Bearer {access_token.token}")
+
+        with patch(
+            "accounts.backends.ResourceProtector.validate_request",
+            side_effect=Exception("should not be called"),
+        ):
+            result = Auth0JWTAuthentication().authenticate(request)
+
+        assert result is None

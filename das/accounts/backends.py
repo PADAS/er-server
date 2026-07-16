@@ -13,6 +13,7 @@ from oauth2_provider.models import get_access_token_model
 from django.contrib.auth.backends import BaseBackend, ModelBackend
 from django.contrib.auth.models import AnonymousUser, Permission
 from django.contrib.contenttypes.models import ContentType
+from django.utils import timezone
 from rest_framework import exceptions
 from rest_framework.authentication import BaseAuthentication, SessionAuthentication
 from rest_framework.exceptions import APIException, AuthenticationFailed
@@ -21,6 +22,7 @@ from accounts.models import User
 from accounts.utils import filter_permissions_by_tenant, parse_permission_codename
 from utils.auth0.auth0_validators import Auth0JWTBearerTokenValidator
 from utils.tenant import get_tenant_settings
+from utils.tenant.dataclass import FeatureFlags
 from utils.tenant.exceptions import TenantNotFoundInLocalThreadException
 
 logger = logging.getLogger("django.request")
@@ -339,6 +341,11 @@ class _LegacyTokenCheck(NamedTuple):
 
 _NOT_A_DOT_TOKEN: Final = _LegacyTokenCheck(is_dot_token=False, bypass_auth0=False)
 
+_OIDC_PAPE_MFA_URI: Final = "http://schemas.openid.net/pape/policies/2007/06/multi-factor"
+_ACR_CLAIM: Final = "https://pamdas.org/acr"
+_MFA_TIME_CLAIM: Final = "https://pamdas.org/mfa_time"
+_MFA_CLOCK_SKEW_SECONDS: Final = 60
+
 
 class Auth0JWTAuthentication(BaseAuthentication):
     """
@@ -451,6 +458,8 @@ class Auth0JWTAuthentication(BaseAuthentication):
             logger.exception("Auth0 JWT validation failed")
             raise AuthenticationFailed()
 
+        self._conditionally_raise_mfa_stepup(request, token, tenant_settings.feature_flags)
+
         auth0_subject = token.get("sub")
         if not auth0_subject:
             logger.warning("Auth0 JWT missing sub claim")
@@ -468,7 +477,39 @@ class Auth0JWTAuthentication(BaseAuthentication):
             raise AuthenticationFailed()
 
     def authenticate_header(self, request):
-        return self.keyword
+        return getattr(request, "_auth0_step_up_challenge", None) or self.keyword
+
+    def _conditionally_raise_mfa_stepup(
+        self, request, token: JWTAccessTokenClaims, feature_flags: FeatureFlags
+    ) -> None:
+        """Emit an RFC 9470 step-up challenge when the site requires MFA but the token lacks it.
+
+        A token satisfies MFA when its acr claim is the OIDC PAPE multi-factor URI and its
+        mfa_time is no older than mfa_max_age_seconds (with a 60s clock-skew tolerance).
+        Otherwise the challenge is recorded on the request (authenticate_header emits it as
+        WWW-Authenticate) and the request is rejected.
+        """
+        if not feature_flags.require_mfa:
+            return
+
+        max_age_seconds = feature_flags.mfa_max_age_seconds
+        if max_age_seconds is None:
+            max_age_seconds = 31_536_000  # 365 days
+        acr_is_multi_factor = token.get(_ACR_CLAIM) == _OIDC_PAPE_MFA_URI
+        try:
+            mfa_age_seconds = int(timezone.now().timestamp()) - int(token.get(_MFA_TIME_CLAIM))
+        except (TypeError, ValueError):
+            mfa_age_seconds = None
+        mfa_is_recent = mfa_age_seconds is not None and mfa_age_seconds <= max_age_seconds + _MFA_CLOCK_SKEW_SECONDS
+
+        if acr_is_multi_factor and mfa_is_recent:
+            return
+
+        request._auth0_step_up_challenge = (
+            'Bearer error="insufficient_user_authentication", '
+            f'acr_values="{_OIDC_PAPE_MFA_URI}", max_age="{max_age_seconds}"'
+        )
+        raise AuthenticationFailed("Multi-factor authentication required")
 
 
 class Auth0BackendForStaffUsers(BaseBackend):

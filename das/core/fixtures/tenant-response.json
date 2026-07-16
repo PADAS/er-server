@@ -85,7 +85,9 @@
     "spatialFeaturesEnabled": true,
     "analyzersEnabled": true,
     "requireIdp": false,
-    "idpOrgId": null
+    "idpOrgId": null,
+    "requireMfa": false,
+    "mfaMaxAgeSeconds": 31536000
   },
   "services": {
     "auth": {
