@@ -497,6 +497,8 @@ def extractor(schema_item: dict, definition: list, key: str, eventdetail_value, 
 
 
 def handle_checkboxes_in_fieldsets(definition_item, values, event=None):
+    if values is None:
+        values = []
     names = []
     ids = []
     for map_item in definition_item.get("titleMap", []):

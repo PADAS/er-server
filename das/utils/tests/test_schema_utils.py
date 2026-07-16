@@ -550,3 +550,28 @@ class TestExtractFromDictOrString:
             schema_item, definition, "incident_time", "raw", "raw", "raw"
         )
         assert title == "Time of Incident"
+
+
+class TestHandleCheckboxesInFieldsets:
+    def test_none_values_returns_empty_ids_and_names(self):
+        definition_item = {
+            "key": "rhinosightingrep_unknownpicklist",
+            "type": "checkboxes",
+            "title": "Line 3: Unknown",
+            "titleMap": [{"value": "unknown_rhino_1", "name": "Unknown Rhino 1"}],
+        }
+        ids, names = schema_utils.handle_checkboxes_in_fieldsets(definition_item, None)
+        assert (ids, names) == ("", "")
+
+    def test_selected_values_returns_matching_ids_and_names(self):
+        definition_item = {
+            "key": "rhinosightingrep_unknownpicklist",
+            "type": "checkboxes",
+            "title": "Line 3: Unknown",
+            "titleMap": [
+                {"value": "unknown_rhino_1", "name": "Unknown Rhino 1"},
+                {"value": "unknown_rhino_2", "name": "Unknown Rhino 2"},
+            ],
+        }
+        ids, names = schema_utils.handle_checkboxes_in_fieldsets(definition_item, ["unknown_rhino_2"])
+        assert (ids, names) == ("unknown_rhino_2", "Unknown Rhino 2")
