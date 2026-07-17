@@ -288,12 +288,19 @@ def create_realtime_handler(sios):
                     else:
                         extra = dict(sid=sid)
                         logger.warning("User is None, so disconnecting. sid=%s, data=%s", sid, data, extra=extra)
+                        status = {"code": 401, "message": "Invalid credentials"}
+                        # When the MFA gate rejected the token for step-up, it recorded an RFC 9470
+                        # challenge on the request. Surface it so socket clients can distinguish a
+                        # step-up 401 from an ordinary invalid-credentials 401 and drive graceful re-MFA.
+                        step_up_challenge = getattr(drf_request, "_auth0_step_up_challenge", None)
+                        if step_up_challenge:
+                            status["www_authenticate"] = step_up_challenge
                         sios.emit(
                             "resp_authorization",
                             {
                                 "type": "resp_authorization",
                                 "resp_id": data["id"],
-                                "status": {"code": 401, "message": "Invalid credentials"},
+                                "status": status,
                             },
                             room=str(sid),
                             namespace=RT_NAMESPACE,
