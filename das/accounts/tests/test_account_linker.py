@@ -52,6 +52,7 @@ def mock_tenant_settings():
     with patch("accounts.account_linker.get_tenant_settings") as mock_ts:
         mock = Mock()
         mock.feature_flags.require_idp = True
+        mock.feature_flags.require_mfa = False
         mock.feature_flags.idp_org_id = None
         mock.domain = "testsite.pamdas.org"
         mock.url = "https://testsite.pamdas.org"
@@ -686,6 +687,122 @@ class TestAccountLinkerCallback:
 
         assert result.status_code == 302
         assert len(mail.outbox) == 0
+
+    def test_mints_mfa_enrollment_ticket_when_require_mfa(self, request_factory, active_user, mock_tenant_settings):
+        mock_tenant_settings.feature_flags.require_mfa = True
+        request = request_factory.get(f"/auth/account-linker/callback/?state={FAKE_LINK_ATTEMPT}")
+        request.session = {f"{SESSION_KEY_PREFIX}{FAKE_LINK_ATTEMPT}": str(active_user.id)}
+
+        with patch(
+            "accounts.account_linker._account_linker_auth0_client.auth0.authorize_access_token"
+        ) as mock_exchange:
+            mock_exchange.return_value = self._make_mock_token()
+
+            with patch("accounts.account_linker.send_guardian_otp_enrollment_ticket") as mock_mint:
+                with patch(
+                    "accounts.account_linker.transaction.on_commit",
+                    side_effect=lambda func: func(),
+                ):
+                    result = account_linker_callback(request)
+
+        assert result.status_code == 302
+        mock_mint.assert_called_once_with("auth0|new_sub_123")
+
+    def test_mint_failure_does_not_break_linking(self, request_factory, active_user, mock_tenant_settings, caplog):
+        mock_tenant_settings.feature_flags.require_mfa = True
+        request = request_factory.get(f"/auth/account-linker/callback/?state={FAKE_LINK_ATTEMPT}")
+        request.session = {f"{SESSION_KEY_PREFIX}{FAKE_LINK_ATTEMPT}": str(active_user.id)}
+
+        with patch(
+            "accounts.account_linker._account_linker_auth0_client.auth0.authorize_access_token"
+        ) as mock_exchange:
+            mock_exchange.return_value = self._make_mock_token()
+
+            with patch(
+                "accounts.account_linker.send_guardian_otp_enrollment_ticket",
+                side_effect=Exception("Auth0 Management API unavailable"),
+            ):
+                with patch(
+                    "accounts.account_linker.transaction.on_commit",
+                    side_effect=lambda func: func(),
+                ):
+                    with caplog.at_level(logging.ERROR, logger="accounts.account_linker"):
+                        result = account_linker_callback(request)
+
+        assert result.status_code == 302
+        active_user.refresh_from_db()
+        assert active_user.auth0_id == "auth0|new_sub_123"
+        assert "Failed to send MFA enrollment ticket" in caplog.text
+
+    def test_does_not_mint_mfa_enrollment_ticket_when_require_mfa_disabled(self, request_factory, active_user):
+        request = request_factory.get(f"/auth/account-linker/callback/?state={FAKE_LINK_ATTEMPT}")
+        request.session = {f"{SESSION_KEY_PREFIX}{FAKE_LINK_ATTEMPT}": str(active_user.id)}
+
+        with patch(
+            "accounts.account_linker._account_linker_auth0_client.auth0.authorize_access_token"
+        ) as mock_exchange:
+            mock_exchange.return_value = self._make_mock_token()
+
+            with patch("accounts.account_linker.send_guardian_otp_enrollment_ticket") as mock_mint:
+                with patch(
+                    "accounts.account_linker.transaction.on_commit",
+                    side_effect=lambda func: func(),
+                ):
+                    result = account_linker_callback(request)
+
+        assert result.status_code == 302
+        mock_mint.assert_not_called()
+
+    def test_does_not_mint_when_link_fails_on_duplicate_sub(self, request_factory, active_user, mock_tenant_settings):
+        mock_tenant_settings.feature_flags.require_mfa = True
+        other_user = User.objects.create_user(username="otheruser", email="other@example.com", is_active=True)
+        other_user.auth0_id = "auth0|taken_sub"
+        other_user.save(update_fields=["auth0_id"])
+
+        request = request_factory.get(f"/auth/account-linker/callback/?state={FAKE_LINK_ATTEMPT}")
+        request.session = {f"{SESSION_KEY_PREFIX}{FAKE_LINK_ATTEMPT}": str(active_user.id)}
+
+        with patch(
+            "accounts.account_linker._account_linker_auth0_client.auth0.authorize_access_token"
+        ) as mock_exchange:
+            mock_exchange.return_value = self._make_mock_token(sub="auth0|taken_sub")
+
+            with patch("accounts.account_linker.send_guardian_otp_enrollment_ticket") as mock_mint:
+                with patch(
+                    "accounts.account_linker.transaction.on_commit",
+                    side_effect=lambda func: func(),
+                ):
+                    result = account_linker_callback(request)
+
+        assert result.status_code == 400
+        active_user.refresh_from_db()
+        assert active_user.auth0_id is None
+        mock_mint.assert_not_called()
+
+    def test_already_linked_re_entry_re_mints_when_require_mfa(
+        self, request_factory, active_user, mock_tenant_settings
+    ):
+        mock_tenant_settings.feature_flags.require_mfa = True
+        active_user.auth0_id = "auth0|existing"
+        active_user.save(update_fields=["auth0_id"])
+
+        request = request_factory.get(f"/auth/account-linker/callback/?state={FAKE_LINK_ATTEMPT}")
+        request.session = {f"{SESSION_KEY_PREFIX}{FAKE_LINK_ATTEMPT}": str(active_user.id)}
+
+        with patch(
+            "accounts.account_linker._account_linker_auth0_client.auth0.authorize_access_token"
+        ) as mock_exchange:
+            mock_exchange.return_value = self._make_mock_token(sub="auth0|existing", email="prioremail@example.com")
+
+            with patch("accounts.account_linker.send_guardian_otp_enrollment_ticket") as mock_mint:
+                with patch(
+                    "accounts.account_linker.transaction.on_commit",
+                    side_effect=lambda func: func(),
+                ):
+                    result = account_linker_callback(request)
+
+        assert result.status_code == 302
+        mock_mint.assert_called_once_with("auth0|existing")
 
     @pytest.mark.parametrize(
         "view_func, path",

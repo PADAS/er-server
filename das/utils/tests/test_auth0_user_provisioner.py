@@ -7,7 +7,10 @@ from auth0.management import ManagementClient
 from auth0.management.core.api_error import ApiError
 from auth0.management.errors import ConflictError
 
-from utils.auth0.client import AuthZeroUserProvisioner, AuthZeroUserProvisioningResult
+from utils.auth0.user_provisioner import (
+    AuthZeroUserProvisioner,
+    AuthZeroUserProvisioningResult,
+)
 
 
 class TestAuthZeroUserProvisioner:
@@ -30,14 +33,14 @@ class TestAuthZeroUserProvisioner:
     @pytest.fixture(autouse=True)
     def mock_settings(self):
         """Mock Django settings for Auth0 configuration."""
-        with patch("utils.auth0.client.settings") as mock_settings:
+        with patch("utils.auth0.user_provisioner.settings") as mock_settings:
             mock_settings.AUTH0_USER_DB_CONNECTION_NAME = "test-connection"
             yield
 
     @pytest.fixture(autouse=True)
     def mock_generated_placeholder_password(self):
         """Mock generate_token to return deterministic password."""
-        with patch("utils.auth0.client.generate_token") as mock_password_generator:
+        with patch("utils.auth0.user_provisioner.generate_token") as mock_password_generator:
             mock_password_generator.return_value = "test-generated-password-123"
             yield
 
