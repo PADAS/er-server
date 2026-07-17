@@ -1,16 +1,23 @@
 import logging
 import os
-from unittest.mock import patch
+import uuid
+from contextlib import contextmanager
+from unittest.mock import MagicMock, patch
 
+import django_multitenant.utils
 import pytest
 
 import django
 from django.contrib.admin.sites import AdminSite
+from django.contrib.gis.geos import Point
 from django.core.files import File
+from django.core.files.uploadedfile import SimpleUploadedFile
+from django.db.models import ProtectedError
 from django.db.utils import IntegrityError
 from django.test import RequestFactory
 
 from core.tests import BaseAPITest
+from factories import TenantFactory
 from mapping.admin import BaseSpatialFileAdmin
 from mapping.models import (
     FeatureSet,
@@ -166,3 +173,75 @@ class TestSpatialFile(BaseAPITest):
         with self.assertRaises(Exception) as raised:
             SpatialFeatureType.objects.create(name="road")
         self.assertEqual(IntegrityError, type(raised.exception))
+
+    def test_deleting_feature_type_referenced_by_import_file_nulls_the_reference(self):
+        feature_type = SpatialFeatureType.objects.create(name="Boreholes")
+        data = SimpleUploadedFile("dummy.geojson", b"{}", content_type="application/json")
+        spatialfile = SpatialFeatureFile.objects.create(data=data, feature_type=feature_type)
+
+        feature_type.delete()
+
+        spatialfile.refresh_from_db()
+        self.assertIsNone(spatialfile.feature_type)
+        self.assertFalse(SpatialFeatureType.objects.filter(pk=feature_type.pk).exists())
+
+    def test_feature_type_delete_raises_protected_error_when_live_features_exist(self):
+        # SpatialFeature.feature_type keeps on_delete=PROTECT, so a feature type
+        # that still has live map features must not be deletable.
+        feature_type = SpatialFeatureType.objects.create(name="Fencelines")
+        SpatialFeature.objects.create(feature_type=feature_type, name="North Fence", feature_geometry=Point(1, 1))
+
+        with self.assertRaises(ProtectedError):
+            feature_type.delete()
+
+        self.assertTrue(SpatialFeatureType.objects.filter(pk=feature_type.pk).exists())
+
+    @staticmethod
+    @contextmanager
+    def _current_tenant(das_tenant):
+        """Switch the django-multitenant thread-local so ORM reads/writes scope to das_tenant."""
+        thread_locals = MagicMock()
+        thread_locals.tenant = das_tenant
+        with (
+            patch.object(django_multitenant.utils, "_thread_locals", thread_locals),
+            patch.object(django_multitenant.utils, "_context", thread_locals),
+        ):
+            yield
+
+    def test_deleting_feature_type_in_one_tenant_leaves_other_tenants_row_intact(self):
+        # SpatialFeatureType rows are seeded with fixed UUIDs shared across tenants
+        # (see mapping/fixtures/initial_features.yaml), so tenant A and tenant B can
+        # each own a distinct row that shares the same id. Deleting the type in tenant A
+        # must null only tenant A's import-file reference and remove only tenant A's row.
+        tenant_a = self.das_tenant
+        tenant_b = TenantFactory.create(id=uuid.uuid4(), domain="tenant-b.example.com")
+        shared_id = uuid.uuid4()
+
+        with self._current_tenant(tenant_a):
+            type_a = SpatialFeatureType.objects.create(id=shared_id, name="Boreholes A")
+            file_a = SpatialFeatureFile.objects.create(
+                data=SimpleUploadedFile("a.geojson", b"{}", content_type="application/json"),
+                feature_type=type_a,
+            )
+
+        with self._current_tenant(tenant_b):
+            type_b = SpatialFeatureType.objects.create(id=shared_id, name="Boreholes B")
+            file_b = SpatialFeatureFile.objects.create(
+                data=SimpleUploadedFile("b.geojson", b"{}", content_type="application/json"),
+                feature_type=type_b,
+            )
+
+        with self._current_tenant(tenant_a):
+            type_a.delete()
+
+        # (a) Tenant A: reference nulled and the type row is gone.
+        with self._current_tenant(tenant_a):
+            file_a.refresh_from_db()
+            self.assertIsNone(file_a.feature_type)
+            self.assertFalse(SpatialFeatureType.objects.filter(id=shared_id).exists())
+
+        # (b) Tenant B: the type row survives and its import file still references it.
+        with self._current_tenant(tenant_b):
+            self.assertTrue(SpatialFeatureType.objects.filter(id=shared_id).exists())
+            file_b.refresh_from_db()
+            self.assertEqual(file_b.feature_type_id, shared_id)

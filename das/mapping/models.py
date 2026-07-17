@@ -919,7 +919,7 @@ class SpatialFeatureFile(SpatialFilesBase):
     """
 
     file_type = models.CharField(max_length=100, default="shapefile", choices=FILE_TYPES)
-    feature_type = TenantForeignKey(to=SpatialFeatureType, on_delete=models.PROTECT, blank=True, null=True)
+    feature_type = TenantForeignKey(to=SpatialFeatureType, on_delete=models.SET_NULL, blank=True, null=True)
     feature_types_file = models.FileField(upload_to=upload_to, blank=True, null=True)
 
     class Meta:
