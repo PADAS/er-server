@@ -28,6 +28,7 @@ from observations.models import (
     Observation,
     SocketClient,
     Subject,
+    SubjectGroup,
 )
 from observations.serializers import (
     AnnouncementSerializer,
@@ -37,12 +38,13 @@ from observations.serializers import (
 from observations.utils import (
     LOCATION,
     VIEW_SUBJECT_PERMS,
+    VIEW_SUBJECTGROUP_PERMS,
     dateparse,
     get_minimum_allowed_age,
     get_position,
     get_user_key,
 )
-from observations.views import SubjectStatusView
+from observations.views import SubjectStatusView, SubjectView
 from rt_api import client
 from rt_api.rest_api_interface.dummy_request import DummyRequest
 from utils.stats import update_gauge
@@ -496,6 +498,146 @@ def handle_update_event(event_id, **kwargs):
 def handle_delete_event(event_id, **kwargs):
     logger.info("Celery worker handling delete event_id: %s", event_id, extra={"rt.event": "delete"})
     _event_handler(event_id, "delete_event")
+
+
+def get_subject_view(view, user: User, subject_id: str) -> dict | None:
+    """Invoke SubjectView for the given user and subject_id, returning serialized data or None.
+
+    Returns None when the view responds with a non-200 status (e.g. 403/404),
+    meaning the user has no permission to see this subject.
+    """
+    request = DummyRequest(uri=f"/subject/{subject_id}", http_method="GET", user=user)
+    result = view(request, id=subject_id)
+    logger.debug("SubjectView result for subject_id=%s: status=%s", subject_id, result.status_code)
+    if result.status_code != 200 or not result.data:
+        return None
+    return result.data
+
+
+def _get_all_subject_groups(subject_id: str) -> list[SubjectGroup]:
+    """Return all SubjectGroup objects the subject belongs to.
+
+    Fetched once per handler invocation and reused across the per-user loop to
+    avoid an N+1 query (one DB hit instead of one per connected user).
+    Returns an empty list when the subject does not exist.
+    """
+    try:
+        subject = Subject.objects.get(pk=subject_id)
+    except Subject.DoesNotExist:
+        return []
+    return list(subject.groups.all())
+
+
+def _visible_group_ids(user: User, all_groups: list[SubjectGroup]) -> list[str]:
+    """Filter ``all_groups`` to those the user has view_subjectgroup permission on."""
+    return [str(g.id) for g in all_groups if user.has_any_perms(VIEW_SUBJECTGROUP_PERMS, g)]
+
+
+def _subject_handler(subject_id: str, type_: str) -> None:
+    """Fan out a subject create or delete event to all connected Socket.IO clients.
+
+    For ``new_subject``: invokes SubjectView per-user so permission enforcement
+    is applied; only emits to users who can see the subject.  The emit payload
+    includes ``subject_group_ids`` — the list of SubjectGroup IDs the subject
+    belongs to that the user is permitted to see.
+
+    For ``delete_subject``: emits to *all* connected SIDs with ``subject_data: None``
+    — removing an unknown subject on the client is always a safe no-op.
+    """
+    try:
+        logger.debug("Processing type=%s on subject=%s", type_, subject_id)
+
+        user_sids_map = get_username_sids_map()
+        logger.debug("user_sids_map: %s", user_sids_map)
+
+        if not user_sids_map:
+            logger.debug("No connected clients, skipping subject handler for subject_id=%s", subject_id)
+            return
+
+        if type_ == "delete_subject":
+            # The delete payload is user-independent (subject_data=None, no
+            # permission check), so serialize it once and stamp each SID via a
+            # placeholder rather than rebuilding it per SID.
+            emit_template = get_emit_data(
+                type="delete_subject",
+                sid="<<sid>>",
+                object_id=subject_id,
+                data={
+                    "type": "delete_subject",
+                    "subject_id": subject_id,
+                    "subject_data": None,
+                },
+            )
+            emit_json = json.dumps(emit_template, default=dumps_helper)
+            for username, user_sids in user_sids_map.items():
+                user = get_sid_user(username, user_sids)
+                if not user:
+                    continue
+                for sid in user_sids:
+                    message = emit_json.replace("<<sid>>", sid)
+                    logger.debug("Publish das.realtime.emit for delete_subject. data=%s", message)
+                    pubsub.publish(message, "das.realtime.emit")
+            return
+
+        subject_view = SubjectView.as_view()
+
+        # Fetch the subject's group membership once, outside the per-user loop,
+        # to avoid an N+1: one query regardless of how many users are connected.
+        all_groups = _get_all_subject_groups(subject_id)
+
+        for username, user_sids in user_sids_map.items():
+            user = get_sid_user(username, user_sids)
+            if not user:
+                continue
+
+            # SubjectView dispatch and visible-group computation depend on the
+            # user (permission window, permitted groups), so run them once per
+            # username — not per SID.
+            payload = get_subject_view(subject_view, user, subject_id)
+            if payload is None:
+                logger.debug(
+                    "Subject payload empty or forbidden. username=%s, subject_id=%s",
+                    username,
+                    subject_id,
+                )
+                continue
+
+            group_ids = _visible_group_ids(user, all_groups)
+
+            # Serialize the payload once per username with a placeholder SID, then
+            # stamp each SID without re-serializing the (potentially large) subject
+            # data — mirrors _subjectstatus_update_handler.
+            emit_template = get_emit_data(
+                type="new_subject",
+                sid="<<sid>>",
+                object_id=subject_id,
+                data={
+                    "type": "new_subject",
+                    "subject_id": subject_id,
+                    "subject_data": payload,
+                    "subject_group_ids": group_ids,
+                },
+            )
+            emit_json = json.dumps(emit_template, default=dumps_helper)
+            for sid in user_sids:
+                message = emit_json.replace("<<sid>>", sid)
+                logger.debug("Publish das.realtime.emit for new_subject. data=%s", message)
+                pubsub.publish(message, "das.realtime.emit")
+
+    finally:
+        close_old_connections()
+
+
+@celery.app.task(base=TenantTask)
+def handle_new_subject(subject_id: str, **kwargs) -> None:
+    logger.info("Celery worker handling new subject_id: %s", subject_id, extra={"rt.event": "new_subject"})
+    _subject_handler(subject_id, "new_subject")
+
+
+@celery.app.task(base=TenantTask)
+def handle_delete_subject(subject_id: str, **kwargs) -> None:
+    logger.info("Celery worker handling delete subject_id: %s", subject_id, extra={"rt.event": "delete_subject"})
+    _subject_handler(subject_id, "delete_subject")
 
 
 @celery.app.task(base=TenantQueueOnceTask, once={"graceful": True, "timeout": 60}, soft_time_limit=60, time_limit=65)

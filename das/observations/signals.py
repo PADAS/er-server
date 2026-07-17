@@ -115,6 +115,69 @@ def maintain_subjectstatus(sender, instance, created, **kwargs):
     transaction.on_commit(lambda: maintain_subjectstatus_for_subject.apply_async(args=[instance.subject_id]))
 
 
+@receiver(pre_save, sender=Subject)
+def subject_pre_save(sender, instance: Subject, **kwargs) -> None:
+    """Snapshot is_active before save so post_save can detect .save()-based deactivation.
+
+    Skipped for new instances (``_state.adding``): there is no prior row to snapshot,
+    so the snapshot SELECT would return nothing. Subject.id has a UUID default, so
+    ``instance.pk`` is already populated before the first save and cannot be used to
+    detect creates.
+
+    Also skipped when update_fields is provided and does not include is_active — in that
+    case the field value on the instance may be stale, so stamping _prev_is_active
+    would produce false positives or missed deletes.
+    """
+    if instance._state.adding or kwargs.get("raw", False):
+        return
+    update_fields = kwargs.get("update_fields")
+    if update_fields is not None and "is_active" not in update_fields:
+        # is_active is not being changed — stamp prev == current so no spurious
+        # transition is detected by subject_pubsub_post_save on a reused instance.
+        instance._prev_is_active = instance.is_active
+        return
+    old_is_active = Subject.objects.filter(pk=instance.pk).values_list("is_active", flat=True).first()
+    if old_is_active is not None:
+        instance._prev_is_active = old_is_active
+
+
+@receiver(post_save, sender=Subject)
+def subject_pubsub_post_save(sender, instance: Subject, created: bool, **kwargs) -> None:
+    """Publish pubsub events on Subject .save()-based lifecycle changes.
+
+    - Created active        → das.subject.new
+    - Updated True→False    → das.subject.delete  (deactivation)
+    - Updated False→True    → das.subject.new     (reactivation — client re-inserts the subject)
+
+    Note: bulk ``queryset.update(is_active=…)`` bypasses Django signals entirely and is
+    therefore out of scope for this receiver.  Hard deletes are covered by
+    ``subject_pubsub_post_delete``.
+    """
+    if kwargs.get("raw", False):
+        return
+
+    subject_id = str(instance.id)
+    prev = getattr(instance, "_prev_is_active", None)
+
+    if created and instance.is_active:
+        transaction.on_commit(lambda: pubsub.publish({"subject_id": subject_id}, "das.subject.new"))
+    elif not created and prev is True and instance.is_active is False:
+        transaction.on_commit(lambda: pubsub.publish({"subject_id": subject_id}, "das.subject.delete"))
+        # Reset snapshot so a reused instance doesn't carry stale state into a
+        # subsequent save and spuriously re-publish das.subject.delete.
+        instance._prev_is_active = instance.is_active
+    elif not created and prev is False and instance.is_active is True:
+        transaction.on_commit(lambda: pubsub.publish({"subject_id": subject_id}, "das.subject.new"))
+        instance._prev_is_active = instance.is_active
+
+
+@receiver(post_delete, sender=Subject)
+def subject_pubsub_post_delete(sender, instance: Subject, **kwargs) -> None:
+    """Publish das.subject.delete on hard delete of a Subject, mirroring event_post_delete."""
+    subject_id = str(instance.id)
+    transaction.on_commit(lambda: pubsub.publish({"subject_id": subject_id}, "das.subject.delete"))
+
+
 @receiver(pre_save, sender=SubjectSource)
 def subjectsource_segment_pre_save(sender, instance, **kwargs):
     """Capture previous assigned_range and subject_id so post_save can recompute segments."""

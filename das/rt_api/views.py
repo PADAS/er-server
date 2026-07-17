@@ -166,6 +166,8 @@ def create_realtime_handler(sios):
             "radio_message",
             "delete_message",
             "new_announcement",
+            "new_subject",
+            "delete_subject",
         ]
 
         do_not_trace_these_types = [

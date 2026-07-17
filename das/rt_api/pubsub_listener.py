@@ -8,10 +8,12 @@ from rt_api.tasks import (
     handle_delete_event,
     handle_delete_message,
     handle_delete_patrol,
+    handle_delete_subject,
     handle_new_announcement,
     handle_new_event,
     handle_new_message,
     handle_new_patrol,
+    handle_new_subject,
     handle_new_subject_observation,
     handle_subjectstatus_update,
     handle_update_event,
@@ -129,6 +131,20 @@ def start(realtime_server):
             kwargs={"domain": data.pop("domain", None)},
         )
 
+    def new_subject_handler(data, message):
+        logger.debug("new_subject_handler. data=%s, message=%s", data, message)
+        handle_new_subject.apply_async(
+            args=(data["subject_id"],),
+            kwargs={"domain": data.pop("domain", None)},
+        )
+
+    def delete_subject_handler(data, message):
+        logger.debug("delete_subject_handler. data=%s, message=%s", data, message)
+        handle_delete_subject.apply_async(
+            args=(data["subject_id"],),
+            kwargs={"domain": data.pop("domain", None)},
+        )
+
     def das_tenant_updated_handler(data, message):
         logger.info("das_tenant_updated_handler. data=%s, message=%s", data, message)
         realtime_server.update_cors_allowed_origins()
@@ -166,6 +182,8 @@ def start(realtime_server):
                 "routing_key": "das.announcement.new",
                 "callback": new_announcement_handler,
             },
+            {"routing_key": "das.subject.new", "callback": new_subject_handler},
+            {"routing_key": "das.subject.delete", "callback": delete_subject_handler},
         ]
         for subscription in subscriptions:
             subscription["name"] = "rt_api.{0}".format(subscription["callback"].__name__)
