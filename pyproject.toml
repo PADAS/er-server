@@ -184,7 +184,7 @@ event-type-schema-migration-tool = { index = "testpypi" }
 packages = ["das"]
 
 [tool.setuptools.dynamic]
-version = {attr = "das._version.__version__"}
+version = {attr = "das.das_server.__version__"}
 
 [dependency-groups]
 dev = [
