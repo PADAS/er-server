@@ -26,13 +26,18 @@ server disconnecting the websocket. Expect to send the autorization message soon
 
     {
     "type": "authorization",
-    "Authorization": "Bearer <code here that came from OAuth call>",
+    "authorization": "Bearer <code here that came from OAuth call>",
     "id": 1
     }
 
 resp_authorization
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-This is the response from an authorization call to the server
+This is the response from an authorization call to the server. The ``status.code``
+mirrors the equivalent HTTP status: ``200`` when the token is accepted, ``401`` when it
+is rejected, and ``400`` when the authorization request itself is malformed (missing one
+of the required ``type``, ``authorization``, or ``id`` fields).
+
+On success:
 
 .. code-block:: json
 
@@ -42,6 +47,39 @@ This is the response from an authorization call to the server
     "status": {
         "code": 200,
         "message": "OK"
+        }
+    }
+
+When the token is rejected the client is not admitted to any rooms and receives a
+``401``:
+
+.. code-block:: json
+
+    {
+    "type": "resp_authorization",
+    "resp_id": 1,
+    "status": {
+        "code": 401,
+        "message": "Invalid credentials"
+        }
+    }
+
+On a site that requires multi-factor authentication, a token that is otherwise valid but
+lacks a fresh MFA claim is rejected with the same ``401`` plus an additional
+``www_authenticate`` field. It carries an RFC 9470 step-up challenge — the same value the
+server sends in the HTTP ``WWW-Authenticate`` header — so the client can tell an MFA
+step-up apart from an ordinary invalid-credentials rejection and prompt the user to
+re-authenticate rather than sign out. Ordinary rejections omit the field.
+
+.. code-block:: json
+
+    {
+    "type": "resp_authorization",
+    "resp_id": 1,
+    "status": {
+        "code": 401,
+        "message": "Invalid credentials",
+        "www_authenticate": "Bearer error=\"insufficient_user_authentication\", acr_values=\"http://schemas.openid.net/pape/policies/2007/06/multi-factor\", max_age=\"31536000\""
         }
     }
 
@@ -67,4 +105,3 @@ a field "track" which is the latest geojson track for that subject.
 Request Messages
 ----------------------------
 The authorization message above is an example of a request to the server.
-
