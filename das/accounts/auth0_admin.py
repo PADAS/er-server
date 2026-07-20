@@ -27,6 +27,7 @@ from django.views.decorators.cache import never_cache
 from django.views.decorators.csrf import csrf_exempt
 
 from accounts.backends import Auth0BackendForStaffUsers
+from accounts.mfa import ACR_CLAIM, MFA_TIME_CLAIM, OIDC_PAPE_MFA_URI, mfa_time_is_fresh
 from accounts.models import User
 from utils.efb_token import set_efb_token_cookie
 from utils.tenant import get_tenant_settings
@@ -174,11 +175,21 @@ def initiate_auth0_admin_login(request):
     For org-based connections (org_id present) the organization is passed through to Auth0.
     Common-DB tenants (no org_id) omit the parameter entirely so Auth0 uses the tenant's
     Default Directory.
+
+    On a require_mfa site the authorization request carries acr_values (the OIDC PAPE
+    multi-factor URI) so Auth0 issues an MFA challenge. No max_age is sent: admin MFA
+    freshness is enforced from the mirrored mfa_time claim, not primary-auth auth_time.
     """
     next_param = _get_safe_next_url(request)
     request.session["auth0_admin_next"] = next_param
 
     org_id = request.GET.get("org_id")
+
+    try:
+        require_mfa = get_tenant_settings().feature_flags.require_mfa
+    except Exception as e:
+        logger.error("Failed to get tenant settings in Auth0 admin login initiator: %s", e)
+        require_mfa = False
 
     auth0_callback_url = request.build_absolute_uri(reverse("auth0_callback"))
 
@@ -188,6 +199,8 @@ def initiate_auth0_admin_login(request):
     if org_id:
         extra_params["organization"] = org_id
         logger.debug("Initiating Auth0 admin login with organization %s", org_id)
+    if require_mfa:
+        extra_params["acr_values"] = OIDC_PAPE_MFA_URI
 
     return _admin_auth0_client.auth0.authorize_redirect(request, auth0_callback_url, **extra_params)
 
@@ -224,10 +237,14 @@ def auth0_callback(request: HttpRequest) -> HttpResponse:
         - HttpResponse (400): If the Auth0 userinfo is missing the sub claim
         - HttpResponse (403): The rendered access-denied page, if the resolved user lacks admin
           privileges or multiple users match
+        - HttpResponse (403): "Multi-factor authentication required", when the site requires MFA
+          and the ID token lacks a fresh mirrored MFA claim (acr / mfa_time)
         - HttpResponse (500): If an error occurs during the OAuth token exchange
 
     Session variables:
         - auth0_admin_next: Contains the originally intended admin destination URL
+        - admin_mfa_time: On require_mfa sites, the MFA-completion time from the ID token, stored
+          for the admin recency middleware to re-check per request
     """
     try:
         token = _admin_auth0_client.auth0.authorize_access_token(request)
@@ -235,7 +252,8 @@ def auth0_callback(request: HttpRequest) -> HttpResponse:
         logger.exception("Error in Auth0 callback: %s", e)
         return HttpResponse("Authentication error", status=500)
 
-    auth0_id = (token.get("userinfo") or {}).get("sub")
+    userinfo = token.get("userinfo") or {}
+    auth0_id = userinfo.get("sub")
     if not auth0_id:
         logger.warning("Auth0 admin callback: userinfo missing sub claim")
         return HttpResponse("Authentication error", status=400)
@@ -257,7 +275,33 @@ def auth0_callback(request: HttpRequest) -> HttpResponse:
         logger.error("Non-staff user %s attempted Auth0 admin authentication", admin_user.username)
         return admin_access_denied_response(username=admin_user.username)
 
+    require_mfa = False
+    mfa_max_age_seconds = 31_536_000  # 365 days
+    try:
+        feature_flags = get_tenant_settings().feature_flags
+        require_mfa = feature_flags.require_mfa
+        if feature_flags.mfa_max_age_seconds is not None:
+            mfa_max_age_seconds = feature_flags.mfa_max_age_seconds
+    except Exception as e:
+        logger.error("Failed to get tenant settings in Auth0 admin callback: %s", e)
+
+    # Gate on require_mfa alone: require_idp is already implied here (this callback is only
+    # reachable via the Auth0 OIDC flow). The admin recency middleware additionally checks
+    # require_idp because it also guards requests that were never OIDC-seeded.
+    mfa_time = userinfo.get(MFA_TIME_CLAIM)
+    if require_mfa and not (
+        userinfo.get(ACR_CLAIM) == OIDC_PAPE_MFA_URI and mfa_time_is_fresh(mfa_time, mfa_max_age_seconds)
+    ):
+        logger.warning(
+            "Auth0 admin callback: MFA required but token lacks a fresh MFA claim for %s",
+            admin_user.username,
+        )
+        return HttpResponse("Multi-factor authentication required", status=403)
+
     login(request, admin_user, backend=AUTH0_BACKEND_PATH)
+    if require_mfa:
+        # Read by the admin recency middleware to re-check MFA freshness on each admin request.
+        request.session["admin_mfa_time"] = mfa_time
     logger.info(
         "Successfully authenticated user %s via Auth0 for admin access",
         admin_user.username,
