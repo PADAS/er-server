@@ -45,6 +45,14 @@ class TestMfaTimeIsFresh:
         # Claims can arrive as strings; a numeric string must be honored.
         assert mfa_time_is_fresh(str(frozen_now - 10), max_age_seconds=3600) is True
 
+    def test_none_max_age_falls_back_to_the_default_window(self, frozen_now):
+        # ~1.16 days old: fresh under the 365-day default that None resolves to.
+        assert mfa_time_is_fresh(frozen_now - 100_000, max_age_seconds=None) is True
+
+    def test_none_max_age_still_expires_past_the_default_window(self, frozen_now):
+        # ~400 days old: stale even under the 365-day default (confirms the fallback isn't unbounded).
+        assert mfa_time_is_fresh(frozen_now - 400 * 86_400, max_age_seconds=None) is False
+
     def test_returns_false_when_mfa_time_is_bool(self, frozen_now):
         # bool is an int subclass; a JSON `true` in the claim must not read as a fresh timestamp.
         assert mfa_time_is_fresh(True, max_age_seconds=3600) is False

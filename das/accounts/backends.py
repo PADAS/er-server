@@ -17,7 +17,13 @@ from rest_framework import exceptions
 from rest_framework.authentication import BaseAuthentication, SessionAuthentication
 from rest_framework.exceptions import APIException, AuthenticationFailed
 
-from accounts.mfa import ACR_CLAIM, MFA_TIME_CLAIM, OIDC_PAPE_MFA_URI, mfa_time_is_fresh
+from accounts.mfa import (
+    ACR_CLAIM,
+    DEFAULT_MFA_MAX_AGE_SECONDS,
+    MFA_TIME_CLAIM,
+    OIDC_PAPE_MFA_URI,
+    mfa_time_is_fresh,
+)
 from accounts.models import User
 from accounts.utils import filter_permissions_by_tenant, parse_permission_codename
 from utils.auth0.auth0_validators import Auth0JWTBearerTokenValidator
@@ -489,7 +495,7 @@ class Auth0JWTAuthentication(BaseAuthentication):
 
         max_age_seconds = feature_flags.mfa_max_age_seconds
         if max_age_seconds is None:
-            max_age_seconds = 31_536_000  # 365 days
+            max_age_seconds = DEFAULT_MFA_MAX_AGE_SECONDS
         acr_is_multi_factor = token.get(ACR_CLAIM) == OIDC_PAPE_MFA_URI
         mfa_is_recent = mfa_time_is_fresh(token.get(MFA_TIME_CLAIM), max_age_seconds)
 

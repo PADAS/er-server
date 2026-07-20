@@ -18,7 +18,6 @@ logger = logging.getLogger(__name__)
 
 _ADMIN_PREFIX = "/admin/"
 _MFA_EXEMPT_PATHS = frozenset({"/admin/login/", "/admin/logout/"})
-_DEFAULT_MFA_MAX_AGE_SECONDS = 31_536_000  # 365 days
 
 
 class AdminMfaRecencyMiddleware:
@@ -55,10 +54,7 @@ def _mfa_required_but_stale(request: HttpRequest) -> bool:
         return False
     if not (flags.require_idp and flags.require_mfa):
         return False
-    max_age_seconds = flags.mfa_max_age_seconds
-    if max_age_seconds is None:
-        max_age_seconds = _DEFAULT_MFA_MAX_AGE_SECONDS
-    return not mfa_time_is_fresh(request.session.get("admin_mfa_time"), max_age_seconds)
+    return not mfa_time_is_fresh(request.session.get("admin_mfa_time"), flags.mfa_max_age_seconds)
 
 
 def _redirect_to_reauth(request: HttpRequest) -> HttpResponse:

@@ -276,12 +276,11 @@ def auth0_callback(request: HttpRequest) -> HttpResponse:
         return admin_access_denied_response(username=admin_user.username)
 
     require_mfa = False
-    mfa_max_age_seconds = 31_536_000  # 365 days
+    mfa_max_age_seconds: int | None = None
     try:
         feature_flags = get_tenant_settings().feature_flags
         require_mfa = feature_flags.require_mfa
-        if feature_flags.mfa_max_age_seconds is not None:
-            mfa_max_age_seconds = feature_flags.mfa_max_age_seconds
+        mfa_max_age_seconds = feature_flags.mfa_max_age_seconds
     except Exception as e:
         logger.error("Failed to get tenant settings in Auth0 admin callback: %s", e)
 
