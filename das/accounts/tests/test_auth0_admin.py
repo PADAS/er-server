@@ -6,6 +6,7 @@ based on the tenant's require_idp feature flag using our session-based
 implementation with Authlib OAuth client.
 """
 
+import logging
 import time
 import urllib.parse
 from unittest.mock import Mock, patch
@@ -173,8 +174,9 @@ class TestAdminLoginEntrypoint:
         assert parsed.get("next", [""])[0] == "/admin/some/page"
         assert "org_id" not in parsed
 
-    def test_handles_tenant_settings_error(self, request_factory):
-        """Test that tenant settings errors fall back to Django admin login."""
+    def test_handles_tenant_settings_error(self, request_factory, caplog):
+        """Tenant-settings errors fall back to Django admin login, and the failure is logged with a traceback."""
+        caplog.set_level(logging.ERROR, logger="accounts.auth0_admin")
         request = request_factory.get("/admin/login/")
         request.user = AnonymousUser()
 
@@ -185,6 +187,11 @@ class TestAdminLoginEntrypoint:
 
                 mock_admin_login.assert_called_once_with(request)
                 assert result.content == b"fallback_response"
+
+        assert any(
+            r.levelno == logging.ERROR and r.exc_info and "Failed to get tenant settings" in r.getMessage()
+            for r in caplog.records
+        )
 
     def test_default_next_parameter(self, request_factory, mock_tenant_settings_require_idp_true):
         """Test that missing next parameter defaults to /admin/."""
@@ -396,9 +403,10 @@ class TestInitiateAuth0AdminLoginProactiveMfa:
             call_kwargs = mock_redirect.call_args[1]
             assert "acr_values" not in call_kwargs
 
-    def test_fails_open_when_tenant_settings_unavailable(self, request_factory):
+    def test_fails_open_when_tenant_settings_unavailable(self, request_factory, caplog):
         """If tenant settings can't be resolved, the initiator degrades to a non-MFA request
-        (no acr_values) rather than erroring."""
+        (no acr_values) rather than erroring, and logs the failure with a traceback."""
+        caplog.set_level(logging.ERROR, logger="accounts.auth0_admin")
         request = request_factory.get("/auth/admin-login/")
         request.session = {}
         request.build_absolute_uri = lambda path: f"https://example.com{path}"
@@ -410,6 +418,11 @@ class TestInitiateAuth0AdminLoginProactiveMfa:
                 _ = initiate_auth0_admin_login(request)
 
                 assert "acr_values" not in mock_redirect.call_args[1]
+
+        assert any(
+            r.levelno == logging.ERROR and r.exc_info and "Failed to get tenant settings" in r.getMessage()
+            for r in caplog.records
+        )
 
 
 class TestAdminAccessDeniedResponse:
@@ -707,8 +720,9 @@ class TestAdminLogout:
             assert result.status_code == 302
             assert result.url == reverse("admin:index")
 
-    def test_handles_tenant_settings_error(self, request_factory):
-        """Test that tenant settings errors redirect to admin index."""
+    def test_handles_tenant_settings_error(self, request_factory, caplog):
+        """Tenant-settings errors redirect to admin index, and the failure is logged with a traceback."""
+        caplog.set_level(logging.ERROR, logger="accounts.auth0_admin")
         request = request_factory.get("/admin/logout/")
 
         with patch("accounts.auth0_admin.django_logout") as mock_django_logout:
@@ -721,6 +735,11 @@ class TestAdminLogout:
                 # Verify redirect to admin index on error
                 assert result.status_code == 302
                 assert result.url == reverse("admin:index")
+
+        assert any(
+            r.levelno == logging.ERROR and r.exc_info and "Failed to get tenant settings" in r.getMessage()
+            for r in caplog.records
+        )
 
     def test_auth0_logout_url_construction(self, request_factory, mock_tenant_settings_require_idp_true):
         """Test that Auth0 logout URL is constructed correctly with proper URL encoding."""
@@ -847,6 +866,30 @@ class TestAuth0CallbackMfa:
         mock_login.assert_called_once_with(request, admin_user_with_auth0_id, backend=AUTH0_BACKEND_PATH)
         assert result.status_code == 302
         assert "admin_mfa_time" not in request.session
+
+    def test_fails_open_and_logs_when_tenant_settings_unavailable(
+        self, request_factory, admin_user_with_auth0_id, caplog
+    ):
+        """If tenant settings can't be resolved, the callback degrades to a non-MFA login (no gate,
+        no admin_mfa_time stored) and logs the failure with a traceback."""
+        caplog.set_level(logging.ERROR, logger="accounts.auth0_admin")
+        request = request_factory.get("/auth/callback/")
+        request.session = {"auth0_admin_next": "/admin/target"}
+        token = self._token_with_userinfo({"sub": "auth0|123456789"})
+
+        with patch("accounts.auth0_admin.get_tenant_settings", side_effect=Exception("no tenant")):
+            with patch("accounts.auth0_admin._admin_auth0_client.auth0.authorize_access_token", return_value=token):
+                with patch("accounts.auth0_admin.login") as mock_login:
+                    with patch("accounts.auth0_admin.set_efb_token_cookie"):
+                        result = auth0_callback(request)
+
+        mock_login.assert_called_once_with(request, admin_user_with_auth0_id, backend=AUTH0_BACKEND_PATH)
+        assert result.status_code == 302
+        assert "admin_mfa_time" not in request.session
+        assert any(
+            r.levelno == logging.ERROR and r.exc_info and "Failed to get tenant settings" in r.getMessage()
+            for r in caplog.records
+        )
 
 
 @pytest.mark.django_db

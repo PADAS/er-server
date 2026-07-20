@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 import time
 from unittest.mock import patch
 
@@ -99,10 +100,16 @@ class TestAdminMfaRecencyMiddleware:
         response = _build_middleware()(request)
         assert response is _VIEW_RESPONSE
 
-    def test_passes_through_when_tenant_settings_unavailable(self, request_factory):
+    def test_passes_through_when_tenant_settings_unavailable(self, request_factory, caplog):
         # On a guarded admin path, if tenant settings can't be resolved the middleware fails open
-        # to the normal request flow (does not redirect), rather than blocking all admin access.
+        # to the normal request flow (does not redirect), rather than blocking all admin access,
+        # and logs the failure with a traceback.
+        caplog.set_level(logging.ERROR, logger="accounts.middleware")
         with patch("accounts.middleware.get_tenant_settings", side_effect=Exception("no tenant")):
             request = self._request(request_factory, "/admin/", session={})
             response = _build_middleware()(request)
         assert response is _VIEW_RESPONSE
+        assert any(
+            r.levelno == logging.ERROR and r.exc_info and "Failed to get tenant settings" in r.getMessage()
+            for r in caplog.records
+        )

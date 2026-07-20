@@ -46,11 +46,11 @@ def _is_guarded_admin_path(path: str) -> bool:
 def _mfa_required_but_stale(request: HttpRequest) -> bool:
     try:
         flags = get_tenant_settings().feature_flags
-    except Exception as e:
+    except Exception:
         # Fail open: if tenant settings can't be resolved, let the request through to the normal
         # flow rather than blocking all admin access on a transient lookup failure. This mirrors
         # the admin Auth0 login/callback, which also degrade gracefully when settings are absent.
-        logger.error("Failed to get tenant settings in admin MFA recency middleware: %s", e)
+        logger.exception("Failed to get tenant settings in admin MFA recency middleware")
         return False
     if not (flags.require_idp and flags.require_mfa):
         return False

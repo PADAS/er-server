@@ -82,8 +82,8 @@ def admin_login_entrypoint(request):
         tenant_settings = get_tenant_settings()
         require_idp = tenant_settings.feature_flags.require_idp
         org_id = tenant_settings.feature_flags.idp_org_id
-    except Exception as e:
-        logger.error("Failed to get tenant settings in admin login: %s", e)
+    except Exception:
+        logger.exception("Failed to get tenant settings in admin login")
         return _use_default_django_admin_login(request)
 
     user = getattr(request, "user", None)
@@ -135,8 +135,8 @@ def admin_logout(request):
             )
             return redirect(auth0_logout_url)
 
-    except Exception as e:
-        logger.error("Failed to get tenant settings in admin logout: %s", e)
+    except Exception:
+        logger.exception("Failed to get tenant settings in admin logout")
 
     return redirect(reverse("admin:index"))
 
@@ -187,8 +187,8 @@ def initiate_auth0_admin_login(request):
 
     try:
         require_mfa = get_tenant_settings().feature_flags.require_mfa
-    except Exception as e:
-        logger.error("Failed to get tenant settings in Auth0 admin login initiator: %s", e)
+    except Exception:
+        logger.exception("Failed to get tenant settings in Auth0 admin login initiator")
         require_mfa = False
 
     auth0_callback_url = request.build_absolute_uri(reverse("auth0_callback"))
@@ -281,8 +281,8 @@ def auth0_callback(request: HttpRequest) -> HttpResponse:
         feature_flags = get_tenant_settings().feature_flags
         require_mfa = feature_flags.require_mfa
         mfa_max_age_seconds = feature_flags.mfa_max_age_seconds
-    except Exception as e:
-        logger.error("Failed to get tenant settings in Auth0 admin callback: %s", e)
+    except Exception:
+        logger.exception("Failed to get tenant settings in Auth0 admin callback")
 
     # Gate on require_mfa alone: require_idp is already implied here (this callback is only
     # reachable via the Auth0 OIDC flow). The admin recency middleware additionally checks
