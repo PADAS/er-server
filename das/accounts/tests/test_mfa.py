@@ -56,3 +56,14 @@ class TestMfaTimeIsFresh:
     def test_returns_false_when_mfa_time_is_bool(self, frozen_now):
         # bool is an int subclass; a JSON `true` in the claim must not read as a fresh timestamp.
         assert mfa_time_is_fresh(True, max_age_seconds=3600) is False
+
+    def test_returns_false_when_mfa_time_is_far_in_the_future(self, frozen_now):
+        # A timestamp well into the future is nonsensical; fail closed rather than "fresh forever".
+        assert mfa_time_is_fresh(frozen_now + 3600, max_age_seconds=3600) is False
+
+    def test_allows_small_future_clock_skew(self, frozen_now):
+        # Minor clock drift into the future (within the skew tolerance) is still fresh.
+        assert mfa_time_is_fresh(frozen_now + MFA_CLOCK_SKEW_SECONDS, max_age_seconds=3600) is True
+
+    def test_returns_false_just_past_the_future_skew_boundary(self, frozen_now):
+        assert mfa_time_is_fresh(frozen_now + (MFA_CLOCK_SKEW_SECONDS + 1), max_age_seconds=3600) is False

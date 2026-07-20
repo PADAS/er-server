@@ -25,8 +25,9 @@ def mfa_time_is_fresh(mfa_time: object, max_age_seconds: int | None) -> bool:
     ``mfa_time`` is epoch seconds as stamped by the MFA Claim Mirror. It may arrive as
     an int or a numeric string, or be absent/malformed — anything that is not a valid
     epoch value is treated as not fresh. ``max_age_seconds`` of None falls back to
-    ``DEFAULT_MFA_MAX_AGE_SECONDS``. ``MFA_CLOCK_SKEW_SECONDS`` is allowed on top of the
-    window to absorb small client/server clock drift.
+    ``DEFAULT_MFA_MAX_AGE_SECONDS``. ``MFA_CLOCK_SKEW_SECONDS`` is tolerated on both ends to
+    absorb small client/server clock drift; a timestamp more than the skew into the future is
+    treated as not fresh (fail-closed) rather than valid forever.
     """
     if max_age_seconds is None:
         max_age_seconds = DEFAULT_MFA_MAX_AGE_SECONDS
@@ -36,4 +37,6 @@ def mfa_time_is_fresh(mfa_time: object, max_age_seconds: int | None) -> bool:
         age_seconds = int(timezone.now().timestamp()) - int(mfa_time)
     except ValueError:
         return False
-    return age_seconds <= max_age_seconds + MFA_CLOCK_SKEW_SECONDS
+    within_max_age = age_seconds <= max_age_seconds + MFA_CLOCK_SKEW_SECONDS
+    not_future_dated = age_seconds >= -MFA_CLOCK_SKEW_SECONDS
+    return within_max_age and not_future_dated
