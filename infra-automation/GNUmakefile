@@ -172,14 +172,11 @@ web_admin_default_branch := master
 web_admin_gcr_path_default_branch := $(gcr_web_admin_root)/$(web_admin_default_branch)
 
 ingress_manifest_key := INGRESS_VERSION
-gcr_ingress_root := gcr.io/padas-app/circleci/das-ingress
-ingress_default_branch := develop
-ingress_gcr_path_default_branch := $(gcr_ingress_root)/$(ingress_default_branch)
+gcr_ingress_root := europe-west3-docker.pkg.dev/serca-artifact-registry/earthranger/das-ingress
 
 descriptive_server_gcr_path := $(gcr_root)/$(shell echo $(current_branch) | sed 's/[^/A-Za-z0-9_-]/_/g' | tr '[:upper:]' '[:lower:]' || exit 1)
 descriptive_web_react_gcr_path := $(gcr_web_react_root)/$(shell echo $(current_branch) | sed 's/[^/A-Za-z0-9_-]/_/g' | tr '[:upper:]' '[:lower:]' || exit 1)
 descriptive_web_admin_gcr_path := $(gcr_web_admin_root)/$(shell echo $(current_branch) | sed 's/[^/A-Za-z0-9_-]/_/g' | tr '[:upper:]' '[:lower:]' || exit 1)
-descriptive_ingress_gcr_path := $(gcr_ingress_root)/$(shell echo $(current_branch) | sed 's/[^/A-Za-z0-9_-]/_/g' | tr '[:upper:]' '[:lower:]' || exit 1)
 
 
 .PHONY: build_and_push
@@ -229,11 +226,7 @@ $(manifest_file):
 	       	manifest_key="$(web_admin_manifest_key)" > /dev/null 2>&1 || \
 		(printf "\e[31m\tFailed to find latest tagged image at '$(descriptive_web_admin_gcr_path)'.\e[0m\n" >&2; exit 1)
 
-	@ $(MAKE) --no-print-directory -f $(this_file) append_to_manifest gcr_path="$(descriptive_ingress_gcr_path)" \
-	       	manifest_key="$(ingress_manifest_key)" > /dev/null 2>&1 || \
-	  $(MAKE) --no-print-directory -f $(this_file) append_to_manifest gcr_path="$(ingress_gcr_path_default_branch)" \
-	  manifest_key="$(ingress_manifest_key)" > /dev/null 2>&1 || \
-		(printf "\e[31m\tFailed to find latest tagged image at '$(descriptive_ingress_gcr_path)'.\e[0m\n" >&2; exit 1)
+	@ printf "\e[33m\tSkipping das-ingress: run 'make set_ingress_version ingress_sha=<SHA>' separately.\e[0m\n" >&2
 
 .PHONY: append_to_manifest
 append_to_manifest: gcr_path :=
@@ -242,6 +235,12 @@ append_to_manifest: # this should only be run by the build server
 	@ printf "Looking up '$(gcr_path)'" >&2
 	@ export DIGEST="$$(gcloud container images list-tags $(gcr_path) --filter="tags:latest" --format="value(Digest)" || exit 1)" && \
 		if [ -n "$$DIGEST" ]; then printf "%s = \"%s@%s\"\n" "$(manifest_key)" "$(gcr_path)" "$$DIGEST" >> $(manifest_file); else exit 1; fi
+
+.PHONY: set_ingress_version
+set_ingress_version: ingress_sha :=
+set_ingress_version: ## append the das-ingress image (by commit SHA) to the manifest | [ingress_sha="SHA"]
+	@ if [ -z "$(ingress_sha)" ]; then (printf "\e[31m\tMust provide a value for 'ingress_sha' (the das-ingress commit SHA to deploy).\e[0m\n" >&2; exit 1); fi
+	@ printf "%s = \"%s:%s\"\n" "$(ingress_manifest_key)" "$(gcr_ingress_root)" "$(ingress_sha)" >> $(manifest_file)
 
 .PHONY: check_for_abandoned_workspaces
 check_for_abandoned_workspaces: ## compare terraform workspaces against git branches to identify potentially-forgotten resources
