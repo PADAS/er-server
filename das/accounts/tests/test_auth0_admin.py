@@ -6,6 +6,8 @@ based on the tenant's require_idp feature flag using our session-based
 implementation with Authlib OAuth client.
 """
 
+import logging
+import time
 import urllib.parse
 from unittest.mock import Mock, patch
 
@@ -27,6 +29,8 @@ from accounts.auth0_admin import (
     auth0_callback,
     initiate_auth0_admin_login,
 )
+from accounts.mfa import ACR_CLAIM, MFA_TIME_CLAIM, OIDC_PAPE_MFA_URI
+from accounts.middleware import AdminMfaRecencyMiddleware
 
 User = get_user_model()
 
@@ -65,6 +69,27 @@ def mock_tenant_settings_require_idp_true_no_org():
         mock = Mock()
         mock.feature_flags.require_idp = True
         mock.feature_flags.idp_org_id = None
+        mock_settings.return_value = mock
+        yield mock
+
+
+@pytest.fixture
+def mock_tenant_settings_require_mfa_true():
+    """Mock tenant settings with require_mfa=True."""
+    with patch("accounts.auth0_admin.get_tenant_settings") as mock_settings:
+        mock = Mock()
+        mock.feature_flags.require_mfa = True
+        mock.feature_flags.mfa_max_age_seconds = 3600
+        mock_settings.return_value = mock
+        yield mock
+
+
+@pytest.fixture
+def mock_tenant_settings_require_mfa_false():
+    """Mock tenant settings with require_mfa=False."""
+    with patch("accounts.auth0_admin.get_tenant_settings") as mock_settings:
+        mock = Mock()
+        mock.feature_flags.require_mfa = False
         mock_settings.return_value = mock
         yield mock
 
@@ -149,8 +174,9 @@ class TestAdminLoginEntrypoint:
         assert parsed.get("next", [""])[0] == "/admin/some/page"
         assert "org_id" not in parsed
 
-    def test_handles_tenant_settings_error(self, request_factory):
-        """Test that tenant settings errors fall back to Django admin login."""
+    def test_handles_tenant_settings_error(self, request_factory, caplog):
+        """Tenant-settings errors fall back to Django admin login, and the failure is logged with a traceback."""
+        caplog.set_level(logging.ERROR, logger="accounts.auth0_admin")
         request = request_factory.get("/admin/login/")
         request.user = AnonymousUser()
 
@@ -161,6 +187,11 @@ class TestAdminLoginEntrypoint:
 
                 mock_admin_login.assert_called_once_with(request)
                 assert result.content == b"fallback_response"
+
+        assert any(
+            r.levelno == logging.ERROR and r.exc_info and "Failed to get tenant settings" in r.getMessage()
+            for r in caplog.records
+        )
 
     def test_default_next_parameter(self, request_factory, mock_tenant_settings_require_idp_true):
         """Test that missing next parameter defaults to /admin/."""
@@ -335,6 +366,63 @@ class TestInitiateAuth0AdminLogin:
                 assert call_kwargs["organization"] == "org_test123"
             else:
                 assert "organization" not in call_kwargs
+
+
+@pytest.mark.django_db
+class TestInitiateAuth0AdminLoginProactiveMfa:
+    """Proactive MFA parameters on the Auth0 admin-login authorization request."""
+
+    def test_adds_acr_values_when_require_mfa_true(self, request_factory, mock_tenant_settings_require_mfa_true):
+        """On a require_mfa site the initiator asks Auth0 for a multi-factor challenge via acr_values."""
+        request = request_factory.get("/auth/admin-login/")
+        request.session = {}
+        request.build_absolute_uri = lambda path: f"https://example.com{path}"
+
+        with patch("accounts.auth0_admin._admin_auth0_client.auth0.authorize_redirect") as mock_redirect:
+            mock_redirect.return_value = HttpResponse("auth0_redirect")
+
+            _ = initiate_auth0_admin_login(request)
+
+            call_kwargs = mock_redirect.call_args[1]
+            assert call_kwargs["acr_values"] == OIDC_PAPE_MFA_URI
+            # max_age is deliberately NOT sent: admin keys off the mirrored mfa_time claim,
+            # not the primary-auth auth_time that max_age would bound.
+            assert "max_age" not in call_kwargs
+
+    def test_omits_acr_values_when_require_mfa_false(self, request_factory, mock_tenant_settings_require_mfa_false):
+        """When the site does not require MFA the authorization request is unchanged (no acr_values)."""
+        request = request_factory.get("/auth/admin-login/")
+        request.session = {}
+        request.build_absolute_uri = lambda path: f"https://example.com{path}"
+
+        with patch("accounts.auth0_admin._admin_auth0_client.auth0.authorize_redirect") as mock_redirect:
+            mock_redirect.return_value = HttpResponse("auth0_redirect")
+
+            _ = initiate_auth0_admin_login(request)
+
+            call_kwargs = mock_redirect.call_args[1]
+            assert "acr_values" not in call_kwargs
+
+    def test_fails_open_when_tenant_settings_unavailable(self, request_factory, caplog):
+        """If tenant settings can't be resolved, the initiator degrades to a non-MFA request
+        (no acr_values) rather than erroring, and logs the failure with a traceback."""
+        caplog.set_level(logging.ERROR, logger="accounts.auth0_admin")
+        request = request_factory.get("/auth/admin-login/")
+        request.session = {}
+        request.build_absolute_uri = lambda path: f"https://example.com{path}"
+
+        with patch("accounts.auth0_admin.get_tenant_settings", side_effect=Exception("no tenant")):
+            with patch("accounts.auth0_admin._admin_auth0_client.auth0.authorize_redirect") as mock_redirect:
+                mock_redirect.return_value = HttpResponse("auth0_redirect")
+
+                _ = initiate_auth0_admin_login(request)
+
+                assert "acr_values" not in mock_redirect.call_args[1]
+
+        assert any(
+            r.levelno == logging.ERROR and r.exc_info and "Failed to get tenant settings" in r.getMessage()
+            for r in caplog.records
+        )
 
 
 class TestAdminAccessDeniedResponse:
@@ -632,8 +720,9 @@ class TestAdminLogout:
             assert result.status_code == 302
             assert result.url == reverse("admin:index")
 
-    def test_handles_tenant_settings_error(self, request_factory):
-        """Test that tenant settings errors redirect to admin index."""
+    def test_handles_tenant_settings_error(self, request_factory, caplog):
+        """Tenant-settings errors redirect to admin index, and the failure is logged with a traceback."""
+        caplog.set_level(logging.ERROR, logger="accounts.auth0_admin")
         request = request_factory.get("/admin/logout/")
 
         with patch("accounts.auth0_admin.django_logout") as mock_django_logout:
@@ -646,6 +735,11 @@ class TestAdminLogout:
                 # Verify redirect to admin index on error
                 assert result.status_code == 302
                 assert result.url == reverse("admin:index")
+
+        assert any(
+            r.levelno == logging.ERROR and r.exc_info and "Failed to get tenant settings" in r.getMessage()
+            for r in caplog.records
+        )
 
     def test_auth0_logout_url_construction(self, request_factory, mock_tenant_settings_require_idp_true):
         """Test that Auth0 logout URL is constructed correctly with proper URL encoding."""
@@ -683,3 +777,153 @@ class TestAdminLogout:
 
                 # Verify django_logout was called
                 mock_django_logout.assert_called_once_with(request)
+
+
+@pytest.mark.django_db
+class TestAuth0CallbackMfa:
+    """MFA verification and admin_mfa_time storage on the Auth0 admin callback."""
+
+    @staticmethod
+    def _token_with_userinfo(userinfo):
+        token = Mock()
+        token.get.return_value = userinfo
+        return token
+
+    def test_stores_mfa_time_when_claims_valid(
+        self, request_factory, admin_user_with_auth0_id, mock_tenant_settings_require_mfa_true
+    ):
+        """A require_mfa login whose ID token carries the PAPE acr and a fresh mfa_time is logged
+        in, and the mfa_time is stored in the session for the recency middleware."""
+        request = request_factory.get("/auth/callback/")
+        request.session = {"auth0_admin_next": "/admin/target"}
+        fresh_mfa_time = int(time.time()) - 10
+        token = self._token_with_userinfo(
+            {"sub": "auth0|123456789", ACR_CLAIM: OIDC_PAPE_MFA_URI, MFA_TIME_CLAIM: fresh_mfa_time}
+        )
+
+        with patch("accounts.auth0_admin._admin_auth0_client.auth0.authorize_access_token", return_value=token):
+            with patch("accounts.auth0_admin.login") as mock_login:
+                with patch("accounts.auth0_admin.set_efb_token_cookie"):
+                    result = auth0_callback(request)
+
+        mock_login.assert_called_once_with(request, admin_user_with_auth0_id, backend=AUTH0_BACKEND_PATH)
+        assert result.status_code == 302
+        assert request.session["admin_mfa_time"] == fresh_mfa_time
+
+    def test_rejects_when_acr_is_not_multi_factor(
+        self, request_factory, admin_user_with_auth0_id, mock_tenant_settings_require_mfa_true
+    ):
+        """A require_mfa login whose ID token lacks the PAPE multi-factor acr is rejected with a
+        403 before any session is established."""
+        request = request_factory.get("/auth/callback/")
+        request.session = {"auth0_admin_next": "/admin/target"}
+        token = self._token_with_userinfo(
+            {"sub": "auth0|123456789", MFA_TIME_CLAIM: int(time.time()) - 10}  # acr claim absent
+        )
+
+        with patch("accounts.auth0_admin._admin_auth0_client.auth0.authorize_access_token", return_value=token):
+            with patch("accounts.auth0_admin.login") as mock_login:
+                result = auth0_callback(request)
+
+        assert result.status_code == 403
+        mock_login.assert_not_called()
+        assert "admin_mfa_time" not in request.session
+
+    def test_rejects_when_mfa_time_is_stale(
+        self, request_factory, admin_user_with_auth0_id, mock_tenant_settings_require_mfa_true
+    ):
+        """A require_mfa login whose mfa_time is older than mfa_max_age_seconds is rejected with a
+        403 before any session is established."""
+        request = request_factory.get("/auth/callback/")
+        request.session = {"auth0_admin_next": "/admin/target"}
+        stale_mfa_time = int(time.time()) - 7200  # older than the fixture's 3600s max age
+        token = self._token_with_userinfo(
+            {"sub": "auth0|123456789", ACR_CLAIM: OIDC_PAPE_MFA_URI, MFA_TIME_CLAIM: stale_mfa_time}
+        )
+
+        with patch("accounts.auth0_admin._admin_auth0_client.auth0.authorize_access_token", return_value=token):
+            with patch("accounts.auth0_admin.login") as mock_login:
+                result = auth0_callback(request)
+
+        assert result.status_code == 403
+        mock_login.assert_not_called()
+        assert "admin_mfa_time" not in request.session
+
+    def test_no_mfa_gate_when_require_mfa_false(
+        self, request_factory, admin_user_with_auth0_id, mock_tenant_settings_require_mfa_false
+    ):
+        """When the site does not require MFA the callback is unchanged: the user is logged in and
+        no admin_mfa_time is stored."""
+        request = request_factory.get("/auth/callback/")
+        request.session = {"auth0_admin_next": "/admin/target"}
+        token = self._token_with_userinfo({"sub": "auth0|123456789"})
+
+        with patch("accounts.auth0_admin._admin_auth0_client.auth0.authorize_access_token", return_value=token):
+            with patch("accounts.auth0_admin.login") as mock_login:
+                with patch("accounts.auth0_admin.set_efb_token_cookie"):
+                    result = auth0_callback(request)
+
+        mock_login.assert_called_once_with(request, admin_user_with_auth0_id, backend=AUTH0_BACKEND_PATH)
+        assert result.status_code == 302
+        assert "admin_mfa_time" not in request.session
+
+    def test_fails_open_and_logs_when_tenant_settings_unavailable(
+        self, request_factory, admin_user_with_auth0_id, caplog
+    ):
+        """If tenant settings can't be resolved, the callback degrades to a non-MFA login (no gate,
+        no admin_mfa_time stored) and logs the failure with a traceback."""
+        caplog.set_level(logging.ERROR, logger="accounts.auth0_admin")
+        request = request_factory.get("/auth/callback/")
+        request.session = {"auth0_admin_next": "/admin/target"}
+        token = self._token_with_userinfo({"sub": "auth0|123456789"})
+
+        with patch("accounts.auth0_admin.get_tenant_settings", side_effect=Exception("no tenant")):
+            with patch("accounts.auth0_admin._admin_auth0_client.auth0.authorize_access_token", return_value=token):
+                with patch("accounts.auth0_admin.login") as mock_login:
+                    with patch("accounts.auth0_admin.set_efb_token_cookie"):
+                        result = auth0_callback(request)
+
+        mock_login.assert_called_once_with(request, admin_user_with_auth0_id, backend=AUTH0_BACKEND_PATH)
+        assert result.status_code == 302
+        assert "admin_mfa_time" not in request.session
+        assert any(
+            r.levelno == logging.ERROR and r.exc_info and "Failed to get tenant settings" in r.getMessage()
+            for r in caplog.records
+        )
+
+
+@pytest.mark.django_db
+class TestAdminMfaLoopCloses:
+    """The mfa_time the callback stores must satisfy the recency middleware, so a post-login
+    /admin/ request is served rather than redirected into another MFA challenge (no loop)."""
+
+    def test_callback_store_passes_the_recency_middleware(self, request_factory, admin_user_with_auth0_id):
+        flags = Mock()
+        flags.feature_flags.require_idp = True
+        flags.feature_flags.require_mfa = True
+        flags.feature_flags.mfa_max_age_seconds = 3600
+        fresh_mfa_time = int(time.time()) - 10
+        token = Mock()
+        token.get.return_value = {
+            "sub": "auth0|123456789",
+            ACR_CLAIM: OIDC_PAPE_MFA_URI,
+            MFA_TIME_CLAIM: fresh_mfa_time,
+        }
+
+        # Step 1: the callback authenticates and stores admin_mfa_time.
+        callback_request = request_factory.get("/auth/callback/")
+        callback_request.session = {"auth0_admin_next": "/admin/"}
+        with patch("accounts.auth0_admin.get_tenant_settings", return_value=flags):
+            with patch("accounts.auth0_admin._admin_auth0_client.auth0.authorize_access_token", return_value=token):
+                with patch("accounts.auth0_admin.login"):
+                    with patch("accounts.auth0_admin.set_efb_token_cookie"):
+                        auth0_callback(callback_request)
+        assert callback_request.session["admin_mfa_time"] == fresh_mfa_time
+
+        # Step 2: a subsequent /admin/ request carrying that session passes the middleware.
+        admin_request = request_factory.get("/admin/")
+        admin_request.session = callback_request.session
+        served = HttpResponse("admin-page")
+        with patch("accounts.middleware.get_tenant_settings", return_value=flags):
+            response = AdminMfaRecencyMiddleware(lambda request: served)(admin_request)
+        assert response is served

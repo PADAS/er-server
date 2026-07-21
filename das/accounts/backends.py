@@ -13,11 +13,17 @@ from oauth2_provider.models import get_access_token_model
 from django.contrib.auth.backends import BaseBackend, ModelBackend
 from django.contrib.auth.models import AnonymousUser, Permission
 from django.contrib.contenttypes.models import ContentType
-from django.utils import timezone
 from rest_framework import exceptions
 from rest_framework.authentication import BaseAuthentication, SessionAuthentication
 from rest_framework.exceptions import APIException, AuthenticationFailed
 
+from accounts.mfa import (
+    ACR_CLAIM,
+    DEFAULT_MFA_MAX_AGE_SECONDS,
+    MFA_TIME_CLAIM,
+    OIDC_PAPE_MFA_URI,
+    mfa_time_is_fresh,
+)
 from accounts.models import User
 from accounts.utils import filter_permissions_by_tenant, parse_permission_codename
 from utils.auth0.auth0_validators import Auth0JWTBearerTokenValidator
@@ -341,11 +347,6 @@ class _LegacyTokenCheck(NamedTuple):
 
 _NOT_A_DOT_TOKEN: Final = _LegacyTokenCheck(is_dot_token=False, bypass_auth0=False)
 
-_OIDC_PAPE_MFA_URI: Final = "http://schemas.openid.net/pape/policies/2007/06/multi-factor"
-_ACR_CLAIM: Final = "https://pamdas.org/acr"
-_MFA_TIME_CLAIM: Final = "https://pamdas.org/mfa_time"
-_MFA_CLOCK_SKEW_SECONDS: Final = 60
-
 
 class Auth0JWTAuthentication(BaseAuthentication):
     """
@@ -494,20 +495,16 @@ class Auth0JWTAuthentication(BaseAuthentication):
 
         max_age_seconds = feature_flags.mfa_max_age_seconds
         if max_age_seconds is None:
-            max_age_seconds = 31_536_000  # 365 days
-        acr_is_multi_factor = token.get(_ACR_CLAIM) == _OIDC_PAPE_MFA_URI
-        try:
-            mfa_age_seconds = int(timezone.now().timestamp()) - int(token.get(_MFA_TIME_CLAIM))
-        except (TypeError, ValueError):
-            mfa_age_seconds = None
-        mfa_is_recent = mfa_age_seconds is not None and mfa_age_seconds <= max_age_seconds + _MFA_CLOCK_SKEW_SECONDS
+            max_age_seconds = DEFAULT_MFA_MAX_AGE_SECONDS
+        acr_is_multi_factor = token.get(ACR_CLAIM) == OIDC_PAPE_MFA_URI
+        mfa_is_recent = mfa_time_is_fresh(token.get(MFA_TIME_CLAIM), max_age_seconds)
 
         if acr_is_multi_factor and mfa_is_recent:
             return
 
         request._auth0_step_up_challenge = (
             'Bearer error="insufficient_user_authentication", '
-            f'acr_values="{_OIDC_PAPE_MFA_URI}", max_age="{max_age_seconds}"'
+            f'acr_values="{OIDC_PAPE_MFA_URI}", max_age="{max_age_seconds}"'
         )
         raise AuthenticationFailed("Multi-factor authentication required")
 

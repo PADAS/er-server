@@ -136,7 +136,8 @@ class FeatureFlags:
     require_idp: Optional[bool] = field(metadata=config(field_name="requireIdp"), default=False)
     idp_org_id: Optional[str] = field(metadata=config(field_name="idpOrgId"), default=None)
     require_mfa: Optional[bool] = field(metadata=config(field_name="requireMfa"), default=False)
-    # 365 days: default which doesn't break mobile users in the field since it aligns with mobile token ttl
+    # 365 days: default which doesn't break mobile users in the field since it aligns with mobile token ttl.
+    # Keep this value in sync with accounts.mfa.DEFAULT_MFA_MAX_AGE_SECONDS (utils must not import accounts).
     mfa_max_age_seconds: Optional[int] = field(metadata=config(field_name="mfaMaxAgeSeconds"), default=31_536_000)
 
 
