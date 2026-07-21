@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import logging
 from io import StringIO
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock, call, patch
 
 import pytest
 
@@ -51,6 +51,12 @@ class TestBulkMintMfaEnrollmentTicketsCommand:
             "accounts.management.commands.bulk_mint_mfa_enrollment_tickets.send_guardian_otp_enrollment_ticket"
         ) as mock_send:
             yield mock_send
+
+    @pytest.fixture(autouse=True)
+    def mock_sleep(self):
+        """Patch the inter-mint pause so the rate limiter never really sleeps in tests."""
+        with patch("accounts.management.commands.bulk_mint_mfa_enrollment_tickets.time.sleep") as mock:
+            yield mock
 
     def test_raises_command_error_when_require_idp_is_false(self, command):
         """When require_idp is False the command aborts immediately."""
@@ -183,3 +189,13 @@ class TestBulkMintMfaEnrollmentTicketsCommand:
             if record.name == logger_name and record.levelno == logging.INFO and "log-user" in record.getMessage()
         ]
         assert len(mint_logs) == 1
+
+    def test_throttles_mints_under_auth0_rate_limit(self, command, mock_mint, mock_sleep):
+        """Consecutive mints pause one second between calls to stay under the Auth0 rate limit."""
+        User.objects.create_user(username="rate-a", is_active=True, auth0_id="auth0|a")
+        User.objects.create_user(username="rate-b", is_active=True, auth0_id="auth0|b")
+        User.objects.create_user(username="rate-c", is_active=True, auth0_id="auth0|c")
+
+        command.handle(dry_run=False)
+
+        assert mock_sleep.call_args_list == [call(1.0), call(1.0)]

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+import time
 from typing import NamedTuple
 
 from django.core.management import CommandError
@@ -14,6 +15,10 @@ from utils.tenant import get_tenant_settings
 from utils.tenant.commands import TenantCommandMixin
 
 _DISALLOWED_USERNAMES = SYSTEM_USERNAMES + ["admin"]
+
+# Auth0's Management API allows ~2 requests/second; pause between mints to stay
+# at ~1/s — under the limit with buffer.
+_MINT_INTERVAL_SECONDS = 1.0
 
 logger = logging.getLogger(__name__)
 
@@ -70,7 +75,9 @@ class Command(TenantCommandMixin, BaseCommand):
         successes: list[_MintSuccess] = []
         failures: list[_MintFailure] = []
 
-        for user in candidates:
+        for index, user in enumerate(candidates):
+            if index > 0:
+                time.sleep(_MINT_INTERVAL_SECONDS)
             try:
                 send_guardian_otp_enrollment_ticket(user.auth0_id)
                 successes.append(_MintSuccess(username=user.username))
