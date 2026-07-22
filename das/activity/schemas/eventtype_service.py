@@ -31,7 +31,7 @@ from activity.models import EventType
 from activity.schemas.errors import ErrorCategory, ErrorCode, ErrorHint, SchemaError
 from activity.schemas.schema_rendering import SchemaRenderer
 from activity.schemas.schema_retrieving import build_dynamic_schemas_registry
-from activity.schemas.utils import get_field_schema_from_prop_path
+from activity.schemas.utils import get_field_schema_from_prop_path, is_v2_schema
 from usercontent.utils import FileTypeLabel
 from utils import StrEnum
 
@@ -349,7 +349,7 @@ class EventTypeSchemaService:
                 )
             ]
 
-        if "json" not in parsed_schema or "ui" not in parsed_schema:
+        if not is_v2_schema(parsed_schema):
             return parsed_schema, [
                 SchemaError(
                     category=ErrorCategory.VALIDATION,

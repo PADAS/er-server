@@ -3,6 +3,16 @@
 from __future__ import annotations
 
 
+def is_v2_schema(document: object) -> bool:
+    """Return whether ``document`` has the top-level shape of a V2 schema."""
+    return isinstance(document, dict) and "json" in document and "ui" in document
+
+
+def is_v1_schema(document: object) -> bool:
+    """Return whether ``document`` has the top-level shape of a V1 schema."""
+    return isinstance(document, dict) and "schema" in document and "definition" in document
+
+
 def get_field_schema_from_prop_path(v2_schema: dict, prop_path: list[str]) -> dict | None:
     """Get the field schema from a v2_schema, following the property path.
 
