@@ -2,6 +2,10 @@
 
 from __future__ import annotations
 
+from typing import TypeAlias
+
+JSONDict: TypeAlias = dict[str, object]
+
 
 def is_v2_schema(document: object) -> bool:
     """Return whether ``document`` has the top-level shape of a V2 schema."""

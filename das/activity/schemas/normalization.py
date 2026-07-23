@@ -15,11 +15,14 @@ import copy
 import logging
 from typing import Callable, TypeAlias
 
-from activity.schemas.utils import get_field_schema_from_prop_path, is_v2_schema
+from activity.schemas.utils import (
+    JSONDict,
+    get_field_schema_from_prop_path,
+    is_v2_schema,
+)
 
 logger = logging.getLogger(__name__)
 
-JSONDict: TypeAlias = "dict[str, object]"
 # A transform mutates the document in place and reports whether it changed anything.
 _Transform: TypeAlias = Callable[[JSONDict], bool]
 
