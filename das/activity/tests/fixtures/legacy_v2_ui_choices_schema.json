@@ -1,0 +1,56 @@
+{
+  "json": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "unevaluatedProperties": false,
+    "properties": {
+      "reported_byy": {
+        "anyOf": [
+          {
+            "$ref": "/api/v2.0/schemas/choices.json?field=spoorrep_age"
+          }
+        ],
+        "deprecated": false,
+        "description": "",
+        "title": "Raingauge Station",
+        "type": "string"
+      }
+    },
+    "required": [],
+    "type": "object"
+  },
+  "ui": {
+    "fields": {
+      "reported_byy": {
+        "choices": {
+          "eventTypeCategories": [],
+          "existingChoiceList": ["reported_byy"],
+          "featureCategories": [],
+          "myDataType": "EVENT_TYPES_FROM_EVENT_CATEGORY",
+          "subjectGroups": [],
+          "subjectSubtypes": [],
+          "type": "EXISTING_CHOICE_LIST"
+        },
+        "inputType": "DROPDOWN",
+        "parent": "section-1",
+        "placeholder": "",
+        "type": "CHOICE_LIST"
+      }
+    },
+    "headers": {},
+    "order": ["section-1"],
+    "sections": {
+      "section-1": {
+        "columns": 2,
+        "isActive": true,
+        "label": "",
+        "leftColumn": [
+          {
+            "type": "field",
+            "name": "reported_byy"
+          }
+        ],
+        "rightColumn": []
+      }
+    }
+  }
+}
