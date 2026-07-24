@@ -34,6 +34,7 @@ class PreviewFeature:
 PREVIEW_FEATURES: dict[str, PreviewFeature] = {
     "community_input_admin_enabled": PreviewFeature(
         default=False,
+        global_override=True,
         description="Per-tenant gate for the Community Input Django admin page. "
         "Set global_override=True to expose it for every tenant at once.",
     ),
@@ -46,6 +47,11 @@ PREVIEW_FEATURES: dict[str, PreviewFeature] = {
     "events_vector_tiles": PreviewFeature(
         default=False,
         description="Per-tenant gate for serving events as vector tiles. "
+        "Set global_override=True to expose it for every tenant at once.",
+    ),
+    "patrol_schemas": PreviewFeature(
+        default=False,
+        description="Per-tenant gate for patrol schemas. "
         "Set global_override=True to expose it for every tenant at once.",
     ),
 }

@@ -872,7 +872,7 @@ TMS_API = {
 # the DjangoSettingsTenantBuilder seeds `preview_features` from this JSON so a developer can flip
 # a registered feature from .env, e.g.:
 #   PREVIEW_FEATURES={"community_input_admin_enabled": true}
-DEFAULT_PREVIEW_FEATURES = {"community_input_admin_enabled": True}
+DEFAULT_PREVIEW_FEATURES = {}
 PREVIEW_FEATURES = env.json("PREVIEW_FEATURES", default=DEFAULT_PREVIEW_FEATURES)
 
 TENANT_DOCUMENT_CACHE = {
