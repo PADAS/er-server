@@ -2572,9 +2572,12 @@ class TestEventView(BaseTestToolMixin, BaseAPITest):
         self.assertEqual(response.status_code, 200)
 
     @mock.patch("activity.models.is_banned")
-    def test_can_search_event_by_eventtype_schema_used(self, is_banned):
-        # schema used has some of its titles named: conservancy, Name Of
-        # Ranger, Beginning of Incident etc.
+    def test_cannot_search_event_by_eventtype_schema_used(self, is_banned):
+        # ERA-13500: the "other" schema names properties "conservancy", "Name Of
+        # Ranger" etc. Those are schema metadata, not event content, and must not
+        # match a text search -- this test previously asserted the opposite. That
+        # event type's display ("Other") is an English stop word, so the "display
+        # is still searchable" half lives in test_event_tsvector_search.py.
 
         is_banned.return_value = False
         request = self.factory.post(self.api_base + "/events/", [self.event_data, self.event_data])
@@ -2582,22 +2585,14 @@ class TestEventView(BaseTestToolMixin, BaseAPITest):
         response = views.EventsView.as_view()(request)
         self.assertEqual(response.status_code, 201)
 
-        # # filter by text
-        searchtext_1 = "conservancy"
-        searchtext_2 = "name of ranger"
-
-        query = {"filter": json.dumps({"text": searchtext_1})}
-        request = self.factory.get(self.api_base + "/events", data=query)
-        self.force_authenticate(request, self.all_perms_user)
-        response = views.EventsView.as_view()(request)
-        self.assertTrue(response.data)
-        self.assertEqual(response.status_code, 200)
-
-        request = self.factory.get(self.api_base + "/events", data={"filter": json.dumps({"text": searchtext_2})})
-        self.force_authenticate(request, self.all_perms_user)
-        response = views.EventsView.as_view()(request)
-        self.assertTrue(response.data)
-        self.assertEqual(response.status_code, 200)
+        for schema_only_text in ("conservancy", "name of ranger"):
+            with self.subTest(search_text=schema_only_text):
+                query = {"filter": json.dumps({"text": schema_only_text})}
+                request = self.factory.get(self.api_base + "/events", data=query)
+                self.force_authenticate(request, self.all_perms_user)
+                response = views.EventsView.as_view()(request)
+                self.assertEqual(response.status_code, 200)
+                self.assertEqual(response.data["count"], 0)
 
     def _add_default_event(self, user=None):
         if not user:
