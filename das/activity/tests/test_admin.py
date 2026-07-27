@@ -8,7 +8,7 @@ from django.urls import reverse
 
 from activity.admin import EventAdmin, EventTypeAdmin
 from activity.forms import EventGeometryForm
-from activity.models import Event, EventCategory, EventGeometry, EventType
+from activity.models import Event, EventCategory, EventDetails, EventGeometry, EventType
 from core.tests import BaseAPITest
 
 User = django.contrib.auth.get_user_model()
@@ -247,6 +247,16 @@ class TestEventAdmin(BaseAPITest):
         # Should include EventGeometryInline when event_type is None
         self.assertIn("EventGeometryInline", inline_classes)
         self.assertIn("EventDetailsInline", inline_classes)
+
+
+class TestEventDetailsVerboseNames:
+    """The admin inline heading is derived from EventDetails' Meta verbose names."""
+
+    def test_verbose_name_is_title_cased_event_details(self):
+        assert str(EventDetails._meta.verbose_name) == "Event Details"
+
+    def test_verbose_name_plural_matches_singular_to_avoid_pluralized_heading(self):
+        assert str(EventDetails._meta.verbose_name_plural) == "Event Details"
 
 
 class TestEventGeometryForm(BaseAPITest):

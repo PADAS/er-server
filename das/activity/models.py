@@ -1417,6 +1417,8 @@ class EventDetails(TenantModelMixin, RevisionMixin, TimestampedModel):
     class Meta:
         base_manager_name = "objects"
         default_manager_name = "objects"
+        verbose_name = _("Event Details")
+        verbose_name_plural = _("Event Details")
 
     def save(self, *args, update_parent_event=True, **kwargs):
         if self.data is not None:
