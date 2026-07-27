@@ -1133,6 +1133,58 @@
   {
     "model": "observations.subjectsubtype",
     "fields": {
+      "created_at": "2026-07-24T00:00:00.000Z",
+      "updated_at": "2026-07-24T00:00:00.000Z",
+      "value": "water_bowser",
+      "display": "Water Bowser",
+      "subject_type": [
+        "vehicle"
+      ],
+      "ordernum": null
+    }
+  },
+  {
+    "model": "observations.subjectsubtype",
+    "fields": {
+      "created_at": "2026-07-24T00:00:00.000Z",
+      "updated_at": "2026-07-24T00:00:00.000Z",
+      "value": "school_bus",
+      "display": "School Bus",
+      "subject_type": [
+        "vehicle"
+      ],
+      "ordernum": null
+    }
+  },
+  {
+    "model": "observations.subjectsubtype",
+    "fields": {
+      "created_at": "2026-07-24T00:00:00.000Z",
+      "updated_at": "2026-07-24T00:00:00.000Z",
+      "value": "ten_wheeler",
+      "display": "10 Wheeler",
+      "subject_type": [
+        "vehicle"
+      ],
+      "ordernum": null
+    }
+  },
+  {
+    "model": "observations.subjectsubtype",
+    "fields": {
+      "created_at": "2026-07-24T00:00:00.000Z",
+      "updated_at": "2026-07-24T00:00:00.000Z",
+      "value": "jimny",
+      "display": "Jimny",
+      "subject_type": [
+        "vehicle"
+      ],
+      "ordernum": null
+    }
+  },
+  {
+    "model": "observations.subjectsubtype",
+    "fields": {
       "created_at": "2023-11-15T20:56:11.223Z",
       "updated_at": "2023-11-15T20:56:11.223Z",
       "value": "great_white_shark",
