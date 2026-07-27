@@ -6,6 +6,7 @@ import pytest
 
 from observations.models import Subject, SubjectSource
 from sensors.subject_name_change import HandlerERTrack
+from tracking.models.er_track import UPDATE_NAME, SourceProviderConfiguration
 
 
 @pytest.mark.django_db
@@ -173,3 +174,56 @@ class TestMutateErTrackSubjectAssignment:
         assert subject.linked_user == ops_user
         assert subject.name == "George Harrison"
         assert f"Renaming subject {subject.id}" in caplog.text
+
+    def test_auto_provisions_new_subject_when_source_assigned_to_invisible_subject_under_update_name_config(
+        self, create_user, subject, source, subject_subtype
+    ):
+        # UPDATE_NAME config for the source's provider.
+        SourceProviderConfiguration.objects.create(
+            source_provider=source.provider,
+            is_default=False,
+            name_change_config=UPDATE_NAME,
+        )
+
+        # Subject A is owned by (linked to) another user and is not visible to the caller.
+        other_user = create_user()
+        subject.linked_user = other_user
+        subject.save()
+        SubjectSource.objects.create(source=source, subject=subject)
+
+        # Caller is the ER Mobile user auto-provisioning: has a user_id, no linked subject,
+        # and cannot see Subject A (plain non-superuser without permissions).
+        provisioning_user = create_user()
+        provisioning_user.first_name = "Ringo"
+        provisioning_user.last_name = "Starr"
+        provisioning_user.save()
+
+        observation = OrderedDict()
+        observation["user_id"] = str(provisioning_user.id)
+
+        handler = HandlerERTrack(
+            source=source,
+            user=provisioning_user,
+            is_new_source=False,
+            subject_name="",
+            recorded_at=self.recorded_at,
+            subject_subtype_id=subject_subtype,
+            observation=observation,
+        )
+
+        # Must not raise ForbiddenAPIException; must fall through to CREATE_NEW.
+        handler.handle()
+
+        new_subject = Subject.objects.by_linked_user_id(user_id=str(provisioning_user.id))
+        assert new_subject is not None
+        assert new_subject.id != subject.id
+        assert new_subject.linked_user == provisioning_user
+        assert new_subject.name == "Ringo Starr"
+
+        # Source is now assigned to the new subject, and Subject A's assignment is terminated.
+        active_assignments = SubjectSource.objects.filter(source=source, assigned_range__contains=self.recorded_at)
+        assert active_assignments.count() == 1
+        assert active_assignments.first().subject == new_subject
+        assert not SubjectSource.objects.filter(
+            source=source, subject=subject, assigned_range__contains=self.recorded_at
+        ).exists()

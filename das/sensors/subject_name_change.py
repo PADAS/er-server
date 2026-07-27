@@ -181,7 +181,12 @@ class HandlerERTrack:
                 self.subject_name,
             )
             if not subjects_updated:
-                if self.get_subject_by_source_assignment(Subject.objects.all()):
+                # On the auto-provision path (an ER Mobile user with no linked subject logging in),
+                # do not block on the source being assigned to a subject the caller can't see. Fall
+                # through to CREATE_NEW, which links a fresh subject to the user and hands off the
+                # source. The anti-hijack guard below still fires for the non-provisioning case.
+                is_auto_provision = bool(self.user_id) and not self.user_linked_subject
+                if not is_auto_provision and self.get_subject_by_source_assignment(Subject.objects.all()):
                     logger.warning("subject exists by source %s, but can't be seen by user", self.source.id)
                     raise ForbiddenAPIException("Caller can't see this subject")
 
