@@ -438,6 +438,22 @@ REALTIME_BROKER_URL = f"{REDIS_SERVER}/2"
 REALTIME_BROKER_OPTIONS = {"max_connections": 200}
 PUBSUB_BROKER_URL = f"{REDIS_SERVER}/1"
 PUBSUB_BROKER_OPTIONS = {"max_connections": 200}
+# Backstop cap on the per-consumer rt_api.* Kombu pub/sub queue lists in the
+# PUBSUB broker db. If an rtserver consumer dies, the durable binding keeps
+# LPUSHing ephemeral per-sid realtime emits into its list with no consumer,
+# leaking memory unbounded (kombu Redis transport has no TTL / max length).
+# check_redis_queues LTRIMs each list back to this length, keeping the newest
+# (head) messages. The cap applies per Redis list: kombu gives each priority
+# step its own suffixed list ("<name>\x06\x16<step>", steps 0,3,6,9, with step 0
+# under the bare name), each trimmed independently. rt_api publishers don't set
+# message priority today, so in practice only the bare list exists per queue —
+# ~15 queues × 10 000 msgs × ~10 KB avg ≈ 1.5 GB worst case if every listener
+# dies simultaneously before the backstop fires. If publishers ever start using
+# priorities, up to ~4 lists/queue could exist, raising the theoretical worst
+# case to ~6 GB. Set generously so it never bites a healthy, slightly-behind
+# consumer. The depth gauge intentionally reads BEFORE trimming so alerts see
+# the spike.
+RT_PUBSUB_QUEUE_MAX_LENGTH = env.int("RT_PUBSUB_QUEUE_MAX_LENGTH", 10000)
 
 # Celery Settings
 # Keep Celery broker independent from general Redis server; allow env override

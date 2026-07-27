@@ -173,6 +173,10 @@ class TestPendingSourceObsClientFunctions:
         assert self.TEST_DOMAIN.encode() in members
 
 
+class _StopLoop(BaseException):
+    """Break the supervision loop's while-True without being caught by except Exception."""
+
+
 @pytest.fixture
 def new_observation_handler(monkeypatch) -> Callable:
     """Extract the new_observation_handler closure from pubsub_listener.start()."""
@@ -181,19 +185,36 @@ def new_observation_handler(monkeypatch) -> Callable:
     captured: list[dict] = []
 
     def fake_subscribe(subscriptions):
+        # Capture subscriptions on the first call, then raise a BaseException
+        # sentinel so the supervision loop's `except Exception` does NOT catch
+        # it and the thread target exits promptly.  Without this, the while-True
+        # loop would never return and the fixture would hang.
         captured.extend(subscriptions)
+        raise _StopLoop
 
-    monkeypatch.setattr("rt_api.pubsub_listener.pubsub.subscribe", fake_subscribe)
+    monkeypatch.setattr("rt_api.pubsub_listener.pubsub.subscribe_without_retry", fake_subscribe)
+    monkeypatch.setattr("rt_api.pubsub_listener.time.sleep", lambda _: None)
+    monkeypatch.setattr("rt_api.pubsub_listener.stats.increment", lambda *a, **kw: None)
 
-    with patch("rt_api.pubsub_listener.Thread") as MockThread:
-        pubsub_listener.start(MagicMock())
+    captured_threads: list[dict] = []
 
-    # Invoke one of the thread targets so fake_subscribe is called
-    # and the subscriptions list is populated.
-    assert MockThread.call_args_list, "No Thread was constructed"
-    first_call = MockThread.call_args_list[0]
-    target = first_call.kwargs.get("target") or first_call.args[0]
-    target("test-thread")
+    class FakeThread:
+        def __init__(self, target=None, name=None, args=()):  # noqa: ANN001
+            captured_threads.append({"target": target, "args": args})
+
+        def start(self) -> None:
+            pass
+
+    monkeypatch.setattr("rt_api.pubsub_listener.Thread", FakeThread)
+    pubsub_listener.start(MagicMock())
+
+    # Drive one thread target so fake_subscribe is called and subscriptions are
+    # captured.  _StopLoop (BaseException) breaks the supervision loop cleanly.
+    assert captured_threads, "No Thread was constructed"
+    target = captured_threads[0]["target"]
+    args = captured_threads[0]["args"]
+    with pytest.raises(_StopLoop):
+        target(*args)
 
     handler = next(
         (s["callback"] for s in captured if s["callback"].__name__ == "new_observation_handler"),

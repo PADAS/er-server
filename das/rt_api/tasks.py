@@ -3,10 +3,12 @@ from __future__ import annotations
 import datetime
 import json
 import logging
+import threading
 from collections import namedtuple
 from functools import partial
 from uuid import UUID
 
+import redis
 from celery import states as celery_states
 from celery_once.tasks import QueueOnce
 from django_multitenant.utils import get_current_tenant
@@ -46,8 +48,10 @@ from observations.utils import (
 )
 from observations.views import SubjectStatusView, SubjectView
 from rt_api import client
+from rt_api.pubsub_subscriptions import QUEUE_NAME_PREFIX, all_queue_names
 from rt_api.rest_api_interface.dummy_request import DummyRequest
-from utils.stats import update_gauge
+from utils.redis import get_resilient_redis_client_from_url
+from utils.stats import increment, update_gauge
 from utils.tenant import get_tenant_settings
 from utils.tenant.celery import OverAllTenantTask, TenantQueueOnceTask, TenantTask
 from utils.tenant.providers import get_current_cluster_domains
@@ -55,6 +59,35 @@ from utils.tenant.providers import get_current_cluster_domains
 logger = logging.getLogger(__name__)
 
 EmitData = namedtuple("EmitData", ["type", "sid", "object_id", "data"])
+
+# Raw redis client for the PUBSUB broker db (where the rt_api.* Kombu queue
+# lists live). This is a DIFFERENT db from client.redis_client (REALTIME_BROKER_URL,
+# db 2), so we derive a dedicated connection from PUBSUB_BROKER_URL rather than
+# hardcoding the db number. Lazily created so importing this module in a Celery
+# worker doesn't open a connection until check_redis_queues actually runs.
+_pubsub_redis_client: redis.Redis | None = None
+_pubsub_redis_client_lock = threading.Lock()
+
+
+def _get_pubsub_redis_client() -> redis.Redis:
+    global _pubsub_redis_client
+    # Read the global into a local so the returned value is provably non-None:
+    # re-reading the global after the double-checked lock would leave the return
+    # type as `redis.Redis | None`.
+    redis_client = _pubsub_redis_client
+    if redis_client is None:
+        with _pubsub_redis_client_lock:
+            redis_client = _pubsub_redis_client
+            if redis_client is None:
+                redis_client = get_resilient_redis_client_from_url(url=settings.PUBSUB_BROKER_URL)
+                _pubsub_redis_client = redis_client
+    return redis_client
+
+
+# kombu.transport.redis.Channel.sep — used in two places:
+#   1. Priority-step suffixed queue keys: "<queue_name>\x06\x16<step>" (e.g. 3).
+#   2. Binding-set member encoding: "<routing_key>\x06\x16<pattern>\x06\x16<queue_name>".
+KOMBU_SEP = b"\x06\x16"
 
 
 def get_context():
@@ -890,14 +923,11 @@ SOCKETIO_QUEUE_KEY_PREFIXES = ("python-socketio.", "flask-socketio.")
 # python-socketio `channel` default of "socketio"; DASKombuManager does not
 # override it.
 SOCKETIO_BINDING_KEY = "_kombu.binding.socketio"
-# kombu.transport.redis.Channel.sep — separator in binding-set members
-# (routing_key, pattern, queue_name).
-SOCKETIO_BINDING_SEP = b"\x06\x16"
 
 
 def _queue_name_from_key(key: bytes) -> bytes:
     # Kombu may suffix priority keys as "<queue>\x06\x16<step>"; strip it.
-    idx = key.find(SOCKETIO_BINDING_SEP)
+    idx = key.find(KOMBU_SEP)
     return key if idx == -1 else key[:idx]
 
 
@@ -939,7 +969,7 @@ def sweep_orphan_socketio_queues():
     members = rc.smembers(SOCKETIO_BINDING_KEY) or set()
     queue_name_to_member: dict[bytes, bytes] = {}
     for member in members:
-        parts = member.split(SOCKETIO_BINDING_SEP)
+        parts = member.split(KOMBU_SEP)
         if len(parts) >= 3 and parts[2]:
             queue_name_to_member[parts[2]] = member
 
@@ -1020,6 +1050,77 @@ def _check_orphaned_pending_source_obs_sets() -> None:
             client.remove_pending_source_obs_domain_if_empty(domain)
 
 
+def _pubsub_queue_keys_by_base(rc: redis.Redis) -> dict[str, list[bytes]]:
+    """Return every rt_api.* pub/sub Redis list key, grouped by base queue name.
+
+    SCAN MATCH is a server-side full-keyspace iteration regardless of pattern,
+    so scanning once per base queue name (as this used to do) costs one full
+    scan of the PUBSUB db per queue. Doing a single ``rc.scan_iter`` over
+    every ``QUEUE_NAME_PREFIX``-prefixed list and grouping the results here
+    lets both the gauge and the trim share that one scan per
+    ``check_redis_queues`` run.
+
+    Kombu's Redis transport stores the unprioritised queue under the bare name
+    and each priority step under "<name>\\x06\\x16<step>"; both shapes match
+    the same scan and are grouped under their common base name. Keys whose
+    base name is not one of ``all_queue_names()`` are dropped so unrelated
+    ``rt_api.*`` lists are never gauged or trimmed.
+    """
+    known_base_names = set(all_queue_names())
+    keys_by_base: dict[str, list[bytes]] = {}
+    for raw_key in rc.scan_iter(match=f"{QUEUE_NAME_PREFIX}*", count=100, _type="list"):
+        key = raw_key if isinstance(raw_key, bytes) else raw_key.encode()
+        base_name = _queue_name_from_key(key).decode("latin-1")
+        if base_name not in known_base_names:
+            continue
+        keys_by_base.setdefault(base_name, []).append(key)
+    return keys_by_base
+
+
+def _gauge_rt_pubsub_queue_lengths(rc: redis.Redis, keys_by_base: dict[str, list[bytes]]) -> None:
+    """Gauge the depth of each rt_api.* pub/sub queue list in the PUBSUB db.
+
+    These are the durable Kombu queues bound to the "das" topic exchange and
+    consumed by the rtserver listener threads. When a consumer dies the binding
+    keeps LPUSHing into the list with no reader, so depth is the early signal
+    that a listener has stopped draining.
+    """
+    for base_name in all_queue_names():
+        depth = sum(rc.llen(key) for key in keys_by_base.get(base_name, []))
+        update_gauge(metric="rt_pubsub_queue_length", value=depth, tags=[f"queue:{base_name}"])
+
+
+def _trim_rt_pubsub_queues(rc: redis.Redis, keys_by_base: dict[str, list[bytes]]) -> None:
+    """Backstop: LTRIM each rt_api.* pub/sub list to RT_PUBSUB_QUEUE_MAX_LENGTH.
+
+    Kombu LPUSHes new messages at the head and BRPOPs from the tail, so the
+    oldest messages are at the tail. To keep the newest messages we trim to the
+    head range [0, maxlen-1]. Backlogged realtime emits are ephemeral, per-sid
+    messages; stale ones are worthless because clients re-fetch via REST, so
+    capping the list is pure memory reclamation. Only the never-consumed lists
+    of a dead listener should ever exceed the (generous) cap.
+    """
+    max_length = settings.RT_PUBSUB_QUEUE_MAX_LENGTH
+    if max_length <= 0:
+        return
+    for base_name in all_queue_names():
+        for key in keys_by_base.get(base_name, []):
+            before = rc.llen(key)
+            if before <= max_length:
+                continue
+            rc.ltrim(key, 0, max_length - 1)
+            trimmed = before - max_length
+            logger.warning(
+                "Trimmed rt_api pub/sub queue %s from %d to max length %d (dropped %d oldest messages); "
+                "a listener is likely not draining it",
+                key.decode("latin-1") if isinstance(key, bytes) else key,
+                before,
+                max_length,
+                trimmed,
+            )
+            increment("rt_pubsub_queue_trimmed", value=trimmed, tags=[f"queue:{base_name}"])
+
+
 @celery.app.task(base=QueueOnce, once={"graceful": True})
 def check_redis_queues():
     """
@@ -1085,3 +1186,20 @@ def check_redis_queues():
     )
 
     _check_orphaned_pending_source_obs_sets()
+
+    try:
+        # Single scan shared by both the gauge and the trim below (SCAN MATCH is
+        # a full-keyspace iteration regardless of pattern, so scanning once per
+        # run instead of once per queue name avoids ~2N full scans of the
+        # PUBSUB db per check_redis_queues run).
+        rc = _get_pubsub_redis_client()
+        keys_by_base = _pubsub_queue_keys_by_base(rc)
+        # Gauge BEFORE trim so alerts see the spike; trim is the backstop only.
+        _gauge_rt_pubsub_queue_lengths(rc, keys_by_base)
+        _trim_rt_pubsub_queues(rc, keys_by_base)
+    except Exception:
+        # These talk to the PUBSUB db (db1), separate from the REALTIME db (db2)
+        # used by the gauges above. A db1 failure must not break the existing
+        # metrics, and check_redis_queues is QueueOnce so an unhandled exception
+        # here would starve subsequent scheduled runs.
+        logger.exception("Failed to gauge/trim rt_api pubsub queues")

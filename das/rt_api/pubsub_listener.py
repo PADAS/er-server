@@ -1,9 +1,13 @@
+from __future__ import annotations
+
 import logging
+import time
 from threading import Thread
 
 import utils.json as json
 from das_server import pubsub
 from rt_api import client
+from rt_api.pubsub_subscriptions import SUBSCRIPTIONS, queue_name_for
 from rt_api.tasks import (
     handle_delete_event,
     handle_delete_message,
@@ -20,8 +24,14 @@ from rt_api.tasks import (
     handle_update_message,
     handle_update_patrol,
 )
+from utils import stats
 
 logger = logging.getLogger(__name__)
+
+# Seconds to wait before re-subscribing after a listener loop exits or raises.
+# Short enough that a transient broker blip recovers quickly, long enough that a
+# hard-failing subscription doesn't spin a CPU.
+LISTENER_RESTART_DELAY_SECONDS = 5
 
 
 def start(realtime_server):
@@ -149,51 +159,85 @@ def start(realtime_server):
         logger.info("das_tenant_updated_handler. data=%s, message=%s", data, message)
         realtime_server.update_cors_allowed_origins()
 
-    def pubsub_listener(listener_name: str):
-        logger.info("Starting pubsub listener")
-        subscriptions = [
-            {"routing_key": "das.tenant.new", "callback": das_tenant_updated_handler},
-            {"routing_key": "das.tenant.update", "callback": das_tenant_updated_handler},
-            {"routing_key": "das.tracking.source.observations.new", "callback": new_observation_handler},
-            {
-                "routing_key": "das.subjectstatus.update",
-                "callback": subjectstatus_update_handler,
-            },
-            {"routing_key": "das.event.new", "callback": new_event_handler},
-            {"routing_key": "das.event.update", "callback": update_event_handler},
-            {"routing_key": "das.event.delete", "callback": delete_event_handler},
-            {"routing_key": "das.patrol.new", "callback": new_patrol_handler},
-            {"routing_key": "das.patrol.update", "callback": update_patrol_handler},
-            {"routing_key": "das.patrol.delete", "callback": delete_patrol_handler},
-            {"routing_key": "das.realtime.emit", "callback": emit_handler},
-            {
-                "routing_key": "das.message.new",
-                "callback": new_message_handler,
-            },
-            {
-                "routing_key": "das.message.update",
-                "callback": update_message_handler,
-            },
-            {
-                "routing_key": "das.message.delete",
-                "callback": delete_message_handler,
-            },
-            {
-                "routing_key": "das.announcement.new",
-                "callback": new_announcement_handler,
-            },
-            {"routing_key": "das.subject.new", "callback": new_subject_handler},
-            {"routing_key": "das.subject.delete", "callback": delete_subject_handler},
-        ]
-        for subscription in subscriptions:
-            subscription["name"] = "rt_api.{0}".format(subscription["callback"].__name__)
+    # Map the canonical subscription table (routing_key -> callback name) to the
+    # local handler closures defined above. Keeping the table in
+    # rt_api.pubsub_subscriptions (instead of inline here) lets the monitoring
+    # and backstop Celery tasks derive the exact same queue names without
+    # importing this module — see pubsub_subscriptions for the rationale.
+    callbacks_by_name = {
+        "das_tenant_updated_handler": das_tenant_updated_handler,
+        "new_observation_handler": new_observation_handler,
+        "subjectstatus_update_handler": subjectstatus_update_handler,
+        "new_event_handler": new_event_handler,
+        "update_event_handler": update_event_handler,
+        "delete_event_handler": delete_event_handler,
+        "new_patrol_handler": new_patrol_handler,
+        "update_patrol_handler": update_patrol_handler,
+        "delete_patrol_handler": delete_patrol_handler,
+        "emit_handler": emit_handler,
+        "new_message_handler": new_message_handler,
+        "update_message_handler": update_message_handler,
+        "delete_message_handler": delete_message_handler,
+        "new_announcement_handler": new_announcement_handler,
+        "new_subject_handler": new_subject_handler,
+        "delete_subject_handler": delete_subject_handler,
+    }
 
-            logger.info('Adding subscription for "%s"', subscription["name"])
-        try:
-            pubsub.subscribe(subscriptions)
-            logger.warning("PubSub subscriber %s shutting down", listener_name)
-        except Exception as error:
-            logger.exception("Error subscribing to pubsub, error %s", error)
+    def build_subscriptions():
+        subscriptions = []
+        for subscription in SUBSCRIPTIONS:
+            callback = callbacks_by_name[subscription.callback_name]
+            # Wrap each callback so a single poison message is logged + metered
+            # and dropped (queues are no_ack=True) instead of escaping
+            # drain_events and tearing down the whole subscription loop.
+            safe_callback = pubsub.swallow_callback_exceptions(callback, subscription.routing_key)
+            name = queue_name_for(subscription.callback_name)
+            logger.info('Adding subscription for "%s"', name)
+            subscriptions.append(
+                {
+                    "routing_key": subscription.routing_key,
+                    "callback": safe_callback,
+                    "name": name,
+                }
+            )
+        return subscriptions
+
+    def pubsub_listener(listener_name: str):
+        # Supervision loop: subscribe blocks while draining events. If it ever
+        # returns (graceful shutdown) or raises (broker error, etc.), we log it,
+        # count the churn, wait, and re-subscribe. The thread only exits on
+        # interpreter shutdown via SystemExit / KeyboardInterrupt, which are
+        # BaseExceptions and intentionally escape the `except Exception` below.
+        #
+        # subscribe_without_retry, not subscribe: the latter is wrapped in
+        # retry_on_exception(ConnectionError, retry_forever=True, delay=1), which
+        # would retry the most common broker failure inside the call — the
+        # restart metric would never increment and the backoff below would never
+        # apply. This loop is the single owner of retry/backoff/metrics for every
+        # exception type.
+        logger.info("Starting pubsub listener %s", listener_name)
+        # Built once per thread, not per attempt: the list holds only strings and
+        # stateless callables, and subscribe declares its kombu Queue/Consumer
+        # objects fresh against a new Connection on every call, so nothing
+        # connection-bound is carried into the next attempt. Rebuilding per
+        # attempt re-logged one line per routing key, which during a prolonged
+        # broker outage meant len(SUBSCRIPTIONS) x 5 threads of log spam every
+        # LISTENER_RESTART_DELAY_SECONDS.
+        subscriptions = build_subscriptions()
+        while True:
+            try:
+                pubsub.subscribe_without_retry(subscriptions)
+                logger.warning("PubSub subscriber %s returned; restarting", listener_name)
+                reason = "returned"
+            except Exception:
+                logger.exception("PubSub subscriber %s raised; restarting", listener_name)
+                reason = "exception"
+
+            stats.increment(
+                "rt_pubsub_listener_restart",
+                tags=[f"listener:{listener_name}", f"reason:{reason}"],
+            )
+            time.sleep(LISTENER_RESTART_DELAY_SECONDS)
 
     logger.info("Starting pubsub listener threads.")
     for thread_index in range(5):

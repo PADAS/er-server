@@ -2,6 +2,8 @@
 message publishing module
 """
 
+from __future__ import annotations
+
 import logging
 import re
 import signal
@@ -10,6 +12,7 @@ import uuid
 from functools import wraps
 from importlib import import_module
 from threading import Thread
+from typing import Callable, ParamSpec, TypeVar
 
 from kombu import Connection, Consumer, Exchange, Queue
 from kombu.exceptions import OperationalError
@@ -29,6 +32,13 @@ from utils.decorator import retry_on_exception
 from utils.tenant.decorators import append_tenant_domain
 
 logger = logging.getLogger(__name__)
+
+# Kombu invokes a consumer callback as callback(body, message), but the body type
+# varies per routing key (dict for the das.* handlers, str for das.realtime.emit),
+# so swallow_callback_exceptions stays generic over the callback it wraps instead
+# of pinning a body type that would be wrong for half its call sites.
+_CallbackParams = ParamSpec("_CallbackParams")
+_CallbackReturn = TypeVar("_CallbackReturn")
 
 PUBLISH_TIMEOUT = 5  # seconds
 DAS_PUBSUB_CHANNEL_NAME = "das"
@@ -77,8 +87,7 @@ def publish(message, routing_key="das", **kwargs):
         logger.exception("Unhandled exception during publish")
 
 
-@retry_on_exception(exception_type=ConnectionError, retry_forever=True)
-def subscribe(subscription_list, loop_forever=True):
+def subscribe_without_retry(subscription_list, loop_forever=True):
     """Create a set of subscriptions to messages routed by routing_key
 
     :param subscription_list: a list of dictionaries with keys
@@ -92,6 +101,10 @@ def subscribe(subscription_list, loop_forever=True):
     callback is the function to call on the message.
 
     This function will block, but can be run in a thread
+
+    Every failure — including a redis ConnectionError — propagates to the
+    caller. Use this only from a caller that supervises its own restart,
+    backoff and metrics (rt_api.pubsub_listener); otherwise use `subscribe`.
     """
 
     with Connection(settings.PUBSUB_BROKER_URL, transport_options=settings.PUBSUB_BROKER_OPTIONS) as conn:
@@ -110,6 +123,13 @@ def subscribe(subscription_list, loop_forever=True):
                 except socket.timeout:
                     if not loop_forever:
                         break
+
+
+# Default entry point: retries a redis ConnectionError forever, in-place. The
+# retry is applied here rather than as a decorator on the function above so that
+# a caller running its own supervision loop can reach the unwrapped
+# implementation by name instead of through `subscribe.__wrapped__`.
+subscribe = retry_on_exception(exception_type=ConnectionError, retry_forever=True)(subscribe_without_retry)
 
 
 def installed_apps_subscriptions(submodule="pubsub_registry", ignore_re="(djgeojson|django)"):
@@ -173,6 +193,44 @@ def stats_decorator(f, routing_key):
     def wrapper(*args, **kwargs):
         stats.increment(metric_type, sample_rate=1.0, tags=tags)
         return f(*args, **kwargs)
+
+    return wrapper
+
+
+def swallow_callback_exceptions(
+    callback: Callable[_CallbackParams, _CallbackReturn],
+    routing_key: str,
+) -> Callable[_CallbackParams, _CallbackReturn | None]:
+    """Wrap a pub/sub callback so a poison message cannot kill the consumer.
+
+    Kombu queues here are declared ``no_ack=True``: by the time the callback
+    runs the message has already been removed from the broker, so swallowing the
+    error only drops that one (ephemeral) message. Letting the exception escape
+    ``conn.drain_events`` instead tears down the whole subscription loop, which
+    historically left the durable binding LPUSHing into an unconsumed Redis list
+    forever. We log with full traceback and emit a metric so poison messages are
+    still visible without taking the listener down.
+
+    Returns a callable with the same ``(body, message)`` signature as ``callback``
+    whose return type widens to include ``None`` — the value returned when a
+    message is dropped. Kombu ignores callback return values, so no caller has to
+    handle the ``None``.
+    """
+
+    @wraps(callback)
+    def wrapper(*args: _CallbackParams.args, **kwargs: _CallbackParams.kwargs) -> _CallbackReturn | None:
+        try:
+            return callback(*args, **kwargs)
+        except Exception:
+            logger.exception(
+                "Unhandled exception in pub/sub callback; dropping message. routing_key=%s handler=%s",
+                routing_key,
+                getattr(callback, "__name__", repr(callback)),
+            )
+            stats.increment(
+                "pubsub_callback_error",
+                tags=[f"route:{routing_key}", f"handler:{getattr(callback, '__name__', 'unknown')}"],
+            )
 
     return wrapper
 
