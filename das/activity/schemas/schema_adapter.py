@@ -15,6 +15,7 @@ from rest_framework.request import Request as DRFRequest
 import utils.schema_utils as schema_utils
 from activity.models import EventType
 from activity.schemas.eventtype_service import EventTypeSchemaService
+from activity.schemas.utils import is_v1_schema, is_v2_schema
 from schemas.format_serializers import OUTPUT_FORMAT_ONE_OF, output_format_override
 
 logger = logging.getLogger(__name__)
@@ -259,27 +260,38 @@ class SchemaAdapterFactory:
         Create the appropriate schema adapter based on the schema structure.
 
         Args:
-            schema: The schema as a string (JSON) or dictionary
-            request: Optional DRF request for V2 schema rendering
+            schema: The schema as a JSON string or decoded schema dictionary.
+            request: Optional DRF request for V2 schema rendering.
 
         Returns:
-            SchemaAdapter instance
+            A V1 or V2 schema adapter.
+
+        Raises:
+            TypeError: If ``schema`` is neither a string nor a dictionary.
+            ValueError: If JSON input decodes to a value other than an object.
         """
         if isinstance(schema, str):
             try:
-                schema_dict = json.loads(schema)
-                if "json" in schema_dict and "ui" in schema_dict:
-                    # V2 schema structure
-                    return V2SchemaAdapter(schema_dict, request)
-                elif "schema" in schema_dict and "definition" in schema_dict:
-                    # V1 schema structure
-                    return V1SchemaAdapter(schema)
-                else:
-                    # Default to V2 if we can't determine
-                    logger.warning("Could not determine schema version, defaulting to V2")
-                    return V2SchemaAdapter(schema_dict, request)
+                document = json.loads(schema)
             except json.JSONDecodeError:
+                # V1 schemas are jinja2 templates; unrendered {{...}} placeholders make
+                # them invalid JSON, so an unparseable string is V1 by definition.
                 return V1SchemaAdapter(schema)
+            if not isinstance(document, dict):
+                raise ValueError("schema JSON must decode to an object")
+        elif isinstance(schema, dict):
+            document = schema
+        else:
+            raise TypeError(f"schema must be a string or dictionary, got {type(schema).__name__}")
+
+        if is_v2_schema(document):
+            return V2SchemaAdapter(document, request)
+        if is_v1_schema(document):
+            # V1SchemaAdapter renders the raw template string, not a parsed document.
+            return V1SchemaAdapter(schema if isinstance(schema, str) else json.dumps(schema))
+
+        logger.warning("Could not determine schema version, defaulting to V2")
+        return V2SchemaAdapter(document, request)
 
     @staticmethod
     def create_from_event_type(

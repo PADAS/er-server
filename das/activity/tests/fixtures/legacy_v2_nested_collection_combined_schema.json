@@ -1,0 +1,150 @@
+{
+    "json": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false,
+        "properties": {
+            "reported_byy": {
+                "anyOf": [
+                    {
+                        "$ref": "/api/v2.0/schemas/choices.json?field=spoorrep_age"
+                    }
+                ],
+                "deprecated": false,
+                "description": "",
+                "title": "Raingauge Station",
+                "type": "string"
+            },
+            "colection_1": {
+                "deprecated": false,
+                "items": {
+                    "additionalProperties": false,
+                    "properties": {
+                        "how_many": {
+                            "deprecated": false,
+                            "description": "",
+                            "title": "how many",
+                            "type": "number"
+                        },
+                        "sub_list": {
+                            "deprecated": false,
+                            "items": {
+                                "additionalProperties": false,
+                                "properties": {
+                                    "loc": {
+                                        "deprecated": false,
+                                        "description": "",
+                                        "properties": {
+                                            "latitude": {
+                                                "maximum": 90,
+                                                "minimum": -90,
+                                                "type": "number"
+                                            },
+                                            "longitude": {
+                                                "maximum": 180,
+                                                "minimum": -180,
+                                                "type": "number"
+                                            }
+                                        },
+                                        "required": [
+                                            "latitude",
+                                            "longitude"
+                                        ],
+                                        "additionalProperties": false,
+                                        "title": "loc",
+                                        "type": "object"
+                                    }
+                                },
+                                "required": [],
+                                "type": "object"
+                            },
+                            "title": "sub list",
+                            "type": "array"
+                        }
+                    },
+                    "required": [],
+                    "type": "object"
+                },
+                "title": " colection 1",
+                "type": "array"
+            }
+        },
+        "required": [],
+        "type": "object"
+    },
+    "ui": {
+        "fields": {
+            "reported_byy": {
+                "choices": {
+                    "eventTypeCategories": [],
+                    "existingChoiceList": ["reported_byy"],
+                    "featureCategories": [],
+                    "myDataType": "EVENT_TYPES_FROM_EVENT_CATEGORY",
+                    "subjectGroups": [],
+                    "subjectSubtypes": [],
+                    "type": "EXISTING_CHOICE_LIST"
+                },
+                "inputType": "DROPDOWN",
+                "parent": "section-lG7ABSChuTwN_S9jPe3o6",
+                "placeholder": "",
+                "type": "CHOICE_LIST"
+            },
+            "colection_1": {
+                "buttonText": "",
+                "columns": 2,
+                "itemIdentifier": "",
+                "itemName": "lista",
+                "leftColumn": [
+                    "colection_1.how_many"
+                ],
+                "rightColumn": [
+                    "colection_1.sub_list"
+                ],
+                "type": "COLLECTION",
+                "parent": "section-lG7ABSChuTwN_S9jPe3o6"
+            },
+            "colection_1.how_many": {
+                "placeholder": "",
+                "type": "NUMERIC",
+                "parent": "colection_1"
+            },
+            "colection_1.sub_list": {
+                "buttonText": "",
+                "columns": 1,
+                "itemIdentifier": "",
+                "itemName": "sub_collection",
+                "leftColumn": [
+                    "colection_1.sub_list.loc"
+                ],
+                "rightColumn": [],
+                "type": "COLLECTION",
+                "parent": "colection_1"
+            },
+            "colection_1.sub_list.loc": {
+                "type": "LOCATION",
+                "parent": "colection_1.sub_list"
+            }
+        },
+        "headers": {},
+        "order": [
+            "section-lG7ABSChuTwN_S9jPe3o6"
+        ],
+        "sections": {
+            "section-lG7ABSChuTwN_S9jPe3o6": {
+                "columns": 1,
+                "isActive": true,
+                "label": "",
+                "leftColumn": [
+                    {
+                        "name": "reported_byy",
+                        "type": "field"
+                    },
+                    {
+                        "name": "colection_1",
+                        "type": "field"
+                    }
+                ],
+                "rightColumn": []
+            }
+        }
+    }
+}
