@@ -404,16 +404,30 @@ class BuoyService:
                     f"(set_id: {subject.id}) at {haul_time}"
                 )
 
-        # If all SubjectSource for the Subject are hauled, set Subject is_active to False
+        # Sync Subject.is_active with the SubjectSource assigned ranges.
         # A SubjectSource is considered "hauled" if its assigned_range upper bound is not datetime.max
         # (i.e., the range has been closed). We check this instead of 'now not in assigned_range'
         # to avoid a race condition where 'now' might still be within the 1-second padding
         # added to the upper bound for recent haul events.
-        assigned_ranges = models.SubjectSource.objects.filter(subject=subject).values_list("assigned_range", flat=True)
+        assigned_ranges = list(
+            models.SubjectSource.objects.filter(subject=subject).values_list("assigned_range", flat=True)
+        )
         # Only consider hauled if there are SubjectSources AND all have a closed upper bound
-        all_hauled = assigned_ranges.exists() and all(ar.upper != max_upper for ar in assigned_ranges)
+        all_hauled = bool(assigned_ranges) and all(ar.upper != max_upper for ar in assigned_ranges)
+        has_open_deployment = any(ar.upper == max_upper for ar in assigned_ranges)
         if all_hauled:
             subject.is_active = False
             subject.save()
+        elif has_open_deployment and not subject.is_active:
+            # Redeploy of a previously hauled gearset under the same set_id (e.g. RMW Hub
+            # reuses the set_id when a set was accidentally marked hauled). Reactivate so
+            # the set's status matches its open deployment.
+            subject.is_active = True
+            subject.save()
+            logger.info(
+                "Reactivated gearset %s (set_id: %s): deploy received for previously hauled subject",
+                subject.name,
+                subject.id,
+            )
 
         return subject, observations

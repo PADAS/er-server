@@ -968,3 +968,113 @@ class TestGearsViewOlderGearsetRejection:
 
         # The older gearset subject must not have been created
         assert not Subject.objects.filter(id=older_set_id).exists()
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("tenant_settings", "das_tenant_monkeypatch")
+class TestGearsViewRedeployReusedSetId:
+    """A hauled gearset posted again as deployed under the same set_id must reactivate.
+
+    RMW Hub reuses a set_id when a gearset was accidentally marked hauled and is then
+    redeployed (common for single-trap sets where set_id == trap_id). Without
+    reactivation the Subject stays inactive forever: the set reads "hauled" while its
+    device's reopened assigned_range reads "deployed".
+    """
+
+    base_url = "gear-list-create-view"
+
+    def _make_payload(self, set_id, device_id, device_status, event_time, last_deployed):
+        return {
+            "set_id": set_id,
+            "manufacturer_name": "RedeployViewManufacturer",
+            "owner_id": "owner1",
+            "mfr_set_id": "REDEPLOY_SET",
+            "deployment_type": "single",
+            "initial_deployment_date": last_deployed.isoformat(),
+            "devices": [
+                {
+                    "device_id": device_id,
+                    "mfr_device_id": "redeploy_device",
+                    "recorded_at": event_time.isoformat(),
+                    "last_deployed": last_deployed.isoformat(),
+                    "last_updated": event_time.isoformat(),
+                    "device_status": device_status,
+                    "location": {"latitude": 1.0, "longitude": 2.0},
+                }
+            ],
+        }
+
+    def test_post_deploy_after_haul_with_same_set_id_reactivates_subject(self, superuser_client):
+        subject_group = SubjectGroup.objects.create(name="RedeployViewManufacturer")
+        permission_set, _ = PermissionSet.objects.get_or_create(name=subject_group.auto_permissionset_name)
+        subject_group.permission_sets.add(permission_set)
+        superuser_client.user.permission_sets.add(permission_set)
+
+        # Mirror the RMW Hub single-trap case: set_id and device_id are the same UUID.
+        shared_uuid = "e51d3097-2065-419f-89e6-bf270d11a7dd"
+        url = reverse(self.base_url)
+        t_deploy = datetime.now(tz=timezone.utc) - timedelta(days=2)
+        t_haul = t_deploy + timedelta(days=1)
+        t_redeploy = t_haul + timedelta(hours=1)
+
+        response = superuser_client.post(
+            url,
+            data=self._make_payload(shared_uuid, shared_uuid, "deployed", t_deploy, t_deploy),
+            format="json",
+        )
+        assert response.status_code == status.HTTP_201_CREATED
+
+        response = superuser_client.post(
+            url,
+            data=self._make_payload(shared_uuid, shared_uuid, "hauled", t_haul, t_deploy),
+            format="json",
+        )
+        assert response.status_code == status.HTTP_201_CREATED
+        subject = Subject.objects.get(id=shared_uuid)
+        assert subject.is_active is False
+
+        response = superuser_client.post(
+            url,
+            data=self._make_payload(shared_uuid, shared_uuid, "deployed", t_redeploy, t_redeploy),
+            format="json",
+        )
+        assert response.status_code == status.HTTP_201_CREATED
+
+        subject.refresh_from_db()
+        assert subject.is_active is True
+
+        # The device's deployment window must be reopened from the redeploy time
+        ss = SubjectSource.objects.get(subject=subject, source_id=shared_uuid)
+        assert ss.assigned_range.upper == DEFAULT_ASSIGNED_RANGE[1]
+        assert ss.assigned_range.lower == t_redeploy
+
+    def test_post_haul_still_deactivates_subject(self, superuser_client):
+        """The reactivation branch must not interfere with normal haul deactivation."""
+        subject_group = SubjectGroup.objects.create(name="RedeployViewManufacturer")
+        permission_set, _ = PermissionSet.objects.get_or_create(name=subject_group.auto_permissionset_name)
+        subject_group.permission_sets.add(permission_set)
+        superuser_client.user.permission_sets.add(permission_set)
+
+        shared_uuid = "e51d3097-2065-419f-89e6-bf270d11a7ee"
+        url = reverse(self.base_url)
+        t_deploy = datetime.now(tz=timezone.utc) - timedelta(days=2)
+        t_haul = t_deploy + timedelta(days=1)
+
+        response = superuser_client.post(
+            url,
+            data=self._make_payload(shared_uuid, shared_uuid, "deployed", t_deploy, t_deploy),
+            format="json",
+        )
+        assert response.status_code == status.HTTP_201_CREATED
+        subject = Subject.objects.get(id=shared_uuid)
+        assert subject.is_active is True
+
+        response = superuser_client.post(
+            url,
+            data=self._make_payload(shared_uuid, shared_uuid, "hauled", t_haul, t_deploy),
+            format="json",
+        )
+        assert response.status_code == status.HTTP_201_CREATED
+
+        subject.refresh_from_db()
+        assert subject.is_active is False
