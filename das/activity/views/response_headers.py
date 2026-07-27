@@ -14,6 +14,7 @@ from django.http import QueryDict
 
 from activity.models import EventType, PatrolType
 from activity.views.events.utils import EventTypeQuerysetMixin
+from schemas.etags import get_dynamic_schema_sources_version
 from utils.etags import get_hash_from_queryset
 from utils.schema_utils import get_schema_renderer_method
 
@@ -97,11 +98,11 @@ def build_patrol_types_last_modified_header(*args, **kwargs) -> datetime:
     return get_most_recent_update_datetime_by_queryset(PatrolType.objects)
 
 
-def get_event_type_schema_hash(request, event_type: dict) -> str:
+def get_event_type_schema_hash(request, event_type: dict, sources_version: str) -> str:
 
     schema = event_type["schema"]
     event_type_value = event_type["value"]
-    schema_cache_key = f"schema_hash:{event_type_value}"
+    schema_cache_key = f"schema_hash:{event_type_value}:{sources_version}"
     schema_hash = cache.get(schema_cache_key)
 
     if schema_hash is None:
@@ -128,10 +129,11 @@ def build_event_types_etag_header(request, *args, **kwargs) -> str:
     queryset_builder = EventTypeQueryset(request.user, request.GET)
     queryset = queryset_builder.get_queryset()
     queryset = queryset.values(*EVENT_TYPE_FIELDS_FOR_ETAG)
-    schemas = []
+    sources_version = get_dynamic_schema_sources_version()
+    schemas = [sources_version]
 
     for event_type in queryset:
-        if schema_hash := get_event_type_schema_hash(request, event_type):
+        if schema_hash := get_event_type_schema_hash(request, event_type, sources_version):
             schemas.append(schema_hash)
 
     return get_hash_from_queryset(queryset=queryset, request=request, extra_salt=":".join(schemas))
@@ -140,12 +142,13 @@ def build_event_types_etag_header(request, *args, **kwargs) -> str:
 def build_event_type_etag_header(request, *args, **kwargs) -> str:
     queryset = EventType.objects.filter(id=kwargs["eventtype_id"])
     queryset = queryset.values(*EVENT_TYPE_FIELDS_FOR_ETAG)
+    sources_version = get_dynamic_schema_sources_version()
     schema_hash = ""
 
     if event_type := queryset.first():
-        schema_hash = get_event_type_schema_hash(request, event_type) or ""
+        schema_hash = get_event_type_schema_hash(request, event_type, sources_version) or ""
 
-    return get_hash_from_queryset(queryset=queryset, request=request, extra_salt=schema_hash)
+    return get_hash_from_queryset(queryset=queryset, request=request, extra_salt=f"{schema_hash}:{sources_version}")
 
 
 def get_most_recent_update_datetime_by_queryset(queryset: QuerySet) -> Optional[datetime]:

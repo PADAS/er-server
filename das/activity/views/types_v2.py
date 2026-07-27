@@ -29,6 +29,7 @@ from activity.serializers.event_types_v2 import (
     MigrationResultSerializer,
 )
 from core.utils import is_uuid
+from schemas.etags import get_dynamic_schema_sources_version
 from schemas.format_serializers import (
     OUTPUT_FORMAT_ONE_OF,
     OUTPUT_FORMATS,
@@ -36,6 +37,7 @@ from schemas.format_serializers import (
 )
 from schemas.view_mixins import DynamicSchemaDataMixin, validate_output_format
 from utils.drf import StandardResultsSetPagination
+from utils.etags import get_hash_from_model_instance, get_hash_from_queryset
 from utils.json import DirectBrowsableAPIRenderer, DirectJSONRenderer, parse_bool
 from utils.views import EtagListRetrieveModelMixin
 
@@ -107,9 +109,23 @@ class EventTypesViewSet(EtagListRetrieveModelMixin, DynamicSchemaDataMixin, Mode
         context.update({"include_schema": parse_bool(self.request.query_params.get("include_schema", False))})
         return context
 
+    def _get_schema_sources_salt(self, request: Request) -> str:
+        """
+        Only salt with the dynamic-schema-sources version when `include_schema` is
+        requested. `EventTypeV2Serializer` strips `schema` from the representation
+        otherwise, so the response can't be affected by Choices/Subjects/Sources/
+        Users/etc. churn - salting with it anyway would invalidate caches for
+        non-schema consumers for no observable benefit.
+        """
+        include_schema = parse_bool(request.query_params.get("include_schema", False))
+        return get_dynamic_schema_sources_version() if include_schema else ""
+
     def get_list_etag(self, request: Request, queryset: models.QuerySet) -> str:
         queryset = queryset.values("updated_at", "category__updated_at")
-        return super().get_list_etag(request, queryset)
+        return get_hash_from_queryset(queryset, request, extra_salt=self._get_schema_sources_salt(request))
+
+    def get_object_etag(self, request: Request, obj: models.Model) -> str:
+        return get_hash_from_model_instance(obj, request, extra_salt=self._get_schema_sources_salt(request))
 
     def create(self, request: Request, *args, **kwargs) -> Response:
         serializer = self.get_serializer(data=request.data)

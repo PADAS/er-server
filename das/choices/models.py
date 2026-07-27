@@ -45,7 +45,7 @@ class ChoiceQuerySet(models.QuerySet):
         return self.filter(is_active=False)
 
     def disable_choices(self):
-        return self.update(delete_on=timezone.now(), is_active=False)
+        return self.update(delete_on=timezone.now(), is_active=False, updated_at=timezone.now())
 
     def soft_delete(self):
         return self.disable_choices()

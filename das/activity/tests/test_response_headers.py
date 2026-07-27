@@ -25,6 +25,7 @@ from activity.views.response_headers import (
 )
 from choices.models import Choice
 from factories import EventTypeFactory
+from schemas.etags import get_dynamic_schema_sources_version
 from utils.etags import get_hash_from_queryset
 from utils.schema_utils import get_schema_renderer_method
 
@@ -107,7 +108,10 @@ class TestResponseHeaderBuilders:
         schema_renderer = get_schema_renderer_method(event_type.schema)
         rendered_schema = schema_renderer(event_type.schema)
         hashed_schema = hashlib.md5(rendered_schema.encode("utf-8")).hexdigest()
-        expected_etag = get_hash_from_queryset(request=empty_request, queryset=queryset, extra_salt=hashed_schema)
+        sources_version = get_dynamic_schema_sources_version()
+        expected_etag = get_hash_from_queryset(
+            request=empty_request, queryset=queryset, extra_salt=f"{hashed_schema}:{sources_version}"
+        )
         etag = build_event_type_etag_header(empty_request, eventtype_id=str(event_type.id))
 
         assert expected_etag == etag
@@ -286,6 +290,117 @@ class TestResponseHeaderBuilders:
             initial_etag != new_etag
         ), "ETag should change when a choice referenced in the schema is updated and cache is cleared"
 
+    def _make_event_type_with_species_schema(self, event_type):
+        """Give an event type a schema whose 'species' field is rendered from event Choices."""
+        schema_with_choices = {
+            "schema": {
+                "$schema": "http://json-schema.org/draft-04/schema#",
+                "title": "Test Event Type",
+                "type": "object",
+                "properties": {
+                    "species": {
+                        "type": "string",
+                        "title": "Species",
+                        "enum": "{{enum___species___values}}",
+                        "enumNames": "{{enum___species___names}}",
+                    }
+                },
+            },
+            "definition": ["species"],
+        }
+        event_type.schema = json.dumps(schema_with_choices)
+        event_type.schema = event_type.schema.replace('"{{', "{{").replace('}}"', "}}")
+        event_type.save(update_fields=["schema"])
+        return event_type
+
+    def test_build_event_types_etag_header_changes_on_choice_create_without_clearing_cache(
+        self, empty_request, five_event_types
+    ):
+        """The list ETag must change on its own when a referenced Choice is created, with no manual cache reset."""
+        self._make_event_type_with_species_schema(five_event_types[0])
+        Choice.objects.create(model=Choice.EVENT_MODEL, field="species", value="lion", display="Lion")
+
+        initial_etag = build_event_types_etag_header(empty_request)
+
+        Choice.objects.create(model=Choice.EVENT_MODEL, field="species", value="elephant", display="Elephant")
+
+        new_etag = build_event_types_etag_header(empty_request)
+
+        assert initial_etag != new_etag
+
+    def test_build_event_types_etag_header_changes_on_choice_update_without_clearing_cache(
+        self, empty_request, five_event_types
+    ):
+        """The list ETag must change on its own when a referenced Choice is updated, with no manual cache reset."""
+        self._make_event_type_with_species_schema(five_event_types[0])
+        choice = Choice.objects.create(model=Choice.EVENT_MODEL, field="species", value="lion", display="Lion")
+
+        initial_etag = build_event_types_etag_header(empty_request)
+
+        # Note: Don't use update_fields here because it bypasses auto_now fields.
+        choice.display = "African Lion"
+        choice.save()
+
+        new_etag = build_event_types_etag_header(empty_request)
+
+        assert initial_etag != new_etag
+
+    def test_build_event_types_etag_header_changes_on_choice_soft_delete_without_clearing_cache(
+        self, empty_request, five_event_types
+    ):
+        """The list ETag must change on its own when a referenced Choice is soft-deleted, with no manual cache reset."""
+        self._make_event_type_with_species_schema(five_event_types[0])
+        choice = Choice.objects.create(model=Choice.EVENT_MODEL, field="species", value="lion", display="Lion")
+
+        initial_etag = build_event_types_etag_header(empty_request)
+
+        choice.disable()
+
+        new_etag = build_event_types_etag_header(empty_request)
+
+        assert initial_etag != new_etag
+
+    def test_build_event_type_etag_header_changes_on_choice_create_without_clearing_cache(
+        self, empty_request, five_event_types
+    ):
+        """The detail ETag must change on its own when a referenced Choice is created, with no manual cache reset."""
+        event_type = self._make_event_type_with_species_schema(five_event_types[0])
+        Choice.objects.create(model=Choice.EVENT_MODEL, field="species", value="lion", display="Lion")
+
+        initial_etag = build_event_type_etag_header(empty_request, eventtype_id=str(event_type.id))
+
+        Choice.objects.create(model=Choice.EVENT_MODEL, field="species", value="elephant", display="Elephant")
+
+        new_etag = build_event_type_etag_header(empty_request, eventtype_id=str(event_type.id))
+
+        assert initial_etag != new_etag
+
+    def test_build_event_types_etag_header_changes_on_subject_create(self, empty_request, five_event_types):
+        """v1 event-type responses always include the rendered schema, so the list ETag must
+        change when any dynamic-schema-source model changes (e.g. Subject), not just Choices."""
+        from factories import SubjectFactory
+
+        initial_etag = build_event_types_etag_header(empty_request)
+
+        SubjectFactory.create()
+
+        new_etag = build_event_types_etag_header(empty_request)
+
+        assert initial_etag != new_etag
+
+    def test_build_event_type_etag_header_changes_on_subject_create(self, empty_request, five_event_types):
+        """Same as above, but for the single-event-type ETag builder."""
+        from factories import SubjectFactory
+
+        event_type = five_event_types[0]
+        initial_etag = build_event_type_etag_header(empty_request, eventtype_id=str(event_type.id))
+
+        SubjectFactory.create()
+
+        new_etag = build_event_type_etag_header(empty_request, eventtype_id=str(event_type.id))
+
+        assert initial_etag != new_etag
+
     def test_build_event_types_etag_header_caches_rendered_schemas(self, empty_request, five_event_types):
         """Test that rendered schemas are cached on the request during etag calculation."""
 
@@ -308,7 +423,10 @@ class TestResponseHeaderBuilders:
         assert hasattr(real_request, "_rendered_schema_cache")
         cache = real_request._rendered_schema_cache
         assert isinstance(cache, dict)
-        assert len(cache) == len(five_event_types)
+        # The ETag builder's queryset may include event types beyond the fixture's
+        # (migration-seeded or leaked from other tests in a full-suite run), so we
+        # assert containment of the fixture's types rather than an exact count.
+        assert {event_type.value for event_type in five_event_types} <= set(cache)
 
         # Verify each event type's schema is in the cache
         for event_type in five_event_types:

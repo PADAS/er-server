@@ -25,6 +25,7 @@ from activity.tests.helpers.schema_test_utils import (
     V2SchemaBuilder,
     minimal_event_type_schema,
 )
+from choices.models import Choice
 from utils.categories import make_eventcategory_permission_codename_with_tenant
 
 
@@ -1347,6 +1348,156 @@ class TestEventTypesV2ConditionalResponses:
 
         conditional_response = superuser_client.get(url, HTTP_IF_NONE_MATCH=etag)
         assert conditional_response.status_code == status.HTTP_304_NOT_MODIFIED
+
+    def test_list_etag_header_changes_when_choice_is_created(self, superuser_client, cat1_cat2_event_types):
+        url = reverse("v2-eventtype-list")
+        etag1 = superuser_client.get(url, {"include_schema": "true"}).get("ETag")
+
+        Choice.objects.create(model=Choice.EVENT_MODEL, field="species", value="lion", display="Lion")
+
+        etag2 = superuser_client.get(url, {"include_schema": "true"}).get("ETag")
+        assert etag2 != etag1
+
+    def test_list_etag_header_changes_when_choice_is_updated(self, superuser_client, cat1_cat2_event_types):
+        url = reverse("v2-eventtype-list")
+        choice = Choice.objects.create(model=Choice.EVENT_MODEL, field="species", value="lion", display="Lion")
+        etag1 = superuser_client.get(url, {"include_schema": "true"}).get("ETag")
+
+        # Note: Don't use update_fields here because it bypasses auto_now fields.
+        choice.display = "African Lion"
+        choice.save()
+
+        etag2 = superuser_client.get(url, {"include_schema": "true"}).get("ETag")
+        assert etag2 != etag1
+
+    def test_list_etag_header_changes_when_choice_is_soft_deleted(self, superuser_client, cat1_cat2_event_types):
+        url = reverse("v2-eventtype-list")
+        choice = Choice.objects.create(model=Choice.EVENT_MODEL, field="species", value="lion", display="Lion")
+        etag1 = superuser_client.get(url, {"include_schema": "true"}).get("ETag")
+
+        choice.disable()
+
+        etag2 = superuser_client.get(url, {"include_schema": "true"}).get("ETag")
+        assert etag2 != etag1
+
+    def test_list_etag_header_unaffected_by_choice_change_without_include_schema(
+        self, superuser_client, cat1_cat2_event_types
+    ):
+        """Without `include_schema`, the response never contains schema content, so it
+        must not be invalidated by Choice churn."""
+        url = reverse("v2-eventtype-list")
+        etag1 = superuser_client.get(url).get("ETag")
+
+        Choice.objects.create(model=Choice.EVENT_MODEL, field="species", value="lion", display="Lion")
+
+        etag2 = superuser_client.get(url).get("ETag")
+        assert etag2 == etag1
+
+    def test_list_etag_header_changes_when_subject_is_created(self, superuser_client, cat1_cat2_event_types):
+        """A Subject can be referenced via a dynamic $ref in a rendered schema, so
+        Subject churn must invalidate the ETag when schema content is included."""
+        from factories import SubjectFactory
+
+        url = reverse("v2-eventtype-list")
+        etag1 = superuser_client.get(url, {"include_schema": "true"}).get("ETag")
+
+        SubjectFactory.create()
+
+        etag2 = superuser_client.get(url, {"include_schema": "true"}).get("ETag")
+        assert etag2 != etag1
+
+    def test_list_etag_header_unaffected_by_subject_change_without_include_schema(
+        self, superuser_client, cat1_cat2_event_types
+    ):
+        from factories import SubjectFactory
+
+        url = reverse("v2-eventtype-list")
+        etag1 = superuser_client.get(url).get("ETag")
+
+        SubjectFactory.create()
+
+        etag2 = superuser_client.get(url).get("ETag")
+        assert etag2 == etag1
+
+    def test_list_etag_header_still_changes_on_event_type_row_change_without_include_schema(
+        self, superuser_client, cat1_cat2_event_types
+    ):
+        """Event-type row changes must still invalidate the ETag regardless of
+        `include_schema`, since `updated_at` is part of the base queryset hash."""
+        url = reverse("v2-eventtype-list")
+        etag1 = superuser_client.get(url).get("ETag")
+
+        et = cat1_cat2_event_types[0]
+        et.display = "Updated display"
+        et.save()
+
+        etag2 = superuser_client.get(url).get("ETag")
+        assert etag2 != etag1
+
+    def test_event_type_detail_etag_header_changes_when_choice_is_created(
+        self, superuser_client, cat1_cat2_event_types
+    ):
+        target = cat1_cat2_event_types[0]
+        url = reverse("v2-eventtype-detail", kwargs={"eventtype_value": target.value})
+        etag1 = superuser_client.get(url, {"include_schema": "true"}).get("ETag")
+
+        Choice.objects.create(model=Choice.EVENT_MODEL, field="species", value="lion", display="Lion")
+
+        etag2 = superuser_client.get(url, {"include_schema": "true"}).get("ETag")
+        assert etag2 != etag1
+
+    def test_event_type_detail_etag_header_changes_when_choice_is_soft_deleted(
+        self, superuser_client, cat1_cat2_event_types
+    ):
+        target = cat1_cat2_event_types[0]
+        url = reverse("v2-eventtype-detail", kwargs={"eventtype_value": target.value})
+        choice = Choice.objects.create(model=Choice.EVENT_MODEL, field="species", value="lion", display="Lion")
+        etag1 = superuser_client.get(url, {"include_schema": "true"}).get("ETag")
+
+        choice.disable()
+
+        etag2 = superuser_client.get(url, {"include_schema": "true"}).get("ETag")
+        assert etag2 != etag1
+
+    def test_event_type_detail_etag_header_unaffected_by_choice_change_without_include_schema(
+        self, superuser_client, cat1_cat2_event_types
+    ):
+        target = cat1_cat2_event_types[0]
+        url = reverse("v2-eventtype-detail", kwargs={"eventtype_value": target.value})
+        etag1 = superuser_client.get(url).get("ETag")
+
+        Choice.objects.create(model=Choice.EVENT_MODEL, field="species", value="lion", display="Lion")
+
+        etag2 = superuser_client.get(url).get("ETag")
+        assert etag2 == etag1
+
+    def test_event_type_detail_etag_header_changes_when_subject_is_created(
+        self, superuser_client, cat1_cat2_event_types
+    ):
+        from factories import SubjectFactory
+
+        target = cat1_cat2_event_types[0]
+        url = reverse("v2-eventtype-detail", kwargs={"eventtype_value": target.value})
+        etag1 = superuser_client.get(url, {"include_schema": "true"}).get("ETag")
+
+        SubjectFactory.create()
+
+        etag2 = superuser_client.get(url, {"include_schema": "true"}).get("ETag")
+        assert etag2 != etag1
+
+    def test_event_type_detail_etag_header_unaffected_by_subject_change_without_include_schema(
+        self, superuser_client, cat1_cat2_event_types
+    ):
+        from factories import SubjectFactory
+
+        target = cat1_cat2_event_types[0]
+        url = reverse("v2-eventtype-detail", kwargs={"eventtype_value": target.value})
+        etag1 = superuser_client.get(url).get("ETag")
+
+        SubjectFactory.create()
+
+        etag2 = superuser_client.get(url).get("ETag")
+        assert etag2 == etag1
 
 
 @pytest.mark.django_db

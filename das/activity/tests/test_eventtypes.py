@@ -470,13 +470,20 @@ class TestEventTypesAPI:
             assert event_type["has_events_assigned"] is True
 
     def test_event_type_database_hits(self, superuser_client, five_event_types):
-        """Test that the number of database hits is less than 10."""
+        """Guard the eventtypes list query budget against per-event-type N+1 growth.
+
+        Budget breakdown: ~8 baseline queries + 5 constant per-model version
+        aggregates from ``schemas.etags.get_dynamic_schema_sources_version``
+        (ERA-13553), plus small headroom. Those 5 aggregates (Users, Sources,
+        Subjects, SpatialFeatures, EventTypes) are constant regardless of how many
+        event types exist, so the budget still catches per-event-type N+1 growth.
+        """
         url = reverse("eventtypes")
 
         with CaptureQueriesContext(connection) as queries_context:
             response = superuser_client.get(url)
             assert response.status_code == status.HTTP_200_OK
-            assert len(queries_context.captured_queries) <= 10
+            assert len(queries_context.captured_queries) <= 15
 
 
 @pytest.mark.django_db
