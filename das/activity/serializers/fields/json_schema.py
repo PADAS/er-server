@@ -5,6 +5,8 @@ from jsonschema.validators import Draft202012Validator
 
 from rest_framework import serializers
 
+from activity.schemas.normalization import normalize_v2_schema
+
 VALID_DRAFT = "https://json-schema.org/draft/2020-12/schema"
 
 
@@ -40,6 +42,10 @@ class JSONSchemaField(serializers.Field):
             raise serializers.ValidationError("The schema must be a JSON object.")
 
         try:
+            # Normalize known legacy shapes (copied-between-sites schemas, stale integrations)
+            # before validating, so once-valid-but-now-stale documents keep working.
+            data = normalize_v2_schema(data)
+
             # Validate draft version
             self._validate_draft_version(data)
             # Validate against meta schema

@@ -1,0 +1,227 @@
+{
+    "json": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false,
+        "properties": {
+            "string": {
+                "deprecated": false,
+                "description": "",
+                "title": "I'm a string!",
+                "type": "string"
+            },
+            "paragraph": {
+                "deprecated": false,
+                "description": "",
+                "title": "I'm a text area",
+                "type": "string"
+            },
+            "number_no_min_max": {
+                "deprecated": false,
+                "description": "",
+                "title": "I'm a number without min-max",
+                "type": "number"
+            },
+            "number_with_min": {
+                "deprecated": false,
+                "description": "",
+                "minimum": 10,
+                "title": "I'm a number with a min (10):",
+                "type": "number"
+            },
+            "number_with_max": {
+                "deprecated": false,
+                "description": "",
+                "maximum": 100,
+                "title": "I'm a number with a max (100)",
+                "type": "number"
+            },
+            "number_with_min_and_max": {
+                "deprecated": false,
+                "description": "",
+                "maximum": 1000,
+                "minimum": 80,
+                "title": "I'm a number with a min (80) and max (1000)",
+                "type": "number"
+            },
+            "single_select": {
+                "anyOf": [
+                    {
+                        "$ref": "/api/v2.0/schemas/choices.json?field=spoorrep_age"
+                    }
+                ],
+                "deprecated": false,
+                "description": "",
+                "title": "I'm a single select query",
+                "type": "string"
+            },
+            "collection": {
+                "deprecated": false,
+                "items": {
+                    "additionalProperties": false,
+                    "properties": {
+                        "ItemConfiscated": {
+                            "anyOf": [
+                                {
+                                    "$ref": "/api/v2.0/schemas/choices.json?field=confiscationrep_itemsconfiscated"
+                                }
+                            ],
+                            "deprecated": false,
+                            "description": "",
+                            "title": "Item Type",
+                            "type": "string"
+                        },
+                        "ItemNumber": {
+                            "deprecated": false,
+                            "description": "",
+                            "minimum": 0,
+                            "title": "Number of Items",
+                            "type": "number"
+                        }
+                    },
+                    "required": [],
+                    "type": "object"
+                },
+                "title": "I'm a collection",
+                "type": "array",
+                "unevaluatedItems": false,
+                "description": ""
+            }
+        },
+        "required": [],
+        "type": "object"
+    },
+    "ui": {
+        "fields": {
+            "string": {
+                "inputType": "SHORT_TEXT",
+                "parent": "section-1",
+                "placeholder": "",
+                "type": "TEXT"
+            },
+            "paragraph": {
+                "inputType": "LONG_TEXT",
+                "parent": "section-1",
+                "placeholder": "",
+                "type": "TEXT"
+            },
+            "number_no_min_max": {
+                "parent": "section-1",
+                "placeholder": "",
+                "type": "NUMERIC"
+            },
+            "number_with_min": {
+                "parent": "section-1",
+                "placeholder": "",
+                "type": "NUMERIC"
+            },
+            "number_with_max": {
+                "parent": "section-1",
+                "placeholder": "",
+                "type": "NUMERIC"
+            },
+            "number_with_min_and_max": {
+                "parent": "section-1",
+                "placeholder": "",
+                "type": "NUMERIC"
+            },
+            "single_select": {
+                "choices": {
+                    "eventTypeCategories": [],
+                    "existingChoiceList": [
+                        "spoorrep_age"
+                    ],
+                    "featureCategories": [],
+                    "myDataType": "EVENT_TYPES_FROM_EVENT_CATEGORY",
+                    "subjectGroups": [],
+                    "subjectSubtypes": [],
+                    "type": "EXISTING_CHOICE_LIST"
+                },
+                "inputType": "DROPDOWN",
+                "parent": "section-1",
+                "placeholder": "",
+                "type": "CHOICE_LIST"
+            },
+            "collection": {
+                "buttonText": "New",
+                "columns": 1,
+                "itemIdentifier": "",
+                "itemName": "String inside a collection",
+                "leftColumn": [
+                    "collection.ItemConfiscated",
+                    "collection.ItemNumber"
+                ],
+                "parent": "section-1",
+                "rightColumn": [],
+                "type": "COLLECTION"
+            },
+            "collection.ItemConfiscated": {
+                "choices": {
+                    "eventTypeCategories": [],
+                    "existingChoiceList": [
+                        "confiscationrep_itemsconfiscated"
+                    ],
+                    "featureCategories": [],
+                    "myDataType": "EVENT_TYPES_FROM_EVENT_CATEGORY",
+                    "subjectGroups": [],
+                    "subjectSubtypes": [],
+                    "type": "EXISTING_CHOICE_LIST"
+                },
+                "inputType": "DROPDOWN",
+                "parent": "collection",
+                "placeholder": "",
+                "type": "CHOICE_LIST"
+            },
+            "collection.ItemNumber": {
+                "parent": "collection",
+                "placeholder": "",
+                "type": "NUMERIC"
+            }
+        },
+        "headers": {},
+        "order": [
+            "section-1"
+        ],
+        "sections": {
+            "section-1": {
+                "columns": 1,
+                "isActive": true,
+                "label": "",
+                "leftColumn": [
+                    {
+                        "type": "field",
+                        "name": "string"
+                    },
+                    {
+                        "type": "field",
+                        "name": "paragraph"
+                    },
+                    {
+                        "type": "field",
+                        "name": "number_no_min_max"
+                    },
+                    {
+                        "type": "field",
+                        "name": "number_with_min"
+                    },
+                    {
+                        "type": "field",
+                        "name": "number_with_max"
+                    },
+                    {
+                        "type": "field",
+                        "name": "number_with_min_and_max"
+                    },
+                    {
+                        "type": "field",
+                        "name": "single_select"
+                    },
+                    {
+                        "type": "field",
+                        "name": "collection"
+                    }
+                ],
+                "rightColumn": []
+            }
+        }
+    }
+}

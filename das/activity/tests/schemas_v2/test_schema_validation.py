@@ -4,6 +4,8 @@ import copy
 from typing import Any
 
 import pytest
+from jsonschema import ValidationError as JsonSchemaValidationError
+from jsonschema.validators import Draft202012Validator
 
 from rest_framework.serializers import ValidationError
 
@@ -869,33 +871,46 @@ class TestMetaSchemaPropertyConstraints:
         result = field.to_internal_value(schema)
         assert result is not None
 
-    # --- Invalid Schemas (unevaluatedProperties constraint) ---
+    # --- Legacy schemas (normalized by activity.schemas.normalization, then accepted) ---
 
-    def test_invalid_schema_with_additional_properties_instead(self):
-        """Schema using additionalProperties instead of unevaluatedProperties should fail."""
+    def test_schema_with_additional_properties_instead_is_normalized_and_accepted(self):
+        """Legacy documents using additionalProperties are normalized to unevaluatedProperties before validation.
+
+        See activity/schemas/normalization.py (Event-Type-Schema-Migration-Tool PR #11 shape).
+        """
         schema = self._build_schema()
         self._remove_json_key(schema, "unevaluatedProperties")
         schema["json"]["additionalProperties"] = False
 
         field = JSONSchemaField(meta_schema=main_event_type_schema)
-        with pytest.raises(ValidationError) as exc_info:
-            field.to_internal_value(schema)
+        result = field.to_internal_value(schema)
 
-        error_message = str(exc_info.value)
-        # required check fires first since unevaluatedProperties is missing
-        assert "'unevaluatedProperties' is a required property" in error_message
+        assert "additionalProperties" not in result["json"]
+        assert result["json"]["unevaluatedProperties"] is False
 
-    def test_invalid_schema_with_extra_unknown_property(self):
-        """Schema with additionalProperties alongside unevaluatedProperties should fail."""
+    def test_schema_with_additional_properties_alongside_unevaluated_properties_is_normalized_and_accepted(self):
+        """Legacy documents carrying both keys are normalized by dropping additionalProperties."""
         schema = self._build_schema()
         schema["json"]["additionalProperties"] = False
 
         field = JSONSchemaField(meta_schema=main_event_type_schema)
-        with pytest.raises(ValidationError) as exc_info:
-            field.to_internal_value(schema)
+        result = field.to_internal_value(schema)
 
-        error_message = str(exc_info.value)
-        assert "Additional properties are not allowed" in error_message
+        assert "additionalProperties" not in result["json"]
+        assert result["json"]["unevaluatedProperties"] is False
+
+    def test_metaschema_itself_still_rejects_additional_properties_without_normalization(self):
+        """The leniency lives only in the normalization layer -- the metaschema is unchanged.
+
+        Validating directly against the metaschema (bypassing JSONSchemaField, and therefore
+        bypassing normalization) must still reject additionalProperties.
+        """
+        schema = self._build_schema()
+        self._remove_json_key(schema, "unevaluatedProperties")
+        schema["json"]["additionalProperties"] = False
+
+        with pytest.raises(JsonSchemaValidationError):
+            Draft202012Validator(main_event_type_schema).validate(schema)
 
     def test_invalid_schema_missing_unevaluated_properties(self):
         """Schema missing unevaluatedProperties should fail with required property error."""
@@ -1035,34 +1050,41 @@ class TestCollectionFieldMetaSchemaConstraints:
         result = field.to_internal_value(schema)
         assert result is not None
 
-    # --- Invalid Collection Schemas (unevaluatedProperties constraint) ---
+    # --- Legacy collection schemas (normalized by activity.schemas.normalization, then accepted) ---
 
-    def test_invalid_collection_items_with_additional_properties_instead(self):
-        """Collection items using additionalProperties instead of unevaluatedProperties should fail."""
+    def test_collection_items_with_additional_properties_instead_is_normalized_and_accepted(self):
+        """Collection items using additionalProperties are normalized to unevaluatedProperties."""
         schema = self._build_collection_schema()
         self._remove_items_key(schema, "unevaluatedProperties")
         schema["json"]["properties"]["test_collection"]["items"]["additionalProperties"] = False
 
         field = JSONSchemaField(meta_schema=main_event_type_schema)
-        with pytest.raises(ValidationError) as exc_info:
-            field.to_internal_value(schema)
+        result = field.to_internal_value(schema)
 
-        error_message = str(exc_info.value)
-        assert "is not valid under any of the given schemas" in error_message
-        assert "test_collection" in error_message
+        items = result["json"]["properties"]["test_collection"]["items"]
+        assert "additionalProperties" not in items
+        assert items["unevaluatedProperties"] is False
 
-    def test_invalid_collection_items_with_extra_unknown_property(self):
-        """Collection items with additionalProperties alongside unevaluatedProperties should fail."""
+    def test_collection_items_with_additional_properties_alongside_unevaluated_properties_is_normalized(self):
+        """Collection items carrying both keys are normalized by dropping additionalProperties."""
         schema = self._build_collection_schema()
         schema["json"]["properties"]["test_collection"]["items"]["additionalProperties"] = False
 
         field = JSONSchemaField(meta_schema=main_event_type_schema)
-        with pytest.raises(ValidationError) as exc_info:
-            field.to_internal_value(schema)
+        result = field.to_internal_value(schema)
 
-        error_message = str(exc_info.value)
-        assert "is not valid under any of the given schemas" in error_message
-        assert "test_collection" in error_message
+        items = result["json"]["properties"]["test_collection"]["items"]
+        assert "additionalProperties" not in items
+        assert items["unevaluatedProperties"] is False
+
+    def test_metaschema_itself_still_rejects_collection_items_additional_properties(self):
+        """The leniency lives only in the normalization layer -- the metaschema is unchanged."""
+        schema = self._build_collection_schema()
+        self._remove_items_key(schema, "unevaluatedProperties")
+        schema["json"]["properties"]["test_collection"]["items"]["additionalProperties"] = False
+
+        with pytest.raises(JsonSchemaValidationError):
+            Draft202012Validator(main_event_type_schema).validate(schema)
 
     def test_invalid_collection_items_missing_unevaluated_properties(self):
         """Collection items missing unevaluatedProperties should fail."""

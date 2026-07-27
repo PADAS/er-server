@@ -97,7 +97,7 @@ V2 eventtypes use a two-section structure: `json` for data schema and `ui` for i
 {
   "json": {
     "$schema": "https://json-schema.org/draft/2020-12/schema",
-    "additionalProperties": false,
+    "unevaluatedProperties": false,
     "properties": {
       "field_name": {
         "type": "string",
@@ -498,7 +498,7 @@ This example demonstrates a complete V2 eventtype for wildlife carcass reporting
 {
   "json": {
     "$schema": "https://json-schema.org/draft/2020-12/schema",
-    "additionalProperties": false,
+    "unevaluatedProperties": false,
     "properties": {
       "carcassrep_species": {
         "deprecated": false,
@@ -1006,6 +1006,13 @@ V2 eventtypes provide comprehensive validation at multiple levels:
 - **Reference resolution**: Ensures all `$ref` URLs are accessible and valid
 - **Field type validation**: Validates field types and constraints
 - **Required field validation**: Ensures required fields are properly defined
+
+Before this validation runs, `activity/schemas/normalization.py` upgrades known legacy
+shapes (e.g. `additionalProperties` instead of `unevaluatedProperties`, missing
+`unevaluatedItems` on collections, stale `ui.fields[*].choices` blocks) so schemas copied
+between sites or produced by older tooling keep working. The document that gets validated
+and persisted is always the normalized, current-spec one; a document that's still invalid
+after normalization still returns the same 400. Each normalization is logged.
 
 ### UI Validation
 - **Field consistency**: Ensures UI field definitions match JSON schema properties
