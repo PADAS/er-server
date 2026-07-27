@@ -26,6 +26,19 @@ from utils.tenant.preview_features import PREVIEW_FEATURES, PreviewFeature
 User = django.contrib.auth.get_user_model()
 
 
+def _without_global_override():
+    """Re-register the gating feature with no global_override.
+
+    ``community_input_admin_enabled`` ships with ``global_override=True``, which
+    short-circuits the per-tenant lookup. The tests below exercise the per-tenant
+    gate, so they clear the override to let the ``previewFeatures`` value decide.
+    """
+    return patch.dict(
+        PREVIEW_FEATURES,
+        {"community_input_admin_enabled": PreviewFeature(default=False, global_override=None)},
+    )
+
+
 # ---------------------------------------------------------------------------
 # Unit tests for get_hidden_event_states()
 # ---------------------------------------------------------------------------
@@ -36,18 +49,21 @@ class TestGetHiddenEventStates(BaseAPITest):
 
     def test_returns_sc_review_when_feature_is_off(self) -> None:
         self.tenant_settings.preview_features["community_input_admin_enabled"] = False
-        hidden = get_hidden_event_states()
+        with _without_global_override():
+            hidden = get_hidden_event_states()
         assert SC_REVIEW in hidden
 
     def test_returns_empty_set_when_feature_is_on(self) -> None:
         self.tenant_settings.preview_features["community_input_admin_enabled"] = True
-        hidden = get_hidden_event_states()
+        with _without_global_override():
+            hidden = get_hidden_event_states()
         assert hidden == set()
 
     def test_returns_sc_review_when_feature_absent_from_tenant(self) -> None:
         # No explicit value — falls back to the default (False).
         self.tenant_settings.preview_features.pop("community_input_admin_enabled", None)
-        hidden = get_hidden_event_states()
+        with _without_global_override():
+            hidden = get_hidden_event_states()
         assert SC_REVIEW in hidden
 
     def test_global_override_true_returns_empty_set(self) -> None:
@@ -91,51 +107,45 @@ class TestEventSchemaViewStateGate(BaseAPITest):
         )
         self.factory = APIRequestFactory(enforce_csrf_checks=False)
 
-    def _get_state_field(self) -> dict:
+    def _get_state_field(self, flag_value: bool) -> dict:
+        self.tenant_settings.preview_features["community_input_admin_enabled"] = flag_value
         request = self.factory.get("/activity/events/schema/")
         self.force_authenticate(request, self.superuser)
-        response = views.EventSchemaView.as_view()(request)
+        with _without_global_override():
+            response = views.EventSchemaView.as_view()(request)
         assert response.status_code == status.HTTP_200_OK
         return response.data.get("properties", {}).get("state", {})
 
     def test_review_state_hidden_from_enum_when_feature_off(self) -> None:
-        self.tenant_settings.preview_features["community_input_admin_enabled"] = False
-        state_field = self._get_state_field()
+        state_field = self._get_state_field(flag_value=False)
         assert "enum" in state_field, "state field should have an enum key"
         assert SC_REVIEW not in state_field["enum"]
 
     def test_review_state_hidden_from_enum_ext_when_feature_off(self) -> None:
-        self.tenant_settings.preview_features["community_input_admin_enabled"] = False
-        state_field = self._get_state_field()
+        state_field = self._get_state_field(flag_value=False)
         enum_ext_values = [entry["value"] for entry in state_field.get("enum_ext", [])]
         assert SC_REVIEW not in enum_ext_values
 
     def test_review_state_present_in_enum_when_feature_on(self) -> None:
-        self.tenant_settings.preview_features["community_input_admin_enabled"] = True
-        state_field = self._get_state_field()
+        state_field = self._get_state_field(flag_value=True)
         assert "enum" in state_field
         assert SC_REVIEW in state_field["enum"]
 
     def test_review_state_present_in_enum_ext_when_feature_on(self) -> None:
-        self.tenant_settings.preview_features["community_input_admin_enabled"] = True
-        state_field = self._get_state_field()
+        state_field = self._get_state_field(flag_value=True)
         enum_ext_values = [entry["value"] for entry in state_field.get("enum_ext", [])]
         assert SC_REVIEW in enum_ext_values
 
     def test_other_states_always_present_when_feature_off(self) -> None:
-        self.tenant_settings.preview_features["community_input_admin_enabled"] = False
-        state_field = self._get_state_field()
+        state_field = self._get_state_field(flag_value=False)
         enum_values = state_field.get("enum", [])
         for expected_state in (Event.SC_NEW, Event.SC_ACTIVE, Event.SC_RESOLVED):
             assert expected_state in enum_values, f"state {expected_state!r} should always be visible"
 
     def test_schema_endpoint_returns_200_regardless_of_flag(self) -> None:
         for flag_value in (True, False):
-            self.tenant_settings.preview_features["community_input_admin_enabled"] = flag_value
-            request = self.factory.get("/activity/events/schema/")
-            self.force_authenticate(request, self.superuser)
-            response = views.EventSchemaView.as_view()(request)
-            assert response.status_code == status.HTTP_200_OK
+            # _get_state_field already asserts a 200 response for each flag value.
+            assert self._get_state_field(flag_value=flag_value) != {}
 
 
 # ---------------------------------------------------------------------------
@@ -164,7 +174,8 @@ class TestEventFilterSchemaViewStateGate(BaseAPITest):
         self.tenant_settings.preview_features["community_input_admin_enabled"] = flag_value
         request = self.factory.get("/activity/eventfilters/schema/")
         self.force_authenticate(request, self.superuser)
-        response = views.EventFilterSchemaView.as_view()(request)
+        with _without_global_override():
+            response = views.EventFilterSchemaView.as_view()(request)
         assert response.status_code == status.HTTP_200_OK
         items = response.data["schema"]["properties"]["state"]["items"]
         return items["enum"]

@@ -19,19 +19,38 @@ def _patch_preview_features(preview_features):
     return patch("utils.tenant.preview_features.get_tenant_settings", return_value=settings)
 
 
+def _register_feature(name, feature):
+    """Temporarily add/replace an entry in PREVIEW_FEATURES for a test."""
+    return patch.dict(PREVIEW_FEATURES, {name: feature})
+
+
+def _without_global_override(name):
+    """Re-register ``name`` with no global_override so the tenant value / default decides.
+
+    ``community_input_admin_enabled`` ships with ``global_override=True``, which
+    short-circuits the per-tenant lookup. Tests that exercise the per-tenant /
+    default resolution path must clear the override first, otherwise they assert
+    nothing about that path.
+    """
+    return _register_feature(name, PreviewFeature(default=PREVIEW_FEATURES[name].default, global_override=None))
+
+
 class TestGetPreviewFeature:
     def test_returns_value_from_preview_features_when_present(self):
-        with _patch_preview_features({"community_input_admin_enabled": True}):
-            assert get_preview_feature("community_input_admin_enabled") is True
+        with _without_global_override("community_input_admin_enabled"):
+            with _patch_preview_features({"community_input_admin_enabled": True}):
+                assert get_preview_feature("community_input_admin_enabled") is True
 
     def test_returns_registered_default_when_preview_features_missing_key(self):
-        with _patch_preview_features({}):
-            assert get_preview_feature("community_input_admin_enabled") is False
+        with _without_global_override("community_input_admin_enabled"):
+            with _patch_preview_features({}):
+                assert get_preview_feature("community_input_admin_enabled") is False
 
     def test_returns_registered_default_when_preview_features_is_none(self):
         # Simulate an older Tenant payload that didn't include previewFeatures at all.
-        with _patch_preview_features(None):
-            assert get_preview_feature("community_input_admin_enabled") is False
+        with _without_global_override("community_input_admin_enabled"):
+            with _patch_preview_features(None):
+                assert get_preview_feature("community_input_admin_enabled") is False
 
     def test_unknown_feature_raises(self):
         with _patch_preview_features({}):
@@ -44,11 +63,6 @@ class TestGetPreviewFeature:
         with _patch_preview_features({"sneaky_undeclared_feature": True}):
             with pytest.raises(UnknownPreviewFeature):
                 get_preview_feature("sneaky_undeclared_feature")
-
-
-def _register_feature(name, feature):
-    """Temporarily add/replace an entry in PREVIEW_FEATURES for a test."""
-    return patch.dict(PREVIEW_FEATURES, {name: feature})
 
 
 class TestGlobalOverride:
@@ -80,6 +94,11 @@ class TestRegistry:
         assert feature.default is False
         assert feature.description
 
+    def test_community_input_admin_enabled_is_globally_overridden_on(self):
+        # The Community Input admin has finished its per-tenant rollout and is now
+        # exposed to every tenant regardless of what TMS sent.
+        assert PREVIEW_FEATURES["community_input_admin_enabled"].global_override is True
+
     def test_attachment_property_is_registered(self):
         feature = PREVIEW_FEATURES["attachment_property"]
         assert isinstance(feature, PreviewFeature)
@@ -106,8 +125,9 @@ class TestGetResolvedPreviewFeatures:
         assert set(result.keys()) == set(PREVIEW_FEATURES.keys())
 
     def test_honours_per_tenant_value(self):
-        with _patch_preview_features({"community_input_admin_enabled": True}):
-            result = get_resolved_preview_features()
+        with _without_global_override("community_input_admin_enabled"):
+            with _patch_preview_features({"community_input_admin_enabled": True}):
+                result = get_resolved_preview_features()
         assert result["community_input_admin_enabled"] is True
 
     def test_honours_global_override(self):

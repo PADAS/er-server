@@ -1,4 +1,4 @@
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -7,6 +7,20 @@ from rest_framework import status
 from rest_framework.test import APIClient
 
 from utils.tenant import Tenant
+from utils.tenant.preview_features import PREVIEW_FEATURES, PreviewFeature
+
+
+def _without_global_override(name):
+    """Re-register ``name`` with no global_override so the tenant value / default decides.
+
+    Features that carry a ``global_override`` short-circuit the per-tenant lookup,
+    which would make the status-endpoint assertions below pass without exercising
+    the tenant-value / default path they are about.
+    """
+    return patch.dict(
+        PREVIEW_FEATURES,
+        {name: PreviewFeature(default=PREVIEW_FEATURES[name].default, global_override=None)},
+    )
 
 
 @pytest.mark.django_db
@@ -144,7 +158,8 @@ class TestStatusView:
         monkeypatch.setattr("utils.tenant.preview_features.get_tenant_settings", get_tenant_settings_mock)
         url = reverse("api-status")
 
-        response = superuser_client.get(url)
+        with _without_global_override("community_input_admin_enabled"):
+            response = superuser_client.get(url)
 
         assert response.status_code == status.HTTP_200_OK
         assert response.data["preview_features"]["community_input_admin_enabled"] is True
@@ -159,7 +174,8 @@ class TestStatusView:
         monkeypatch.setattr("utils.tenant.preview_features.get_tenant_settings", get_tenant_settings_mock)
         url = reverse("api-status")
 
-        response = superuser_client.get(url)
+        with _without_global_override("community_input_admin_enabled"):
+            response = superuser_client.get(url)
 
         assert response.status_code == status.HTTP_200_OK
         assert "community_input_admin_enabled" in response.data["preview_features"]

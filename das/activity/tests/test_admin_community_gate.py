@@ -15,6 +15,19 @@ from utils.tenant.preview_features import PREVIEW_FEATURES, PreviewFeature
 User = django.contrib.auth.get_user_model()
 
 
+def _without_global_override():
+    """Re-register the gating feature with no global_override.
+
+    ``community_input_admin_enabled`` ships with ``global_override=True``, which
+    short-circuits the per-tenant lookup. The per-tenant on/off tests below clear
+    the override so the value in ``previewFeatures`` is what decides.
+    """
+    return patch.dict(
+        PREVIEW_FEATURES,
+        {"community_input_admin_enabled": PreviewFeature(default=False, global_override=None)},
+    )
+
+
 class TestCommunityInputAdminGate(BaseAPITest):
     def setUp(self):
         super().setUp()
@@ -39,19 +52,21 @@ class TestCommunityInputAdminGate(BaseAPITest):
 
     def test_module_permission_denied_when_feature_off(self):
         self.tenant_settings.preview_features["community_input_admin_enabled"] = False
-        assert self.admin.has_module_permission(self.request) is False
-        assert self.admin.has_view_permission(self.request) is False
-        assert self.admin.has_add_permission(self.request) is False
-        assert self.admin.has_change_permission(self.request) is False
-        assert self.admin.has_delete_permission(self.request) is False
+        with _without_global_override():
+            assert self.admin.has_module_permission(self.request) is False
+            assert self.admin.has_view_permission(self.request) is False
+            assert self.admin.has_add_permission(self.request) is False
+            assert self.admin.has_change_permission(self.request) is False
+            assert self.admin.has_delete_permission(self.request) is False
 
     def test_permissions_allowed_when_feature_on(self):
         self.tenant_settings.preview_features["community_input_admin_enabled"] = True
-        assert self.admin.has_module_permission(self.request) is True
-        assert self.admin.has_view_permission(self.request) is True
-        assert self.admin.has_add_permission(self.request) is True
-        assert self.admin.has_change_permission(self.request) is True
-        assert self.admin.has_delete_permission(self.request) is True
+        with _without_global_override():
+            assert self.admin.has_module_permission(self.request) is True
+            assert self.admin.has_view_permission(self.request) is True
+            assert self.admin.has_add_permission(self.request) is True
+            assert self.admin.has_change_permission(self.request) is True
+            assert self.admin.has_delete_permission(self.request) is True
 
     def test_global_override_on_exposes_admin_despite_feature_off(self):
         # "Make it public for everyone": global_override=True wins over a tenant
