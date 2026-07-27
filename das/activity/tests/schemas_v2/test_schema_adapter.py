@@ -57,7 +57,13 @@ class TestSchemaAdapterFactory:
         assert isinstance(adapter, V1SchemaAdapter)
         assert adapter.rendered_schema["schema"]["properties"]["status"]["enum"] == ["active"]
 
-    def test_raises_for_malformed_json_string(self):
+    def test_unparseable_string_takes_the_v1_branch_and_raises_from_its_renderer(self):
+        """ "not valid json" has no {{...}} placeholders to substitute, so create_adapter's own
+        json.loads fails and it takes the V1 branch, constructing V1SchemaAdapter -- whose
+        renderer then fails the very same json.loads on the (unchanged) string, this time
+        uncaught. The JSONDecodeError seen here comes from the renderer inside V1SchemaAdapter,
+        not from create_adapter's own parsing attempt.
+        """
         with pytest.raises(json.JSONDecodeError):
             SchemaAdapterFactory.create_adapter("not valid json")
 

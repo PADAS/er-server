@@ -46,7 +46,7 @@ class TestAdditionalPropertiesToUnevaluatedPropertiesTransform:
 
     def test_replaces_root_additional_properties_false_with_unevaluated_properties(self):
         document = {
-            "json": {**copy.deepcopy(minimal_json_schema)},
+            "json": copy.deepcopy(minimal_json_schema),
             "ui": copy.deepcopy(minimal_ui_schema),
         }
         del document["json"]["unevaluatedProperties"]
@@ -143,6 +143,24 @@ class TestAddUnevaluatedItemsToCollectionsTransform:
         result = normalize_v2_schema(document)
 
         assert "unevaluatedItems" not in result["json"]["properties"]["a_collection"]
+
+    def test_does_not_add_unevaluated_items_when_json_node_is_not_an_array(self):
+        """A COLLECTION ui entry pointing at a non-array json node is left untouched by this
+        transform -- the type mismatch should surface as its own validation error, not get
+        masked by a spuriously-added unevaluatedItems."""
+        document = self._document_with_collection()
+        document["json"]["properties"]["a_collection"] = {
+            "deprecated": False,
+            "title": "Not actually an array",
+            "type": "object",
+            "required": [],
+            "unevaluatedProperties": False,
+            "properties": {},
+        }
+
+        result = normalize_v2_schema(document)
+
+        assert result == document
 
     def test_adds_unevaluated_items_to_a_collection_nested_inside_another_collection(self):
         """Dotted ui.fields id (outer.inner) routes to the nested json array node."""
@@ -258,7 +276,9 @@ class TestPopLegacyUiChoicesTransform:
         assert "choices" not in result["ui"]["fields"]["arrests.species"]
 
     def test_does_not_touch_x_dynamic_choice_marker(self):
-        """The dynamic-choice marker belongs to a different flow (ERA-13508) and must be left alone."""
+        """ERA-13508 forward-compat: an ``x-dynamic-choice`` marker (not yet accepted by the
+        current metaschema on a persisted document) must survive this transform untouched once
+        that flow starts producing it."""
         document = {
             "json": copy.deepcopy(minimal_json_schema),
             "ui": {

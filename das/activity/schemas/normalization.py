@@ -13,7 +13,8 @@ from __future__ import annotations
 
 import copy
 import logging
-from typing import Callable, TypeAlias
+from collections.abc import Callable, Iterable
+from typing import TypeAlias
 
 from activity.schemas.utils import (
     JSONDict,
@@ -42,7 +43,7 @@ def _additional_properties_to_unevaluated(node: object) -> bool:
             del node["additionalProperties"]
             node.setdefault("unevaluatedProperties", False)
             changed = True
-        children = node.values()
+        children: Iterable[object] = node.values()
     elif isinstance(node, list):
         children = node
     else:
@@ -75,6 +76,10 @@ def _add_unevaluated_items(document: JSONDict) -> bool:
     present. Before das's ERA-13041 metaschema refactor (9525bd3bf), ``collection_field_schema``
     had no top-level ``required`` list, so the key was optional; schemas saved before then
     can legitimately lack it.
+
+    A collection present only in ``json`` with no matching ``ui.fields`` entry is
+    deliberately not normalized here -- shape-based detection would risk misclassifying
+    an attachment array as a collection -- and such a document still fails validation.
     """
     ui_node = document.get("ui")
     ui_fields = ui_node.get("fields") if isinstance(ui_node, dict) else None
@@ -86,7 +91,11 @@ def _add_unevaluated_items(document: JSONDict) -> bool:
         if not isinstance(ui_field, dict) or ui_field.get("type") != "COLLECTION":
             continue
         field_schema = get_field_schema_from_prop_path(document, field_id.split("."))
-        if isinstance(field_schema, dict) and "unevaluatedItems" not in field_schema:
+        if (
+            isinstance(field_schema, dict)
+            and field_schema.get("type") == "array"
+            and "unevaluatedItems" not in field_schema
+        ):
             field_schema["unevaluatedItems"] = False
             changed = True
     return changed
@@ -100,6 +109,9 @@ def _pop_legacy_ui_choices(document: JSONDict) -> bool:
     Event-Type-Schema-Migration-Tool PR #13 (v0.1.6); before das's ERA-13041 metaschema
     refactor, ``ui_choice_schema`` had ``"required": ["choices", "inputType", "parent", "type"]``
     -- ``choices`` was mandatory on ui choice fields back then.
+
+    Both frontend consumers (report-form-builder, das-web-react) were verified to
+    reconstruct choice config from the json ``$ref``s and never read ``ui.fields[*].choices``.
     """
     ui_node = document.get("ui")
     ui_fields = ui_node.get("fields") if isinstance(ui_node, dict) else None
