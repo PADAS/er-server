@@ -36,7 +36,7 @@ from accounts.auth0_admin import (
     initiate_auth0_admin_login,
 )
 from accounts.link_accounts import LINK_ACCOUNTS_URL_NAME, link_accounts
-from das_server import auth_check, views
+from das_server import auth_check, views, well_known
 from das_server.admin import dasadmin_site
 from das_server.spectacular_views import SwaggerUIViewWithLogin
 from observations.views import SubjectTrackSegmentsV2View
@@ -47,6 +47,11 @@ admin.site.enable_nav_sidebar = False
 
 urlpatterns = [
     re_path("api/v1.0/status/?$", views.StatusView.as_view(), name="api-status"),
+    re_path(
+        r"^\.well-known/oauth-protected-resource/?$",
+        well_known.oauth_protected_resource,
+        name=well_known.PROTECTED_RESOURCE_URL_NAME,
+    ),
     re_path("api/v1.0/auth/validate-jwt/?$", auth_check.echo_auth0_token_subject, name="auth-validate-jwt"),
     path("api/v1.0/", include("accounts.urls")),
     path("api/v1.0/", include("observations.urls")),
