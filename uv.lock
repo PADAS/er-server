@@ -1003,7 +1003,7 @@ requires-dist = [
     { name = "eventlet", specifier = "==0.40.3" },
     { name = "fastkml", extras = ["lxml"], specifier = "==1.3.0" },
     { name = "fonttools", specifier = ">=4.60.2" },
-    { name = "gdal", specifier = "==3.12.3" },
+    { name = "gdal", specifier = "==3.13.2" },
     { name = "geojson", specifier = "==3.2.0" },
     { name = "geopandas", specifier = "==1.1.2" },
     { name = "geopy" },
@@ -1965,9 +1965,9 @@ wheels = [
 
 [[package]]
 name = "gdal"
-version = "3.12.3"
+version = "3.13.2"
 source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/65/cb/64ab7a1dd03e53870fd4c993d72baf6881a663953d2d2e8dd92098c12e94/gdal-3.12.3.tar.gz", hash = "sha256:a5aebb8f50b8f4d5b0c238cc9a6c988be3041bc276535daeddc399fa6ec13972", size = 899374, upload-time = "2026-03-20T13:48:41.273Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/8e/da/b29ca833b2dab4f58451ab4f89dc0d29610de7089a8a3fd0d1676a9bde02/gdal-3.13.2.tar.gz", hash = "sha256:495acc5162636068ee151fc699fbaf702ac0849da1956f55566b771d00c8ee42", size = 940413, upload-time = "2026-07-22T12:42:45.178Z" }
 
 [[package]]
 name = "geographiclib"

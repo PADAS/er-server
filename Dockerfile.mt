@@ -1,4 +1,4 @@
-FROM europe-west3-docker.pkg.dev/serca-artifact-registry/virtual-docker/osgeo/gdal:ubuntu-small-3.12.3
+FROM europe-west3-docker.pkg.dev/serca-artifact-registry/virtual-docker/osgeo/gdal:ubuntu-small-3.13.2
 LABEL org.opencontainers.image.description="" maintainer="EarthRanger Developers developers@earthranger.com"
 
 RUN apt-get update && apt-get install -y --no-install-recommends \

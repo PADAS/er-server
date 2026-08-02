@@ -1,9 +1,9 @@
 # See https://github.com/OSGeo/gdal/tree/master/docker
 # and here to find the image: https://github.com/OSGeo/gdal/pkgs/container/gdal
-# Ubuntu 24.04 LTS
+# Ubuntu 26.04 LTS
 # python 3.10.18
 
-FROM ghcr.io/osgeo/gdal:ubuntu-small-3.12.3
+FROM ghcr.io/osgeo/gdal:ubuntu-small-3.13.2
 ARG PYTHON_VERSION_ID="3.10"
 ARG PYTHON_VERSION="3.10.18"
 ARG WORKSPACE_FOLDERNAME="das"
